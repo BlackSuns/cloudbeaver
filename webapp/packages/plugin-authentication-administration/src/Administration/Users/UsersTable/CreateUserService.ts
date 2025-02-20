@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,11 +8,11 @@
 import { makeObservable, observable } from 'mobx';
 
 import { PlaceholderContainer } from '@cloudbeaver/core-blocks';
-import { App, injectable } from '@cloudbeaver/core-di';
+import { injectable, IServiceProvider } from '@cloudbeaver/core-di';
 
-import { AdministrationUserFormService } from '../UserForm/AdministrationUserFormService';
-import { AdministrationUserFormState } from '../UserForm/AdministrationUserFormState';
-import { UsersAdministrationNavigationService } from '../UsersAdministrationNavigationService';
+import { AdministrationUserFormService } from '../UserForm/AdministrationUserFormService.js';
+import { AdministrationUserFormState } from '../UserForm/AdministrationUserFormState.js';
+import { UsersAdministrationNavigationService } from '../UsersAdministrationNavigationService.js';
 
 export interface IToolsContainerProps {
   param: string | null | undefined;
@@ -24,7 +24,7 @@ export class CreateUserService {
   readonly toolsContainer: PlaceholderContainer<IToolsContainerProps>;
 
   constructor(
-    private readonly app: App,
+    private readonly serviceProvider: IServiceProvider,
     private readonly administrationUserFormService: AdministrationUserFormService,
     private readonly usersAdministrationNavigationService: UsersAdministrationNavigationService,
   ) {
@@ -50,7 +50,7 @@ export class CreateUserService {
       return;
     }
 
-    this.state = new AdministrationUserFormState(this.app, this.administrationUserFormService, { userId: null });
+    this.state = new AdministrationUserFormState(this.serviceProvider, this.administrationUserFormService, { userId: null });
     this.usersAdministrationNavigationService.navToCreate();
   }
 

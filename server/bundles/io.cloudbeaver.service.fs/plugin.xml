@@ -8,5 +8,4 @@
                  class="io.cloudbeaver.service.fs.WebServiceBindingFS">
         </service>
     </extension>
-
 </plugin>

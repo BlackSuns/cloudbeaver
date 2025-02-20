@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.data.DBDDocument;
 import org.jkiss.dbeaver.model.exec.DBCException;
 
-import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.StringWriter;
 import java.util.Collections;
 import java.util.Map;
 
@@ -63,9 +62,9 @@ public class WebSQLDatabaseDocument {
             return null;
         }
         try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            document.serializeDocument(webSession.getProgressMonitor(), baos, StandardCharsets.UTF_8);
-            return new String(baos.toByteArray(), StandardCharsets.UTF_8);
+            StringWriter writer = new StringWriter();
+            document.serializeDocument(webSession.getProgressMonitor(), writer);
+            return writer.toString();
         } catch (Exception e) {
             throw new DBCException("Error serializing document", e);
         }

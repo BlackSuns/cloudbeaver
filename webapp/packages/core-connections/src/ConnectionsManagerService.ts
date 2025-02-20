@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -11,13 +11,18 @@ import { ConfirmationDialogDelete, ProcessSnackbar } from '@cloudbeaver/core-blo
 import { injectable } from '@cloudbeaver/core-di';
 import { CommonDialogService, DialogueStateResult } from '@cloudbeaver/core-dialogs';
 import { NotificationService } from '@cloudbeaver/core-events';
-import { Executor, ExecutorInterrupter, IExecutor } from '@cloudbeaver/core-executor';
-import { ProjectInfo, projectInfoSortByName, ProjectsService } from '@cloudbeaver/core-projects';
+import { Executor, ExecutorInterrupter, type IExecutor } from '@cloudbeaver/core-executor';
+import { type ProjectInfo, projectInfoSortByName, ProjectsService } from '@cloudbeaver/core-projects';
 import { isArraysEqual } from '@cloudbeaver/core-utils';
 
-import { Connection, ConnectionInfoResource, createConnectionParam, isConnectionInfoParamEqual } from './ConnectionInfoResource';
-import { ContainerResource, IStructContainers, ObjectContainer } from './ContainerResource';
-import type { IConnectionInfoParams } from './IConnectionsResource';
+import type { IConnectionInfoParams } from './CONNECTION_INFO_PARAM_SCHEMA.js';
+import { type Connection, ConnectionInfoResource, createConnectionParam, isConnectionInfoParamEqual } from './ConnectionInfoResource.js';
+import { ContainerResource, type IStructContainers, type ObjectContainer } from './ContainerResource.js';
+
+export interface IRequireConnectionExecutorData {
+  key: IConnectionInfoParams;
+  resetCredentials?: boolean;
+}
 
 export interface IConnectionExecutorData {
   connections: IConnectionInfoParams[];
@@ -32,7 +37,7 @@ export class ConnectionsManagerService {
   get createConnectionProjects(): ProjectInfo[] {
     return this.projectsService.activeProjects.filter(project => project.canEditDataSources).sort(projectInfoSortByName);
   }
-  readonly connectionExecutor: IExecutor<IConnectionInfoParams>;
+  readonly connectionExecutor: IExecutor<IRequireConnectionExecutorData>;
   readonly onDisconnect: IExecutor<IConnectionExecutorData>;
   readonly onDelete: IExecutor<IConnectionExecutorData>;
 
@@ -47,12 +52,16 @@ export class ConnectionsManagerService {
   ) {
     this.disconnecting = false;
 
-    this.connectionExecutor = new Executor<IConnectionInfoParams>(null, isConnectionInfoParamEqual);
+    this.connectionExecutor = new Executor<IRequireConnectionExecutorData>(null, (a, b) => isConnectionInfoParamEqual(a.key, b.key));
     this.onDisconnect = new Executor();
     this.onDelete = new Executor();
 
-    this.connectionExecutor.addHandler(key => connectionInfo.load(key));
+    this.connectionExecutor.addHandler(data => connectionInfo.load(data.key));
     this.onDelete.before(this.onDisconnect);
+    this.connectionInfo.onConnectionClose.next(this.onDisconnect, key => ({
+      connections: [key],
+      state: 'after' as const,
+    }));
 
     makeObservable(this, {
       projectConnections: computed<Connection[]>({
@@ -64,8 +73,8 @@ export class ConnectionsManagerService {
     });
   }
 
-  async requireConnection(key: IConnectionInfoParams): Promise<Connection | null> {
-    const context = await this.connectionExecutor.execute(key);
+  async requireConnection(key: IConnectionInfoParams, resetCredentials?: boolean): Promise<Connection | null> {
+    const context = await this.connectionExecutor.execute({ key, resetCredentials });
     const connection = context.getContext(this.connectionContext);
 
     return connection.connection;
@@ -147,6 +156,7 @@ export class ConnectionsManagerService {
     if (!connection.connected) {
       return;
     }
+
     await this.connectionInfo.close(createConnectionParam(connection));
   }
 
@@ -154,6 +164,17 @@ export class ConnectionsManagerService {
     if (this.disconnecting) {
       return;
     }
+
+    const connectionParams = this.projectConnections.map(connection => createConnectionParam(connection));
+    const contexts = await this.onDisconnect.execute({
+      connections: connectionParams,
+      state: 'before',
+    });
+
+    if (ExecutorInterrupter.isInterrupted(contexts)) {
+      return;
+    }
+
     this.disconnecting = true;
     const { controller, notification } = this.notificationService.processNotification(() => ProcessSnackbar, {}, { title: 'Disconnecting...' });
 
@@ -161,6 +182,7 @@ export class ConnectionsManagerService {
       for (const connection of this.projectConnections) {
         await this._closeConnectionAsync(connection);
       }
+
       notification.close();
     } catch (e: any) {
       controller.reject(e);
@@ -175,7 +197,7 @@ export class ConnectionsManagerService {
       return;
     }
     const contexts = await this.onDisconnect.execute({
-      connections: [createConnectionParam(connection)],
+      connections: [key],
       state: 'before',
     });
 
@@ -189,10 +211,6 @@ export class ConnectionsManagerService {
       await this._closeConnectionAsync(connection);
 
       notification.close();
-      this.onDisconnect.execute({
-        connections: [createConnectionParam(connection)],
-        state: 'after',
-      });
     } catch (exception: any) {
       controller.reject(exception);
     }

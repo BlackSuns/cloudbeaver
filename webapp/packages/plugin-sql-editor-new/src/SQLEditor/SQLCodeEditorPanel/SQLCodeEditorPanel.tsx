@@ -1,59 +1,40 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { MenuBarSmallItem, useExecutor, useS, useTranslate } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import { NotificationService } from '@cloudbeaver/core-events';
 import { DATA_CONTEXT_NAV_NODE, getNodesFromContext, NavNodeManagerService } from '@cloudbeaver/core-navigation-tree';
-import { TabContainerPanelComponent, useDNDBox, useTabLocalState } from '@cloudbeaver/core-ui';
-import { closeCompletion, IEditorRef, Prec, ReactCodemirrorPanel, useCodemirrorExtensions } from '@cloudbeaver/plugin-codemirror6';
+import { type TabContainerPanelComponent, useDNDBox } from '@cloudbeaver/core-ui';
+import { closeCompletion, type IEditorRef, Prec, ReactCodemirrorPanel, useCodemirrorExtensions } from '@cloudbeaver/plugin-codemirror6';
 import type { ISqlEditorModeProps } from '@cloudbeaver/plugin-sql-editor';
 
-import { ACTIVE_QUERY_EXTENSION } from '../ACTIVE_QUERY_EXTENSION';
-import { QUERY_STATUS_GUTTER_EXTENSION } from '../QUERY_STATUS_GUTTER_EXTENSION';
-import { SQLCodeEditorLoader } from '../SQLCodeEditor/SQLCodeEditorLoader';
-import { useSQLCodeEditor } from '../SQLCodeEditor/useSQLCodeEditor';
-import { useSqlDialectAutocompletion } from '../useSqlDialectAutocompletion';
-import { useSqlDialectExtension } from '../useSqlDialectExtension';
-import style from './SQLCodeEditorPanel.m.css';
-import { useSQLCodeEditorPanel } from './useSQLCodeEditorPanel';
+import { ACTIVE_QUERY_EXTENSION } from '../ACTIVE_QUERY_EXTENSION.js';
+import { QUERY_STATUS_GUTTER_EXTENSION } from '../QUERY_STATUS_GUTTER_EXTENSION.js';
+import { SQLCodeEditorLoader } from '../SQLCodeEditor/SQLCodeEditorLoader.js';
+import { useSQLCodeEditor } from '../SQLCodeEditor/useSQLCodeEditor.js';
+import { useSqlDialectAutocompletion } from '../useSqlDialectAutocompletion.js';
+import { useSqlDialectExtension } from '../useSqlDialectExtension.js';
+import style from './SQLCodeEditorPanel.module.css';
+import { SqlEditorInfoBar } from './SqlEditorInfoBar.js';
+import { useSQLCodeEditorPanel } from './useSQLCodeEditorPanel.js';
 
-interface ILocalSQLCodeEditorPanelState {
-  selection: { from: number; to: number };
-};
 export const SQLCodeEditorPanel: TabContainerPanelComponent<ISqlEditorModeProps> = observer(function SQLCodeEditorPanel({ data }) {
   const notificationService = useService(NotificationService);
   const navNodeManagerService = useService(NavNodeManagerService);
   const translate = useTranslate();
-  const localState = useTabLocalState<ILocalSQLCodeEditorPanelState>(() => ({ selection: { from: 0, to: 0 } }));
 
   const styles = useS(style);
   const [editorRef, setEditorRef] = useState<IEditorRef | null>(null);
 
   const editor = useSQLCodeEditor(editorRef);
-
-  useEffect(() => {
-
-    editorRef?.view?.dispatch({
-      selection: { anchor: localState.selection.from, head: localState.selection.to },
-      scrollIntoView: true,
-    });
-  }, [editorRef?.view, localState]);
-
-  useEffect(() => {
-    if (!editorRef?.selection) {
-      return;
-    }
-
-    localState.selection = { ...editorRef?.selection };
-  }, [editorRef?.selection]);
 
   const panel = useSQLCodeEditorPanel(data, editor);
   const extensions = useCodemirrorExtensions(undefined, [ACTIVE_QUERY_EXTENSION, Prec.lowest(QUERY_STATUS_GUTTER_EXTENSION)]);
@@ -120,31 +101,40 @@ export const SQLCodeEditorPanel: TabContainerPanelComponent<ISqlEditorModeProps>
   }
 
   return (
-    <div ref={dndBox.setRef} className={styles.box}>
+    <div ref={dndBox.setRef} className={styles['box']}>
       <SQLCodeEditorLoader
         ref={setEditorRef}
         getValue={() => data.value}
+        cursor={{
+          anchor: data.cursor.anchor,
+          head: data.cursor.head,
+        }}
         incomingValue={data.incomingValue}
         extensions={extensions}
         readonly={data.readonly}
         autoFocus
         lineNumbers
         onChange={panel.onQueryChange}
-        onUpdate={panel.onUpdate}
+        onCursorChange={selection => panel.onCursorChange(selection.anchor, selection.head)}
       >
         {data.isIncomingChanges && (
           <>
-            <ReactCodemirrorPanel className={styles.reactCodemirrorPanel} top>
+            <ReactCodemirrorPanel className={styles['reactCodemirrorPanel']} top>
               <MenuBarSmallItem title={translate('plugin_sql_editor_new_merge_conflict_keep_current_tooltip')} onClick={keepCurrent}>
                 {translate('plugin_sql_editor_new_merge_conflict_keep_current_label')}
               </MenuBarSmallItem>
             </ReactCodemirrorPanel>
-            <ReactCodemirrorPanel className={styles.reactCodemirrorPanel} top incomingView>
+            <ReactCodemirrorPanel className={styles['reactCodemirrorPanel']} top incomingView>
               <MenuBarSmallItem title={translate('plugin_sql_editor_new_merge_conflict_accept_incoming_tooltip')} onClick={applyIncoming}>
                 {translate('plugin_sql_editor_new_merge_conflict_accept_incoming_label')}
               </MenuBarSmallItem>
             </ReactCodemirrorPanel>
           </>
+        )}
+        {editor.state && (
+          <ReactCodemirrorPanel>
+            <SqlEditorInfoBar state={editor.state} />
+          </ReactCodemirrorPanel>
         )}
       </SQLCodeEditorLoader>
     </div>

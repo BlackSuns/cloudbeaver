@@ -1,16 +1,16 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { injectable } from '@cloudbeaver/core-di';
-import { Executor, IExecutor } from '@cloudbeaver/core-executor';
+import { Executor, type IExecutor } from '@cloudbeaver/core-executor';
 import { md5, uuid } from '@cloudbeaver/core-utils';
 
-import { AuthProvider, AuthProvidersResource } from './AuthProvidersResource';
-import type { IAuthCredentials } from './IAuthCredentials';
+import { type AuthProvider, AuthProvidersResource } from './AuthProvidersResource.js';
+import type { IAuthCredentials } from './IAuthCredentials.js';
 
 interface IServiceDescriptionProps {
   configurationWizard: boolean;
@@ -79,9 +79,13 @@ export class AuthProviderService {
 
     const profile = provider.credentialProfiles[credentials.profile as any as number];
 
-    for (const parameter of profile.credentialParameters) {
+    for (const parameter of profile?.credentialParameters || []) {
       if (parameter.encryption === 'hash' && parameter.id in credentialsProcessed.credentials) {
-        credentialsProcessed.credentials[parameter.id] = this.hashValue(credentialsProcessed.credentials[parameter.id]);
+        const value = credentialsProcessed.credentials[parameter.id];
+
+        if (typeof value === 'string') {
+          credentialsProcessed.credentials[parameter.id] = this.hashValue(value);
+        }
       }
     }
 

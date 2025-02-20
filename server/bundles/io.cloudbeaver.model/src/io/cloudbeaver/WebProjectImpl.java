@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,29 +17,40 @@
 package io.cloudbeaver;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.app.DBPWorkspace;
 import org.jkiss.dbeaver.model.auth.SMSessionContext;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.rm.RMController;
 import org.jkiss.dbeaver.model.rm.RMProject;
+import org.jkiss.dbeaver.model.task.DBTTaskManager;
+import org.jkiss.dbeaver.registry.DataSourceRegistry;
 import org.jkiss.dbeaver.registry.rm.DataSourceRegistryRM;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 
+import java.nio.file.Path;
+
 public abstract class WebProjectImpl extends BaseWebProjectImpl {
     private static final Log log = Log.getLog(WebProjectImpl.class);
+    @NotNull
+    protected final DBPPreferenceStore preferenceStore;
 
     public WebProjectImpl(
         @NotNull DBPWorkspace workspace,
         @NotNull RMController resourceController,
         @NotNull SMSessionContext sessionContext,
         @NotNull RMProject project,
-        @NotNull DataSourceFilter dataSourceFilter
+        @NotNull DBPPreferenceStore preferenceStore,
+        @NotNull Path path
     ) {
-        super(workspace, resourceController, sessionContext, project, dataSourceFilter);
+        super(workspace, resourceController, sessionContext, project, path);
+        this.preferenceStore = preferenceStore;
     }
 
+    @Nullable
     @Override
     public Object getProjectProperty(String propName) {
         try {
@@ -51,7 +62,7 @@ public abstract class WebProjectImpl extends BaseWebProjectImpl {
     }
 
     @Override
-    public void setProjectProperty(String propName, Object propValue) {
+    public void setProjectProperty(@NotNull String propName, @Nullable Object propValue) {
         try {
             getResourceController().setProjectProperty(getId(), propName, propValue);
         } catch (DBException e) {
@@ -66,11 +77,19 @@ public abstract class WebProjectImpl extends BaseWebProjectImpl {
 
     @NotNull
     @Override
+    public DBTTaskManager getTaskManager() {
+        throw new IllegalStateException("Task manager not supported");
+    }
+
+    @NotNull
+    @Override
     protected DBPDataSourceRegistry createDataSourceRegistry() {
-        return new WebDataSourceRegistryProxy(
-            new DataSourceRegistryRM(this, getResourceController()),
-            dataSourceFilter
-        );
+        return createRMRegistry();
+    }
+
+    @NotNull
+    protected DataSourceRegistry<?> createRMRegistry() {
+        return new DataSourceRegistryRM<>(this, getResourceController(), preferenceStore);
     }
 
 }

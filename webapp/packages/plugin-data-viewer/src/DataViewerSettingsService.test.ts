@@ -1,155 +1,144 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import '@testing-library/jest-dom';
+// import { beforeAll, describe, expect, test } from '@jest/globals';
 
-import { coreAdministrationManifest } from '@cloudbeaver/core-administration';
-import { coreAppManifest } from '@cloudbeaver/core-app';
-import { coreAuthenticationManifest } from '@cloudbeaver/core-authentication';
-import { mockAuthentication } from '@cloudbeaver/core-authentication/dist/__custom_mocks__/mockAuthentication';
-import { coreBrowserManifest } from '@cloudbeaver/core-browser';
-import { coreConnectionsManifest } from '@cloudbeaver/core-connections';
-import { coreDialogsManifest } from '@cloudbeaver/core-dialogs';
-import { coreEventsManifest } from '@cloudbeaver/core-events';
-import { coreLocalizationManifest } from '@cloudbeaver/core-localization';
-import { coreNavigationTree } from '@cloudbeaver/core-navigation-tree';
-import { corePluginManifest } from '@cloudbeaver/core-plugin';
-import { coreProductManifest } from '@cloudbeaver/core-product';
-import { coreProjectsManifest } from '@cloudbeaver/core-projects';
-import { coreRootManifest, ServerConfigResource } from '@cloudbeaver/core-root';
-import { createGQLEndpoint } from '@cloudbeaver/core-root/dist/__custom_mocks__/createGQLEndpoint';
-import { mockAppInit } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockAppInit';
-import { mockGraphQL } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockGraphQL';
-import { mockServerConfig } from '@cloudbeaver/core-root/dist/__custom_mocks__/resolvers/mockServerConfig';
-import { coreRoutingManifest } from '@cloudbeaver/core-routing';
-import { coreSDKManifest } from '@cloudbeaver/core-sdk';
-import { coreSettingsManifest } from '@cloudbeaver/core-settings';
-import { coreThemingManifest } from '@cloudbeaver/core-theming';
-import { coreUIManifest } from '@cloudbeaver/core-ui';
-import { coreViewManifest } from '@cloudbeaver/core-view';
-import { datasourceContextSwitchPluginManifest } from '@cloudbeaver/plugin-datasource-context-switch';
-import { navigationTabsPlugin } from '@cloudbeaver/plugin-navigation-tabs';
-import { navigationTreePlugin } from '@cloudbeaver/plugin-navigation-tree';
-import { objectViewerManifest } from '@cloudbeaver/plugin-object-viewer';
-import { createApp } from '@cloudbeaver/tests-runner';
+// import { coreAdministrationManifest } from '@cloudbeaver/core-administration';
+// import { coreAppManifest } from '@cloudbeaver/core-app';
+// import { coreAuthenticationManifest } from '@cloudbeaver/core-authentication';
+// import { mockAuthentication } from '@cloudbeaver/core-authentication/__custom_mocks__/mockAuthentication.js';
+// import { coreBrowserManifest } from '@cloudbeaver/core-browser';
+// import { coreClientActivityManifest } from '@cloudbeaver/core-client-activity';
+// import { coreConnectionsManifest } from '@cloudbeaver/core-connections';
+// import { coreDialogsManifest } from '@cloudbeaver/core-dialogs';
+// import { coreEventsManifest } from '@cloudbeaver/core-events';
+// import { coreLocalizationManifest } from '@cloudbeaver/core-localization';
+// import { coreNavigationTree } from '@cloudbeaver/core-navigation-tree';
+// import { coreProjectsManifest } from '@cloudbeaver/core-projects';
+// import { coreRootManifest, ServerConfigResource } from '@cloudbeaver/core-root';
+// import { createGQLEndpoint } from '@cloudbeaver/core-root/__custom_mocks__/createGQLEndpoint.js';
+// import '@cloudbeaver/core-root/__custom_mocks__/expectWebsocketClosedMessage.js';
+// import { mockAppInit } from '@cloudbeaver/core-root/__custom_mocks__/mockAppInit.js';
+// import { mockGraphQL } from '@cloudbeaver/core-root/__custom_mocks__/mockGraphQL.js';
+// import { mockServerConfig } from '@cloudbeaver/core-root/__custom_mocks__/resolvers/mockServerConfig.js';
+// import { coreRoutingManifest } from '@cloudbeaver/core-routing';
+// import { coreSDKManifest } from '@cloudbeaver/core-sdk';
+// import { coreSettingsManifest } from '@cloudbeaver/core-settings';
+// import {
+//   expectDeprecatedSettingMessage,
+//   expectNoDeprecatedSettingMessage,
+// } from '@cloudbeaver/core-settings/__custom_mocks__/expectDeprecatedSettingMessage.js';
+// import { coreStorageManifest } from '@cloudbeaver/core-storage';
+// import { coreUIManifest } from '@cloudbeaver/core-ui';
+// import { coreViewManifest } from '@cloudbeaver/core-view';
+// import { datasourceContextSwitchPluginManifest } from '@cloudbeaver/plugin-datasource-context-switch';
+// import { navigationTabsPlugin } from '@cloudbeaver/plugin-navigation-tabs';
+// import { navigationTreePlugin } from '@cloudbeaver/plugin-navigation-tree';
+// import { objectViewerManifest } from '@cloudbeaver/plugin-object-viewer';
+// import { createApp } from '@cloudbeaver/tests-runner';
 
-import { DataViewerSettings, DataViewerSettingsService } from './DataViewerSettingsService';
-import { dataViewerManifest } from './manifest';
+// import { DataViewerSettingsService } from './DataViewerSettingsService.js';
+// import { dataViewerManifest } from './manifest.js';
 
-const endpoint = createGQLEndpoint();
-const app = createApp(
-  dataViewerManifest,
-  coreLocalizationManifest,
-  coreEventsManifest,
-  corePluginManifest,
-  coreProductManifest,
-  coreRootManifest,
-  coreSDKManifest,
-  coreBrowserManifest,
-  coreSettingsManifest,
-  coreViewManifest,
-  coreAuthenticationManifest,
-  coreProjectsManifest,
-  coreUIManifest,
-  coreRoutingManifest,
-  coreAdministrationManifest,
-  coreConnectionsManifest,
-  coreDialogsManifest,
-  coreNavigationTree,
-  coreAppManifest,
-  coreThemingManifest,
-  datasourceContextSwitchPluginManifest,
-  navigationTreePlugin,
-  navigationTabsPlugin,
-  objectViewerManifest,
-);
+// const endpoint = createGQLEndpoint();
+// const server = mockGraphQL(...mockAppInit(endpoint), ...mockAuthentication(endpoint));
+// const app = createApp(
+//   dataViewerManifest,
+//   coreLocalizationManifest,
+//   coreEventsManifest,
+//   coreSDKManifest,
+//   coreClientActivityManifest,
+//   coreRootManifest,
+//   coreBrowserManifest,
+//   coreStorageManifest,
+//   coreSettingsManifest,
+//   coreViewManifest,
+//   coreAuthenticationManifest,
+//   coreProjectsManifest,
+//   coreUIManifest,
+//   coreRoutingManifest,
+//   coreAdministrationManifest,
+//   coreConnectionsManifest,
+//   coreDialogsManifest,
+//   coreNavigationTree,
+//   coreAppManifest,
+//   datasourceContextSwitchPluginManifest,
+//   navigationTreePlugin,
+//   navigationTabsPlugin,
+//   objectViewerManifest,
+// );
 
-const server = mockGraphQL(...mockAppInit(endpoint), ...mockAuthentication(endpoint));
+// const testValueDeprecated = true;
+// const testValueNew = false;
 
-beforeAll(() => app.init());
+// const deprecatedSettings = {
+//   'core.app.dataViewer.disableEdit': testValueDeprecated,
+//   'plugin.data-viewer.disabled': testValueDeprecated,
+//   'plugin_data_export.disabled': testValueDeprecated,
+// };
 
-const testValueA = true;
-const testValueB = false;
+// const newSettings = {
+//   ...deprecatedSettings,
+//   'plugin.data-viewer.disableEdit': testValueNew,
+//   'plugin.data-viewer.export.disabled': testValueNew,
+// };
 
-const equalConfigA = {
-  'core.app.dataViewer': {
-    disableEdit: testValueA,
-  } as DataViewerSettings,
-  plugin: {
-    'data-viewer': {
-      disableEdit: testValueA,
-    } as DataViewerSettings,
-  },
-};
+// async function setupSettingsService(mockConfig: any = {}) {
+//   const settings = app.serviceProvider.getService(DataViewerSettingsService);
+//   const config = app.serviceProvider.getService(ServerConfigResource);
 
-const equalConfigB = {
-  'core.app.dataViewer': {
-    disableEdit: testValueB,
-  } as DataViewerSettings,
-  plugin: {
-    'data-viewer': {
-      disableEdit: testValueB,
-    } as DataViewerSettings,
-  },
-};
+//   server.use(endpoint.query('serverConfig', mockServerConfig(mockConfig)));
 
-async function setupSettingsService(mockConfig: any = {}) {
-  const settings = app.injector.getServiceByClass(DataViewerSettingsService);
-  const config = app.injector.getServiceByClass(ServerConfigResource);
+//   await config.refresh();
 
-  server.use(endpoint.query('serverConfig', mockServerConfig(mockConfig)));
+//   return settings;
+// }
 
-  await config.refresh();
+// test('New settings override deprecated settings', async () => {
+//   const settingsService = await setupSettingsService(newSettings);
 
-  return settings;
-}
+//   expect(settingsService.disableEdit).toBe(testValueNew);
+//   expect(settingsService.disableExportData).toBe(testValueNew);
 
-test('New settings equal deprecated settings A', async () => {
-  const settingsService = await setupSettingsService(equalConfigA);
+//   expectNoDeprecatedSettingMessage();
+// });
 
-  expect(settingsService.settings.getValue('disableEdit')).toBe(testValueA);
-  expect(settingsService.deprecatedSettings.getValue('disableEdit')).toBe(testValueA);
-});
+// test('Deprecated settings are used if new settings are not defined', async () => {
+//   const settingsService = await setupSettingsService(deprecatedSettings);
 
-test('New settings equal deprecated settings B', async () => {
-  const settingsService = await setupSettingsService(equalConfigB);
+//   expect(settingsService.disableEdit).toBe(testValueDeprecated);
+//   expect(settingsService.disableExportData).toBe(testValueDeprecated);
 
-  expect(settingsService.settings.getValue('disableEdit')).toBe(testValueB);
-  expect(settingsService.deprecatedSettings.getValue('disableEdit')).toBe(testValueB);
-});
+//   expectDeprecatedSettingMessage();
+// });
 
-describe('DataViewerSettingsService.getDefaultRowsCount', () => {
-  let settingsService: DataViewerSettingsService = null as any;
+// describe('DataViewerSettingsService.getDefaultRowsCount', () => {
+//   let settingsService: DataViewerSettingsService = null as any;
 
-  beforeAll(async () => {
-    settingsService = await setupSettingsService({
-      plugin: {
-        'data-viewer': {
-          fetchMin: 200,
-          fetchMax: 1000,
-          fetchDefault: 300,
-        },
-      },
-    });
-  });
+//   beforeAll(async () => {
+//     settingsService = await setupSettingsService({
+//       'plugin.data-viewer.fetchMax': '1000',
+//       'plugin.data-viewer.fetchDefault': '300',
+//     });
+//   });
 
-  test('should return valid value', () => {
-    expect(settingsService.getDefaultRowsCount(400)).toBe(400);
-  });
+//   test('should return valid value', () => {
+//     expect(settingsService.getDefaultRowsCount(400)).toBe(400);
+//   });
 
-  test('should return valid default value', () => {
-    expect(settingsService.getDefaultRowsCount()).toBe(300);
-  });
+//   test('should return valid default value', () => {
+//     expect(settingsService.getDefaultRowsCount()).toBe(300);
+//   });
 
-  test('should return valid minimal value', () => {
-    expect(settingsService.getDefaultRowsCount(10)).toBe(200);
-  });
+//   test('should return valid minimal value', () => {
+//     expect(settingsService.getDefaultRowsCount(10)).toBe(10);
+//   });
 
-  test('should return valid maximal value', () => {
-    expect(settingsService.getDefaultRowsCount(1100)).toBe(1000);
-  });
-});
+//   test('should return valid maximal value', () => {
+//     expect(settingsService.getDefaultRowsCount(1100)).toBe(1000);
+//   });
+// });

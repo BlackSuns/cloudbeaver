@@ -1,26 +1,28 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import React, { ErrorInfo } from 'react';
+import React, { type ErrorInfo, Suspense } from 'react';
 
 import { errorOf, LoadingError } from '@cloudbeaver/core-utils';
 
-import { Button } from './Button';
-import { DisplayError } from './DisplayError';
-import style from './ErrorBoundary.m.css';
-import { ErrorContext, IExceptionContext } from './ErrorContext';
-import { ExceptionMessage } from './ExceptionMessage';
+import { Button } from './Button.js';
+import { DisplayError } from './DisplayError.js';
+import style from './ErrorBoundary.module.css';
+import { ErrorContext, type IExceptionContext } from './ErrorContext.js';
+import { ExceptionMessage } from './ExceptionMessage.js';
 
 interface Props {
+  simple?: boolean;
   icon?: boolean;
   root?: boolean;
   inline?: boolean;
   remount?: boolean;
   className?: string;
+  fallback?: React.ReactElement;
   onClose?: () => any;
   onRefresh?: () => any;
 }
@@ -50,7 +52,7 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren<Props
     this.componentDidCatch(exception);
   }
 
-  componentDidCatch(error: Error, errorInfo?: ErrorInfo): void {
+  override componentDidCatch(error: Error, errorInfo?: ErrorInfo): void {
     this.setState(state => {
       if (state.exceptions.some(data => data.error === error)) {
         return state;
@@ -67,40 +69,79 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren<Props
     });
   }
 
-  render(): React.ReactNode {
+  override render(): React.ReactElement<any, any> | null {
     const { root, inline, icon, children, className, onClose } = this.props;
 
     for (const errorData of this.state.exceptions) {
+      if (this.props.simple) {
+        const stack = errorData.errorInfo?.componentStack || errorData.error.stack;
+        return (
+          <Suspense fallback={<>Loading...</>}>
+            <div>
+              <p>Something went wrong.</p>
+              {onClose && (
+                <div className={style['action']}>
+                  <button type="button" onClick={onClose}>
+                    Close
+                  </button>
+                </div>
+              )}
+              {this.canRefresh && (
+                <div className={style['action']}>
+                  <button type="button" onClick={this.refresh}>
+                    Refresh
+                  </button>
+                </div>
+              )}
+              <div>
+                {errorData.error.toString()}
+                {stack && <br />}
+                {stack}
+              </div>
+              {this.props.fallback}
+            </div>
+          </Suspense>
+        );
+      }
+
       if (root) {
         return (
-          <DisplayError className={className} root={root} error={errorData.error} errorInfo={errorData.errorInfo}>
-            {onClose && (
-              <div className={style.action}>
-                <Button onClick={onClose}>Close</Button>
-              </div>
-            )}
-            {this.canRefresh && (
-              <div className={style.action}>
-                <Button onClick={this.refresh}>Refresh</Button>
-              </div>
-            )}
-          </DisplayError>
+          <Suspense fallback={<>Loading...</>}>
+            <DisplayError className={className} root={root} error={errorData.error} errorInfo={errorData.errorInfo}>
+              {onClose && (
+                <div className={style['action']}>
+                  <Button onClick={onClose}>Close</Button>
+                </div>
+              )}
+              {this.canRefresh && (
+                <div className={style['action']}>
+                  <Button onClick={this.refresh}>Refresh</Button>
+                </div>
+              )}
+            </DisplayError>
+          </Suspense>
         );
       } else {
         return (
-          <ExceptionMessage
-            inline={inline}
-            icon={icon}
-            className={className}
-            exception={errorData.error}
-            onRetry={this.canRefresh ? this.refresh : undefined}
-            onClose={onClose}
-          />
+          <Suspense fallback={<>Loading...</>}>
+            <ExceptionMessage
+              inline={inline}
+              icon={icon}
+              className={className}
+              exception={errorData.error}
+              onRetry={this.canRefresh ? this.refresh : undefined}
+              onClose={onClose}
+            />
+          </Suspense>
         );
       }
     }
 
-    return <ErrorContext.Provider value={this}>{children}</ErrorContext.Provider>;
+    return (
+      <ErrorContext.Provider value={this}>
+        <Suspense fallback={<>Loading...</>}>{children}</Suspense>
+      </ErrorContext.Provider>
+    );
   }
 
   private refresh() {

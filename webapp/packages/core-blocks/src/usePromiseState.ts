@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -9,9 +9,9 @@ import { computed, observable } from 'mobx';
 import { useEffect } from 'react';
 
 import { Task } from '@cloudbeaver/core-executor';
-import { ILoadableState, isContainsException } from '@cloudbeaver/core-utils';
+import { type ILoadableState, isContainsException } from '@cloudbeaver/core-utils';
 
-import { useObservableRef } from './useObservableRef';
+import { useObservableRef } from './useObservableRef.js';
 
 export function usePromiseState<T>(promise: Promise<T> | null): ILoadableState {
   const state = useObservableRef(

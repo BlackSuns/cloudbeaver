@@ -1,118 +1,123 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { runInAction } from 'mobx';
 import { observer } from 'mobx-react-lite';
-import styled, { css } from 'reshadow';
 
+import { AUTH_PROVIDER_LOCAL_ID, AuthProvidersResource, UserInfoResource } from '@cloudbeaver/core-authentication';
 import {
   ColoredContainer,
   ExceptionMessage,
   Group,
   Loader,
   ObjectPropertyInfoForm,
+  s,
   TextPlaceholder,
   useResource,
-  useStyles,
+  useS,
   useTranslate,
 } from '@cloudbeaver/core-blocks';
-import { createConnectionParam } from '@cloudbeaver/core-connections';
-import { TabContainerPanelComponent, useTab, useTabState } from '@cloudbeaver/core-ui';
+import {
+  ConnectionInfoOriginDetailsResource,
+  createConnectionParam,
+  DatabaseAuthModelsResource,
+  DBDriverResource,
+} from '@cloudbeaver/core-connections';
+import { type TabContainerPanelComponent, useTab, useTabState } from '@cloudbeaver/core-ui';
 
-import type { IConnectionFormProps } from '../IConnectionFormProps';
+import type { IConnectionFormProps } from '../IConnectionFormProps.js';
+import styles from './OriginInfo.module.css';
 
-const style = css`
-  Loader {
-    height: 100%;
-  }
-  ColoredContainer {
-    flex: 1;
-    overflow: auto;
-  }
-  ExceptionMessage {
-    padding: 16px;
-  }
-`;
-
-export const OriginInfo: TabContainerPanelComponent<IConnectionFormProps> = observer(function OriginInfo({ tabId, state: { info, resource } }) {
+export const OriginInfo: TabContainerPanelComponent<IConnectionFormProps> = observer(function OriginInfo({
+  tabId,
+  state: { info, resource, config },
+}) {
   const tab = useTab(tabId);
   const translate = useTranslate();
-  // const userInfoService = useService(UserInfoResource);
+  const userInfoLoader = useResource(OriginInfo, UserInfoResource, undefined);
   const state = useTabState<Record<string, any>>();
-  const styles = useStyles(style);
-
-  const connection = useResource(
+  const style = useS(styles);
+  const driverLoader = useResource(OriginInfo, DBDriverResource, config.driverId ?? null);
+  const authModeLoader = useResource(
     OriginInfo,
-    resource,
-    {
-      key: tab.selected && info ? createConnectionParam(info.projectId, info.id) : null,
-      includes: ['includeOrigin', 'customIncludeOriginDetails'] as const,
-    },
-    {
-      // isActive: () => !info?.origin || userInfoService.hasOrigin(info.origin),
-      onData: connection => {
-        runInAction(() => {
-          if (!connection.origin.details) {
-            return;
-          }
-
-          for (const property of Object.keys(state)) {
-            // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-            delete state[property];
-          }
-
-          for (const property of connection.origin.details) {
-            state[property.id!] = property.value;
-          }
-        });
-      },
-    },
+    DatabaseAuthModelsResource,
+    config.authModelId ?? info?.authModel ?? driverLoader.data?.defaultAuthModel ?? null,
   );
 
+  const providerId = authModeLoader.data?.requiredAuth ?? info?.requiredAuth ?? AUTH_PROVIDER_LOCAL_ID;
+  const isAuthenticated = userInfoLoader.resource.hasToken(providerId);
+  const providerLoader = useResource(OriginInfo, AuthProvidersResource, providerId);
+  const connectionId = tab.selected && info ? createConnectionParam(info.projectId, info.id) : null;
+
+  const connectionOriginDetailsResource = useResource(OriginInfo, ConnectionInfoOriginDetailsResource, connectionId, {
+    active: isAuthenticated,
+  });
+  const connection = useResource(OriginInfo, resource, connectionId, {
+    active: isAuthenticated,
+    onData: connection => {
+      runInAction(() => {
+        if (!connectionOriginDetailsResource.data?.origin.details) {
+          return;
+        }
+
+        for (const property of Object.keys(state)) {
+          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+          delete state[property];
+        }
+
+        for (const property of connectionOriginDetailsResource.data.origin.details) {
+          state[property.id!] = property.value;
+        }
+      });
+    },
+  });
+
   if (connection.isLoading()) {
-    return styled(styles)(
-      <ColoredContainer>
-        <Loader key="static" />
-      </ColoredContainer>,
+    return (
+      <ColoredContainer className={s(style, { coloredContainer: true })}>
+        <Loader key="static" className={s(style, { loader: true })} />
+      </ColoredContainer>
     );
   }
 
   if (connection.exception) {
-    return styled(styles)(
-      <ColoredContainer>
+    return (
+      <ColoredContainer className={s(style, { coloredContainer: true })}>
         <ExceptionMessage exception={connection.exception} onRetry={connection.reload} />
-      </ColoredContainer>,
+      </ColoredContainer>
     );
   }
 
-  // const authorized = !info?.origin || userInfoService.hasOrigin(info.origin);
+  if (!isAuthenticated) {
+    return (
+      <ColoredContainer className={s(style, { coloredContainer: true })} parent>
+        <TextPlaceholder>
+          {translate('plugin_connections_connection_cloud_auth_required', undefined, {
+            providerLabel: providerLoader.data?.label,
+          })}
+        </TextPlaceholder>
+      </ColoredContainer>
+    );
+  }
 
-  // if (!authorized && info?.origin) {
-  //   return styled(styles)(
-  //     <ColoredContainer parent vertical>
-  //       <AuthenticationProvider origin={info.origin} onAuthenticate={connection.reload} />
-  //     </ColoredContainer>
-  //   );
-  // }
-
-  if (!connection.data?.origin.details || connection.data.origin.details.length === 0) {
-    return styled(styles)(
-      <ColoredContainer parent>
+  if (!connectionOriginDetailsResource.data?.origin.details || connectionOriginDetailsResource.data?.origin.details.length === 0) {
+    return (
+      <ColoredContainer className={s(style, { coloredContainer: true })} parent>
         <TextPlaceholder>{translate('connections_administration_connection_no_information')}</TextPlaceholder>
-      </ColoredContainer>,
+      </ColoredContainer>
     );
   }
 
-  return styled(styles)(
-    <ColoredContainer parent>
+  return (
+    <ColoredContainer className={s(style, { coloredContainer: true })} parent>
       <Group large gap>
-        <ObjectPropertyInfoForm properties={connection.data.origin.details} state={state} readOnly small autoHide />
+        <ObjectPropertyInfoForm properties={connectionOriginDetailsResource.data?.origin.details} state={state} readOnly small autoHide />
       </Group>
-      <Loader key="overlay" loading={connection.isLoading()} overlay />
-    </ColoredContainer>,
+      <Loader key="overlay" className={s(style, { loader: true })} loading={connection.isLoading()} overlay />
+    </ColoredContainer>
   );
 });

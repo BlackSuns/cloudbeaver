@@ -1,23 +1,19 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { makeObservable, observable } from 'mobx';
 
-import type { IDatabaseDataAction, IDatabaseDataActionClass, IDatabaseDataActionInterface } from './IDatabaseDataAction';
-import type { IDatabaseDataResult } from './IDatabaseDataResult';
-import type { IDatabaseDataSource } from './IDatabaseDataSource';
+import type { IDatabaseDataAction, IDatabaseDataActionClass, IDatabaseDataActionInterface } from './IDatabaseDataAction.js';
+import type { IDatabaseDataResult } from './IDatabaseDataResult.js';
+import type { IDatabaseDataSource } from './IDatabaseDataSource.js';
 
 export abstract class DatabaseDataAction<TOptions, TResult extends IDatabaseDataResult> implements IDatabaseDataAction<TOptions, TResult> {
   result!: TResult;
   resultIndex: number;
-
-  get empty(): boolean {
-    return !this.result.data;
-  }
 
   readonly source: IDatabaseDataSource<TOptions, TResult>;
 

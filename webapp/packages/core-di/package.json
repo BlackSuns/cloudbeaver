@@ -1,5 +1,6 @@
 {
   "name": "@cloudbeaver/core-di",
+  "type": "module",
   "sideEffects": [
     "src/**/*.css",
     "src/**/*.scss",
@@ -8,24 +9,30 @@
   "version": "0.1.0",
   "description": "",
   "license": "Apache-2.0",
-  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
-    "build": "core-cli-build --mode=production --config ../core-cli/configs/webpack.plugin.config.js",
+    "build": "tsc -b",
+    "clean": "rimraf --glob dist",
     "lint": "eslint ./src/ --ext .ts,.tsx",
-    "lint-fix": "eslint ./src/ --ext .ts,.tsx --fix",
-    "pretest": "tsc -b",
     "test": "core-cli-test",
-    "validate-dependencies": "core-cli-validate-dependencies",
-    "update-ts-references": "rimraf --glob dist/* && typescript-resolve-references"
+    "validate-dependencies": "core-cli-validate-dependencies"
   },
   "dependencies": {
-    "inversify": "~6.0.1",
-    "@cloudbeaver/core-executor": "~0.1.0"
+    "@cloudbeaver/core-executor": "workspace:*",
+    "inversify": "^6",
+    "mobx": "^6",
+    "react": "^19",
+    "reflect-metadata": "^0",
+    "tslib": "^2"
   },
-  "peerDependencies": {
-    "react": "~18.x.x",
-    "@testing-library/jest-dom": "~6.x.x",
-    "@testing-library/react": "~13.x.x"
-  },
-  "devDependencies": {}
+  "devDependencies": {
+    "@cloudbeaver/core-cli": "workspace:*",
+    "@cloudbeaver/tsconfig": "workspace:*",
+    "@jest/globals": "^29",
+    "@types/jest": "^29",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
 }

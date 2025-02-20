@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -12,11 +12,11 @@ import { getComputed, s, TreeNodeContext, useMergeRefs, useObjectRef, useS } fro
 import { useService } from '@cloudbeaver/core-di';
 import { type NavNode, NavNodeInfoResource } from '@cloudbeaver/core-navigation-tree';
 
-import { ElementsTreeContext } from '../ElementsTreeContext';
-import type { NavTreeControlComponent } from '../NavigationNodeComponent';
-import { NavigationNodeControlLoader } from './NavigationNode/NavigationNodeLoaders';
-import style from './NavigationNodeControlRenderer.m.css';
-import type { INavigationNode } from './useNavigationNode';
+import { ElementsTreeContext } from '../ElementsTreeContext.js';
+import type { NavTreeControlComponent } from '../NavigationNodeComponent.js';
+import { NavigationNodeControlLoader } from './NavigationNode/NavigationNodeLoaders.js';
+import style from './NavigationNodeControlRenderer.module.css';
+import type { INavigationNode } from './useNavigationNode.js';
 
 interface Props {
   node: NavNode;
@@ -108,3 +108,5 @@ export const NavigationNodeControlRenderer = observer<Props, HTMLDivElement>(
     );
   }),
 );
+
+NavigationNodeControlRenderer.displayName = 'NavigationNodeControlRenderer';

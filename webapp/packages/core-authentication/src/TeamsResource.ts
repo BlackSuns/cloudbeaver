@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,19 @@ import {
   type ResourceKeySimple,
   ResourceKeyUtils,
 } from '@cloudbeaver/core-resource';
-import { AdminConnectionGrantInfo, AdminTeamInfoFragment, GetTeamsListQueryVariables, GraphQLService } from '@cloudbeaver/core-sdk';
-import { isArraysEqual } from '@cloudbeaver/core-utils';
+import {
+  type AdminConnectionGrantInfo,
+  type AdminTeamInfoFragment,
+  type AdminUserTeamGrantInfo,
+  type GetTeamsListQueryVariables,
+  GraphQLService,
+} from '@cloudbeaver/core-sdk';
+import { isArraysEqual, type UndefinedToNull } from '@cloudbeaver/core-utils';
 
 const NEW_TEAM_SYMBOL = Symbol('new-team');
 
 export type TeamInfo = AdminTeamInfoFragment;
+export type UserTeamGrantInfo = UndefinedToNull<AdminUserTeamGrantInfo>;
 
 type TeamResourceIncludes = Omit<GetTeamsListQueryVariables, 'teamId'>;
 type NewTeam = TeamInfo & { [NEW_TEAM_SYMBOL]: boolean; timestamp: number };
@@ -31,12 +38,11 @@ export class TeamsResource extends CachedMapResource<string, TeamInfo, TeamResou
     super();
   }
 
-  async createTeam({ teamId, teamPermissions, teamName, description, metaParameters }: TeamInfo): Promise<TeamInfo> {
+  async createTeam({ teamId, teamPermissions, teamName, description }: TeamInfo): Promise<TeamInfo> {
     const response = await this.graphQLService.sdk.createTeam({
       teamId,
       teamName,
       description,
-      ...this.getDefaultIncludes(),
       ...this.getIncludesMap(teamId),
     });
 
@@ -48,29 +54,26 @@ export class TeamsResource extends CachedMapResource<string, TeamInfo, TeamResou
 
     this.set(newTeam.teamId, newTeam);
 
-    await this.setMetaParameters(newTeam.teamId, metaParameters);
     await this.setSubjectPermissions(newTeam.teamId, teamPermissions);
 
-    return this.get(teamId)!;
+    return this.get(newTeam.teamId)!;
   }
 
-  async updateTeam({ teamId, teamPermissions, teamName, description, metaParameters }: TeamInfo): Promise<TeamInfo> {
+  async updateTeam({ teamId, teamPermissions, teamName, description }: TeamInfo): Promise<TeamInfo> {
     const { team } = await this.graphQLService.sdk.updateTeam({
       teamId,
       teamName,
       description,
-      ...this.getDefaultIncludes(),
       ...this.getIncludesMap(teamId),
     });
 
     this.set(team.teamId, team);
 
-    await this.setMetaParameters(team.teamId, metaParameters);
     await this.setSubjectPermissions(team.teamId, teamPermissions);
 
     this.markOutdated(team.teamId);
 
-    return this.get(teamId)!;
+    return this.get(team.teamId)!;
   }
 
   async deleteTeam(key: ResourceKeySimple<string>, options?: { force: boolean }): Promise<Map<string, TeamInfo>> {
@@ -85,9 +88,13 @@ export class TeamsResource extends CachedMapResource<string, TeamInfo, TeamResou
     return this.data;
   }
 
-  async loadGrantedUsers(teamId: string): Promise<string[]> {
+  async loadGrantedUsers(teamId: string): Promise<UserTeamGrantInfo[]> {
     const { team } = await this.graphQLService.sdk.getTeamGrantedUsers({ teamId });
-    return team[0].grantedUsers;
+
+    if (!team.length) {
+      throw new Error('Team not found');
+    }
+    return team[0]!.grantedUsersInfo.map(user => ({ userId: user.userId, teamRole: user.teamRole ?? null }));
   }
 
   async getSubjectConnectionAccess(subjectId: string): Promise<AdminConnectionGrantInfo[]> {
@@ -112,10 +119,6 @@ export class TeamsResource extends CachedMapResource<string, TeamInfo, TeamResou
     }
   }
 
-  async setMetaParameters(teamId: string, parameters: Record<string, any>): Promise<void> {
-    await this.graphQLService.sdk.saveTeamMetaParameters({ teamId, parameters });
-  }
-
   protected async loader(originalKey: ResourceKey<string>, includes?: string[]): Promise<Map<string, TeamInfo>> {
     const all = this.aliases.isAlias(originalKey, CachedMapAllKey);
     const teamsList: TeamInfo[] = [];
@@ -129,7 +132,6 @@ export class TeamsResource extends CachedMapResource<string, TeamInfo, TeamResou
 
       const { teams } = await this.graphQLService.sdk.getTeamsList({
         teamId,
-        ...this.getDefaultIncludes(),
         ...this.getIncludesMap(teamId, includes),
       });
 
@@ -152,15 +154,9 @@ export class TeamsResource extends CachedMapResource<string, TeamInfo, TeamResou
     }
   }
 
-  protected dataSet(key: string, value: AdminTeamInfoFragment): void {
+  protected override dataSet(key: string, value: AdminTeamInfoFragment): void {
     const oldTeam = this.dataGet(key);
     super.dataSet(key, { ...oldTeam, ...value });
-  }
-
-  private getDefaultIncludes(): TeamResourceIncludes {
-    return {
-      includeMetaParameters: false,
-    };
   }
 
   protected validateKey(key: string): boolean {

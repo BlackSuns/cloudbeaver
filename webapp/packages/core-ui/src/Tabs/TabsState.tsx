@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,19 +8,20 @@
 import { action, observable } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import { useEffect, useMemo, useState } from 'react';
-import { useTabState } from 'reakit/Tab';
+import { useTabState } from 'reakit';
 
 import { useAutoLoad, useExecutor, useObjectRef, useObservableRef } from '@cloudbeaver/core-blocks';
 import { useDataContext } from '@cloudbeaver/core-data-context';
 import { Executor, ExecutorInterrupter } from '@cloudbeaver/core-executor';
-import { isDefined, isNull, isUndefined, MetadataMap, MetadataValueGetter } from '@cloudbeaver/core-utils';
+import { isDefined, isNotNullDefined, MetadataMap, type MetadataValueGetter, schema } from '@cloudbeaver/core-utils';
 
-import type { ITabData, ITabInfo, ITabsContainer } from './TabsContainer/ITabsContainer';
-import { ITabsContext, type TabDirection, TabsContext } from './TabsContext';
+import type { ITabData, ITabInfo, ITabsContainer } from './TabsContainer/ITabsContainer.js';
+import { type ITabsContext, type TabDirection, TabsContext } from './TabsContext.js';
+import { TabsValidationProvider } from './TabsValidationProvider.js';
 
 type ExtractContainerProps<T> = T extends void ? Record<string, any> : T;
 
-type Props<T = Record<string, any>> = ExtractContainerProps<T> &
+export type TabsStateProps<T = Record<string, any>> = ExtractContainerProps<T> &
   React.PropsWithChildren<{
     selectedId?: string;
     orientation?: 'horizontal' | 'vertical';
@@ -53,7 +54,7 @@ export const TabsState = observer(function TabsState<T = Record<string, any>>({
   onClose,
   canClose,
   ...rest
-}: Props<T>): React.ReactElement | null {
+}: TabsStateProps<T>): React.ReactElement | null {
   const context = useDataContext();
   const props = useMemo(() => rest as any as T, [...Object.values(rest)]);
   let displayed: string[] = [];
@@ -64,12 +65,6 @@ export const TabsState = observer(function TabsState<T = Record<string, any>>({
     displayed = tabList;
   }
 
-  if (!selectedId && (currentTabId === undefined || currentTabId === null) && autoSelect) {
-    if (displayed.length > 0) {
-      selectedId = displayed[0];
-    }
-  }
-
   const closable = !!onClose;
 
   const [localTabsState] = useState(() => new MetadataMap<string, any>());
@@ -78,14 +73,14 @@ export const TabsState = observer(function TabsState<T = Record<string, any>>({
   const [openExecutor] = useState(() => new Executor<ITabData<T>>());
 
   const state = useTabState({
-    selectedId: selectedId || currentTabId,
+    selectedId: selectedId || currentTabId || container?.selectedId || null,
     orientation,
     manual,
   });
 
   const dynamic = useObjectRef(
     () => ({
-      selectedId: selectedId || currentTabId,
+      selectedId: state.selectedId,
     }),
     {
       canClose,
@@ -99,28 +94,20 @@ export const TabsState = observer(function TabsState<T = Record<string, any>>({
     },
   );
 
-  if ((!isNull(currentTabId) && !isUndefined(currentTabId)) || !autoSelect) {
+  if (isNotNullDefined(currentTabId)) {
     state.selectedId = currentTabId;
-    dynamic.selectedId = currentTabId;
   }
 
-  if (
-    displayed.length > 0 &&
-    !isNull(dynamic.selectedId) &&
-    !isUndefined(dynamic.selectedId) &&
-    !isNull(selectedId) &&
-    !isUndefined(selectedId) &&
-    autoSelect
-  ) {
-    const tabExists = displayed.includes(dynamic.selectedId);
+  if (displayed.length > 0 && autoSelect) {
+    const tabExists = isNotNullDefined(state.selectedId) && displayed.includes(state.selectedId);
 
     if (!tabExists) {
-      if (displayed.includes(selectedId)) {
-        state.selectedId = selectedId;
-      } else {
-        state.selectedId = displayed[0];
-      }
+      state.selectedId = displayed[0];
     }
+  }
+
+  if (isNotNullDefined(currentTabId)) {
+    dynamic.selectedId = state.selectedId;
   }
 
   useExecutor({
@@ -133,7 +120,10 @@ export const TabsState = observer(function TabsState<T = Record<string, any>>({
           return;
         }
         dynamic.selectedId = data.tabId;
-        dynamic.state.setSelectedId(data.tabId);
+        if (dynamic.state.selectedId !== data.tabId) {
+          dynamic.state.setCurrentId(data.tabId);
+          dynamic.state.setSelectedId(data.tabId);
+        }
       },
     ],
   });
@@ -147,25 +137,18 @@ export const TabsState = observer(function TabsState<T = Record<string, any>>({
     ],
   });
 
+  const currentSelectedId = state.selectedId;
+
   useEffect(() => {
-    if ((!isNull(currentTabId) && !isUndefined(currentTabId)) || !autoSelect) {
+    if (!isNotNullDefined(currentSelectedId) || dynamic.selectedId === currentSelectedId) {
       return;
     }
 
     openExecutor.execute({
-      tabId: state.selectedId!,
+      tabId: currentSelectedId,
       props,
     });
-  }, [currentTabId, state.selectedId, autoSelect]);
-
-  useEffect(() => {
-    if (!isNull(state.selectedId) && !isUndefined(state.selectedId)) {
-      openExecutor.execute({
-        tabId: state.selectedId,
-        props,
-      });
-    }
-  }, [!isNull(state.selectedId) && !isUndefined(state.selectedId)]);
+  }, [currentSelectedId]);
 
   const value = useObservableRef<ITabsContext<T>>(
     () => ({
@@ -181,11 +164,11 @@ export const TabsState = observer(function TabsState<T = Record<string, any>>({
       getTabInfo(tabId: string) {
         return dynamic.container?.getDisplayedTabInfo(tabId, dynamic.props);
       },
-      getTabState(tabId: string, valueGetter?: MetadataValueGetter<string, any>) {
-        return dynamic.container?.getTabState(dynamic.tabsState, tabId, dynamic.props, valueGetter);
+      getTabState(tabId: string, valueGetter?: MetadataValueGetter<string, any>, schema?: schema.AnyZodObject) {
+        return dynamic.container?.getTabState(dynamic.tabsState, tabId, dynamic.props, valueGetter, schema);
       },
-      getLocalState(tabId: string, valueGetter?: MetadataValueGetter<string, any>) {
-        return dynamic.tabsState.get(tabId, valueGetter);
+      getLocalState(tabId: string, valueGetter?: MetadataValueGetter<string, any>, schema?: schema.AnyZodObject) {
+        return dynamic.tabsState.get(tabId, valueGetter, schema);
       },
       async open(tabId: string) {
         await openExecutor.execute({
@@ -268,29 +251,32 @@ export const TabsState = observer(function TabsState<T = Record<string, any>>({
     },
   );
 
+  let currentTabInfo: ITabInfo<T, unknown> | undefined;
   if (container) {
-    let currentTabInfo: ITabInfo<T, never> | undefined;
-
     if (state.selectedId) {
       currentTabInfo = value.getTabInfo(state.selectedId);
     }
-
-    useAutoLoad(
-      TabsState,
-      container
-        .getDisplayed(props)
-        .map(tab => tab.getLoader?.(context, props))
-        .filter(isDefined)
-        .flat(),
-    );
-
-    useAutoLoad(
-      TabsState,
-      [currentTabInfo?.getLoader?.(context, props) || []].flat().filter(loader => loader.lazy),
-      true,
-      true,
-    );
   }
 
-  return <TabsContext.Provider value={value}>{children}</TabsContext.Provider>;
+  useAutoLoad(
+    TabsState,
+    container?.tabInfoList
+      .map(tab => tab.getLoader?.(context, props))
+      .filter(isDefined)
+      .flat() || [],
+    !!container,
+  );
+
+  useAutoLoad(
+    TabsState,
+    [currentTabInfo?.getLoader?.(context, props) || []].flat().filter(loader => loader.lazy),
+    !!container,
+    true,
+  );
+
+  return (
+    <TabsContext.Provider value={value}>
+      <TabsValidationProvider>{children}</TabsValidationProvider>
+    </TabsContext.Provider>
+  );
 });

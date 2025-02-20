@@ -1,23 +1,23 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
+import { type ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
 import type { ResultDataFormat } from '@cloudbeaver/core-sdk';
 
-import { DatabaseDataAction } from '../DatabaseDataAction';
-import type { IDatabaseDataResult } from '../IDatabaseDataResult';
-import type { IDatabaseDataSource } from '../IDatabaseDataSource';
-import { databaseDataAction } from './DatabaseDataActionDecorator';
+import { DatabaseDataAction } from '../DatabaseDataAction.js';
+import type { IDatabaseDataResult } from '../IDatabaseDataResult.js';
+import type { IDatabaseDataSource } from '../IDatabaseDataSource.js';
+import { databaseDataAction } from './DatabaseDataActionDecorator.js';
 import type {
   DatabaseEditChangeType,
   IDatabaseDataEditAction,
   IDatabaseDataEditActionData,
   IDatabaseDataEditApplyActionData,
-} from './IDatabaseDataEditAction';
+} from './IDatabaseDataEditAction.js';
 
 @databaseDataAction()
 export abstract class DatabaseEditAction<TKey, TValue, TResult extends IDatabaseDataResult>
@@ -49,6 +49,7 @@ export abstract class DatabaseEditAction<TKey, TValue, TResult extends IDatabase
   abstract add(key?: TKey): void;
   abstract duplicate(...key: TKey[]): void;
   abstract delete(...key: TKey[]): void;
+  abstract applyPartialUpdate(result: TResult): void;
   abstract applyUpdate(result: TResult): void;
   abstract revert(...key: TKey[]): void;
   abstract clear(): void;

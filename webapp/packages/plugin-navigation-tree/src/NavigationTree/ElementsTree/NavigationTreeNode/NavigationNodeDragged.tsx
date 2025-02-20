@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,10 +10,10 @@ import { useContext } from 'react';
 
 import { getComputed, TreeNode, useObjectRef } from '@cloudbeaver/core-blocks';
 
-import { ElementsTreeContext } from '../ElementsTreeContext';
-import type { NavigationNodeComponent } from '../NavigationNodeComponent';
-import { transformNodeInfo } from '../transformNodeInfo';
-import { NavigationNodeControlLoader } from './NavigationNode/NavigationNodeLoaders';
+import { ElementsTreeContext } from '../ElementsTreeContext.js';
+import type { NavigationNodeComponent } from '../NavigationNodeComponent.js';
+import { transformNodeInfo } from '../transformNodeInfo.js';
+import { NavigationNodeControlLoader } from './NavigationNode/NavigationNodeLoaders.js';
 
 export const NavigationNodeDragged: NavigationNodeComponent = observer(function NavigationNodeDragged({ node, className, control: externalControl }) {
   const contextRef = useObjectRef({

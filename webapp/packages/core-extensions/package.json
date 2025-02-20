@@ -1,5 +1,6 @@
 {
   "name": "@cloudbeaver/core-extensions",
+  "type": "module",
   "sideEffects": [
     "src/**/*.css",
     "src/**/*.scss",
@@ -8,15 +9,21 @@
   "version": "0.1.0",
   "description": "",
   "license": "Apache-2.0",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "core-cli-build --mode=production --config ../core-cli/configs/webpack.plugin.config.js",
-    "lint": "eslint ./src/ --ext .ts,.tsx",
-    "lint-fix": "eslint ./src/ --ext .ts,.tsx --fix",
-    "validate-dependencies": "core-cli-validate-dependencies",
-    "update-ts-references": "rimraf --glob dist/* && typescript-resolve-references"
+  "exports": {
+    ".": "./dist/index.js"
   },
-  "dependencies": {},
-  "peerDependencies": {},
-  "devDependencies": {}
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf --glob dist",
+    "lint": "eslint ./src/ --ext .ts,.tsx",
+    "validate-dependencies": "core-cli-validate-dependencies"
+  },
+  "dependencies": {
+    "tslib": "^2"
+  },
+  "devDependencies": {
+    "@cloudbeaver/core-cli": "workspace:*",
+    "@cloudbeaver/tsconfig": "workspace:*",
+    "typescript": "^5"
+  }
 }

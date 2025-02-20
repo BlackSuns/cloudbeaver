@@ -1,21 +1,19 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import type { IExtension } from '@cloudbeaver/core-extensions';
-import type { ComponentStyle } from '@cloudbeaver/core-theming';
 
-import type { ITab } from './ITab';
+import type { ITab } from './ITab.js';
 
 export interface TabHandlerTabProps<T = any> {
   tab: ITab<T>;
   handler: TabHandler<T>;
   onSelect: (tabId: string) => void;
   onClose?: (tabId: string) => void;
-  style: ComponentStyle;
 }
 export type TabHandlerTabComponent<T = any> = React.FunctionComponent<TabHandlerTabProps<T>>;
 

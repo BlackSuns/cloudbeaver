@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,19 +8,34 @@
 import { injectable } from '@cloudbeaver/core-di';
 import { TaskScheduler } from '@cloudbeaver/core-executor';
 import { CachedMapAllKey, ResourceKeyUtils } from '@cloudbeaver/core-resource';
+import { AsyncTaskInfoService } from '@cloudbeaver/core-root';
+import { GraphQLService } from '@cloudbeaver/core-sdk';
 import { MetadataMap } from '@cloudbeaver/core-utils';
 
-import type { IConnectionInfoParams } from '../IConnectionsResource';
-import { ConnectionExecutionContext } from './ConnectionExecutionContext';
-import { ConnectionExecutionContextResource } from './ConnectionExecutionContextResource';
+import type { IConnectionInfoParams } from '../CONNECTION_INFO_PARAM_SCHEMA.js';
+import { ConnectionExecutionContext } from './ConnectionExecutionContext.js';
+import { ConnectionExecutionContextResource } from './ConnectionExecutionContextResource.js';
 
 @injectable()
 export class ConnectionExecutionContextService {
   private readonly contexts: MetadataMap<string, ConnectionExecutionContext>;
   protected scheduler: TaskScheduler<string>;
 
-  constructor(readonly connectionExecutionContextResource: ConnectionExecutionContextResource) {
-    this.contexts = new MetadataMap(contextId => new ConnectionExecutionContext(this.scheduler, this.connectionExecutionContextResource, contextId));
+  constructor(
+    readonly connectionExecutionContextResource: ConnectionExecutionContextResource,
+    private readonly asyncTaskInfoService: AsyncTaskInfoService,
+    private readonly GraphQLService: GraphQLService,
+  ) {
+    this.contexts = new MetadataMap(
+      contextId =>
+        new ConnectionExecutionContext(
+          contextId,
+          this.scheduler,
+          this.connectionExecutionContextResource,
+          this.asyncTaskInfoService,
+          this.GraphQLService,
+        ),
+    );
     this.scheduler = new TaskScheduler((a, b) => a === b);
     this.connectionExecutionContextResource.onItemDelete.addHandler(key =>
       ResourceKeyUtils.forEach(key, contextId => this.contexts.delete(contextId)),

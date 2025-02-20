@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
  */
 package io.cloudbeaver.model;
 
-import io.cloudbeaver.server.CBApplication;
+import io.cloudbeaver.utils.ServletAppUtils;
 import org.eclipse.core.runtime.IProduct;
 import org.eclipse.core.runtime.Platform;
 import org.jkiss.dbeaver.model.meta.Property;
@@ -68,13 +68,19 @@ public class WebProductInfo {
 
     @Property
     public String getLicenseInfo() {
-        return CBApplication.getInstance().getInfoDetails(new VoidProgressMonitor());
+        return ServletAppUtils.getServletApplication().getInfoDetails(new VoidProgressMonitor());
     }
 
     @Property
     public String getLatestVersionInfo() {
         IProduct product = Platform.getProduct();
         return CommonUtils.notEmpty(product.getProperty("versionUpdateURL"));
+    }
+
+    @Property
+    public String getProductPurchaseURL() {
+        IProduct product = Platform.getProduct();
+        return CommonUtils.notEmpty(product.getProperty("productPurchaseURL"));
     }
 
 }

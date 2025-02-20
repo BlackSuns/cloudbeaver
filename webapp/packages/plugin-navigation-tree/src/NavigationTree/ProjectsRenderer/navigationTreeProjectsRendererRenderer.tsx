@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,20 +8,18 @@
 import { observer } from 'mobx-react-lite';
 import { useContext } from 'react';
 
-import { getComputed, s, SContext, StyleRegistry, Translate, TreeNodeNestedMessage, useS } from '@cloudbeaver/core-blocks';
-import { useService } from '@cloudbeaver/core-di';
-import type { NavNodeInfoResource } from '@cloudbeaver/core-navigation-tree';
-import { NAV_NODE_TYPE_PROJECT, ProjectsService } from '@cloudbeaver/core-projects';
+import { getComputed, s, SContext, type StyleRegistry, Translate, TreeNodeNestedMessage, useS } from '@cloudbeaver/core-blocks';
+import { isProjectNode, type NavNodeInfoResource } from '@cloudbeaver/core-navigation-tree';
 
-import { NavigationNodeControlRendererStyles, NavigationNodeNestedStyles } from '../../index';
-import { useNode } from '../../NodesManager/useNode';
-import { ElementsTreeContext } from '../ElementsTree/ElementsTreeContext';
-import type { NavigationNodeRendererComponent } from '../ElementsTree/NavigationNodeComponent';
-import { isDraggingInsideProject } from '../ElementsTree/NavigationTreeNode/isDraggingInsideProject';
-import { NavigationNodeRendererLoader } from '../ElementsTree/NavigationTreeNode/NavigationNodeRendererLoader';
-import type { IElementsTreeCustomRenderer } from '../ElementsTree/useElementsTree';
-import { NavigationNodeProjectControl } from './NavigationNodeProjectControl';
-import style from './NavigationTreeProjectsRendererRenderer.m.css';
+import { NavigationNodeControlRendererStyles, NavigationNodeNestedStyles } from '../../index.js';
+import { useNode } from '../../NodesManager/useNode.js';
+import { ElementsTreeContext } from '../ElementsTree/ElementsTreeContext.js';
+import type { NavigationNodeRendererComponent } from '../ElementsTree/NavigationNodeComponent.js';
+import { isDraggingInsideProject } from '../ElementsTree/NavigationTreeNode/isDraggingInsideProject.js';
+import { NavigationNodeRendererLoader } from '../ElementsTree/NavigationTreeNode/NavigationNodeRendererLoader.js';
+import type { IElementsTreeCustomRenderer } from '../ElementsTree/useElementsTree.js';
+import { NavigationNodeProjectControl } from './NavigationNodeProjectControl.js';
+import style from './NavigationTreeProjectsRendererRenderer.module.css';
 
 const registry: StyleRegistry = [
   [
@@ -44,7 +42,7 @@ export function navigationTreeProjectsRendererRenderer(navNodeInfoResource: NavN
   return nodeId => {
     const node = navNodeInfoResource.get(nodeId);
 
-    if (node?.nodeType === NAV_NODE_TYPE_PROJECT) {
+    if (isProjectNode(node)) {
       return ProjectRenderer;
     }
 
@@ -61,7 +59,6 @@ const ProjectRenderer: NavigationNodeRendererComponent = observer(function Manag
   expanded,
 }) {
   const styles = useS(style);
-  const projectsService = useService(ProjectsService);
   const elementsTreeContext = useContext(ElementsTreeContext);
 
   const { node } = useNode(nodeId);
@@ -74,7 +71,6 @@ const ProjectRenderer: NavigationNodeRendererComponent = observer(function Manag
     return isDraggingInsideProject(node.projectId, elementsTreeContext.tree.activeDnDData);
   });
 
-  const singleProject = projectsService.activeProjects.length === 1;
   const hideProjects = elementsTreeContext?.tree.settings?.projects === false && !isDragging;
 
   if (!node) {
@@ -85,8 +81,6 @@ const ProjectRenderer: NavigationNodeRendererComponent = observer(function Manag
     );
   }
 
-  const project = node.nodeType === NAV_NODE_TYPE_PROJECT && singleProject && !isDragging;
-
   return (
     <SContext registry={registry}>
       <NavigationNodeRendererLoader
@@ -94,7 +88,7 @@ const ProjectRenderer: NavigationNodeRendererComponent = observer(function Manag
         path={path}
         expanded={expanded}
         dragging={dragging}
-        className={s(styles, { projectNode: true, hideProjects, project }, className)}
+        className={s(styles, { projectNode: true, hideProjects }, className)}
         control={NavigationNodeProjectControl}
         component={component}
       />

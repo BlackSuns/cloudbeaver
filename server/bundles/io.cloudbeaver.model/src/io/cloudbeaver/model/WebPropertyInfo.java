@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package io.cloudbeaver.model;
 
 import io.cloudbeaver.model.session.WebSession;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.connection.DBPDriverConfigurationType;
@@ -27,6 +28,7 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
+import org.jkiss.dbeaver.registry.settings.ProductSettingDescriptor;
 import org.jkiss.dbeaver.runtime.properties.ObjectPropertyDescriptor;
 import org.jkiss.utils.CommonUtils;
 
@@ -41,6 +43,12 @@ public class WebPropertyInfo {
     private DBPPropertyDescriptor property;
     private DBPPropertySource propertySource;
     private boolean showProtected;
+
+    private Object[] validValues;
+
+    private String[] supportedConfigurationTypes = new String[0];
+
+    private Object defaultValue;
 
     public WebPropertyInfo(WebSession session, DBPPropertyDescriptor property, DBPPropertySource propertySource) {
         this.session = session;
@@ -89,6 +97,11 @@ public class WebPropertyInfo {
     }
 
     @Property
+    public String getHint() {
+        return property.getHint();
+    }
+
+    @Property
     public int getOrder() {
         return property instanceof ObjectPropertyDescriptor ? ((ObjectPropertyDescriptor) property).getOrderNumber() : -1;
     }
@@ -116,7 +129,7 @@ public class WebPropertyInfo {
 
     @Property
     public Object getDefaultValue() throws DBException {
-        var defaultValue = property.getDefaultValue();
+        var defaultValue = property.getDefaultValue() == null ? this.defaultValue : property.getDefaultValue();
         return defaultValue == null ? getValue() : defaultValue;
     }
 
@@ -147,9 +160,9 @@ public class WebPropertyInfo {
                 }
                 return validValues;
             }
-            return null;
+            return validValues;
         }
-        return null;
+        return validValues;
     }
 
     @Property
@@ -165,7 +178,12 @@ public class WebPropertyInfo {
                 .map(DBPDriverConfigurationType::toString)
                 .toArray(String[]::new);
         }
-        return new String[0];
+        return supportedConfigurationTypes;
+    }
+
+    @Property
+    public boolean isRequired() {
+        return property.isRequired();
     }
 
     public boolean hasFeature(@NotNull String feature) {
@@ -231,5 +249,29 @@ public class WebPropertyInfo {
         }
         return CommonUtils.toString(value);
     }
+
+    @Nullable
+    @Property
+    public List<String> getScopes() {
+        if (property instanceof ProductSettingDescriptor productSettingDescriptor) {
+            return productSettingDescriptor.getScopes();
+        }
+        return null;
+    }
+
+    //TODO: delete after refactoring on front-end
+    public void setDefaultValue(String defaultValue) {
+        this.defaultValue = defaultValue;
+    }
+    //TODO: delete after refactoring on front-end
+    public void setValidValues(Object[] validValues) {
+        this.validValues = validValues;
+    }
+
+    //TODO: delete after refactoring on front-end
+    public void setSupportedConfigurationTypes(String[] supportedConfigurationTypes) {
+        this.supportedConfigurationTypes = supportedConfigurationTypes;
+    }
+
 
 }

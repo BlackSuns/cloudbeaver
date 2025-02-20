@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@ import {
   s,
   TreeNodeContext,
   TreeNodeControl,
+  TreeNodeDescription,
   TreeNodeIcon,
   TreeNodeName,
-  useMouseContextMenu,
+  useContextMenuPosition,
   useObjectRef,
   useObservableRef,
   useS,
@@ -26,12 +27,13 @@ import { useService } from '@cloudbeaver/core-di';
 import { EventContext, EventStopPropagationFlag } from '@cloudbeaver/core-events';
 import { getNodePlainName, type INodeActions, NavNodeInfoResource, NavTreeResource } from '@cloudbeaver/core-navigation-tree';
 
-import type { NavTreeControlComponent, NavTreeControlProps } from '../../NavigationNodeComponent';
-import { TreeNodeMenuLoader } from '../TreeNodeMenu/TreeNodeMenuLoader';
-import { DATA_ATTRIBUTE_NODE_EDITING } from './DATA_ATTRIBUTE_NODE_EDITING';
-import style from './NavigationNodeControl.m.css';
-import { NavigationNodeExpand } from './NavigationNodeExpand';
-import { NavigationNodeEditorLoader } from './NavigationNodeLoaders';
+import { ElementsTreeContext } from '../../ElementsTreeContext.js';
+import type { NavTreeControlComponent } from '../../NavigationNodeComponent.js';
+import { TreeNodeMenuLoader } from '../TreeNodeMenu/TreeNodeMenuLoader.js';
+import { DATA_ATTRIBUTE_NODE_EDITING } from './DATA_ATTRIBUTE_NODE_EDITING.js';
+import style from './NavigationNodeControl.module.css';
+import { NavigationNodeExpand } from './NavigationNodeExpand.js';
+import { NavigationNodeEditorLoader } from './NavigationNodeLoaders.js';
 
 interface IEditingState {
   saving: boolean;
@@ -47,11 +49,12 @@ interface IEditingState {
   cancel(): void;
 }
 
-export const NavigationNodeControl: NavTreeControlComponent = observer<NavTreeControlProps, HTMLDivElement>(
+export const NavigationNodeControl: NavTreeControlComponent = observer(
   forwardRef(function NavigationNodeControl({ node, nodeInfo, dndElement, dndPlaceholder, className, onClick }, ref) {
     const styles = useS(style);
-    const mouseContextMenu = useMouseContextMenu();
+    const contextMenuPosition = useContextMenuPosition();
     const treeNodeContext = useContext(TreeNodeContext);
+    const elementsTreeContext = useContext(ElementsTreeContext);
     const navNodeInfoResource = useService(NavNodeInfoResource);
     const navTreeResource = useService(NavTreeResource);
     const error = getComputed(() => !!navNodeInfoResource.getException(node.id) || !!navTreeResource.getException(node.id));
@@ -110,6 +113,7 @@ export const NavigationNodeControl: NavTreeControlComponent = observer<NavTreeCo
 
     let icon = nodeInfo.icon;
     const name = nodeInfo.name;
+    const description = nodeInfo.description;
     const title = nodeInfo.tooltip;
 
     if (error) {
@@ -122,7 +126,7 @@ export const NavigationNodeControl: NavTreeControlComponent = observer<NavTreeCo
     }
 
     function handleContextMenuOpen(event: React.MouseEvent<HTMLDivElement>) {
-      mouseContextMenu.handleContextMenuOpen(event);
+      contextMenuPosition.handleContextMenuOpen(event);
       treeNodeContext.select();
     }
 
@@ -145,16 +149,23 @@ export const NavigationNodeControl: NavTreeControlComponent = observer<NavTreeCo
             {editing ? (
               <NavigationNodeEditorLoader name={getNodePlainName(node)} disabled={saving} onSave={editingState.save} onClose={editingState.cancel} />
             ) : (
-              <div className={s(styles, { nameBox: true })}>{name}</div>
+              <div className={s(styles, { nameBox: true })}>
+                {name}
+                {elementsTreeContext?.tree.settings?.objectsDescription && description && (
+                  <TreeNodeDescription>{` - ${description}`}</TreeNodeDescription>
+                )}
+              </div>
             )}
           </Loader>
         </TreeNodeName>
         {!editing && !dndPlaceholder && (
           <div className={s(styles, { portal: true })} onClick={handlePortalClick}>
-            <TreeNodeMenuLoader mouseContextMenu={mouseContextMenu} node={node} actions={nodeActions} selected={selected} />
+            <TreeNodeMenuLoader contextMenuPosition={contextMenuPosition} node={node} actions={nodeActions} selected={selected} />
           </div>
         )}
       </TreeNodeControl>
     );
   }),
 );
+
+NavigationNodeControl.displayName = 'NavigationNodeControl';

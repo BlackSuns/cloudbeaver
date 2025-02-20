@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 package io.cloudbeaver.registry;
 
 import io.cloudbeaver.DBWFeatureSet;
-import io.cloudbeaver.utils.WebAppUtils;
+import io.cloudbeaver.utils.ServletAppUtils;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.DBPImage;
@@ -66,7 +66,7 @@ public class WebFeatureDescriptor extends AbstractContextDescriptor implements D
 
     @Override
     public boolean isEnabled() {
-        return WebAppUtils.getWebApplication().getAppConfiguration().isFeatureEnabled(this.id);
+        return ServletAppUtils.getServletApplication().getAppConfiguration().isFeatureEnabled(this.id);
     }
 
 }

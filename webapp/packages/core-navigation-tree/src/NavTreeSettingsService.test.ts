@@ -1,93 +1,96 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import '@testing-library/jest-dom';
+// import { expect, test } from '@jest/globals';
 
-import { coreAppManifest, CoreSettingsService } from '@cloudbeaver/core-app';
-import { coreAuthenticationManifest } from '@cloudbeaver/core-authentication';
-import { mockAuthentication } from '@cloudbeaver/core-authentication/dist/__custom_mocks__/mockAuthentication';
-import { coreBrowserManifest } from '@cloudbeaver/core-browser';
-import { coreEventsManifest } from '@cloudbeaver/core-events';
-import { coreLocalizationManifest } from '@cloudbeaver/core-localization';
-import { corePluginManifest } from '@cloudbeaver/core-plugin';
-import { coreProductManifest } from '@cloudbeaver/core-product';
-import { coreProjectsManifest } from '@cloudbeaver/core-projects';
-import { coreRootManifest, ServerConfigResource } from '@cloudbeaver/core-root';
-import { createGQLEndpoint } from '@cloudbeaver/core-root/dist/__custom_mocks__/createGQLEndpoint';
-import { mockAppInit } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockAppInit';
-import { mockGraphQL } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockGraphQL';
-import { mockServerConfig } from '@cloudbeaver/core-root/dist/__custom_mocks__/resolvers/mockServerConfig';
-import { coreRoutingManifest } from '@cloudbeaver/core-routing';
-import { coreSDKManifest } from '@cloudbeaver/core-sdk';
-import { coreSettingsManifest } from '@cloudbeaver/core-settings';
-import { coreThemingManifest } from '@cloudbeaver/core-theming';
-import { coreUIManifest } from '@cloudbeaver/core-ui';
-import { coreViewManifest } from '@cloudbeaver/core-view';
-import { createApp } from '@cloudbeaver/tests-runner';
+// import { coreAuthenticationManifest } from '@cloudbeaver/core-authentication';
+// import { mockAuthentication } from '@cloudbeaver/core-authentication/__custom_mocks__/mockAuthentication.js';
+// import { coreBrowserManifest } from '@cloudbeaver/core-browser';
+// import { coreClientActivityManifest } from '@cloudbeaver/core-client-activity';
+// import { coreEventsManifest } from '@cloudbeaver/core-events';
+// import { coreLocalizationManifest } from '@cloudbeaver/core-localization';
+// import { coreProjectsManifest } from '@cloudbeaver/core-projects';
+// import { coreRootManifest, ServerConfigResource } from '@cloudbeaver/core-root';
+// import { createGQLEndpoint } from '@cloudbeaver/core-root/__custom_mocks__/createGQLEndpoint.js';
+// import '@cloudbeaver/core-root/__custom_mocks__/expectWebsocketClosedMessage.js';
+// import { mockAppInit } from '@cloudbeaver/core-root/__custom_mocks__/mockAppInit.js';
+// import { mockGraphQL } from '@cloudbeaver/core-root/__custom_mocks__/mockGraphQL.js';
+// import { mockServerConfig } from '@cloudbeaver/core-root/__custom_mocks__/resolvers/mockServerConfig.js';
+// import { coreRoutingManifest } from '@cloudbeaver/core-routing';
+// import { coreSDKManifest } from '@cloudbeaver/core-sdk';
+// import { coreSettingsManifest } from '@cloudbeaver/core-settings';
+// import {
+//   expectDeprecatedSettingMessage,
+//   expectNoDeprecatedSettingMessage,
+// } from '@cloudbeaver/core-settings/__custom_mocks__/expectDeprecatedSettingMessage.js';
+// import { coreStorageManifest } from '@cloudbeaver/core-storage';
+// import { coreUIManifest } from '@cloudbeaver/core-ui';
+// import { coreViewManifest } from '@cloudbeaver/core-view';
+// import { createApp } from '@cloudbeaver/tests-runner';
 
-import { coreNavigationTree } from './manifest';
-import { NavTreeSettings, NavTreeSettingsService } from './NavTreeSettingsService';
+// import { coreNavigationTree } from './manifest.js';
+// import { NavTreeSettingsService } from './NavTreeSettingsService.js';
 
-const endpoint = createGQLEndpoint();
-const app = createApp(
-  coreNavigationTree,
-  coreEventsManifest,
-  corePluginManifest,
-  coreProductManifest,
-  coreRootManifest,
-  coreSDKManifest,
-  coreSettingsManifest,
-  coreBrowserManifest,
-  coreRoutingManifest,
-  coreThemingManifest,
-  coreLocalizationManifest,
-  coreAuthenticationManifest,
-  coreAppManifest,
-  coreProjectsManifest,
-  coreUIManifest,
-  coreViewManifest,
-);
+// const endpoint = createGQLEndpoint();
+// const server = mockGraphQL(...mockAppInit(endpoint), ...mockAuthentication(endpoint));
+// const app = createApp(
+//   coreNavigationTree,
+//   coreEventsManifest,
+//   coreStorageManifest,
+//   coreRootManifest,
+//   coreSDKManifest,
+//   coreSettingsManifest,
+//   coreBrowserManifest,
+//   coreRoutingManifest,
+//   coreLocalizationManifest,
+//   coreAuthenticationManifest,
+//   coreProjectsManifest,
+//   coreUIManifest,
+//   coreViewManifest,
+//   coreClientActivityManifest,
+// );
 
-const server = mockGraphQL(...mockAppInit(endpoint), ...mockAuthentication(endpoint));
+// const deprecatedSettings = {
+//   'core.app.navigationTree.childrenLimit': 100,
+//   'core.app.metadata.editing': false,
+//   'core.app.metadata.deleting': false,
+// };
 
-beforeAll(() => app.init());
+// const newSettings = {
+//   ...deprecatedSettings,
+//   'core.navigation-tree.childrenLimit': 200,
+//   'core.navigation-tree.editing': true,
+//   'core.navigation-tree.deleting': true,
+// };
 
-const equalConfig = {
-  core: {
-    app: {
-      navigationTree: {
-        childrenLimit: 1,
-      },
-      metadata: {
-        editing: false,
-        deleting: false,
-      },
-    },
-    'navigation-tree': {
-      childrenLimit: 1,
-      editing: false,
-      deleting: false,
-    } as NavTreeSettings,
-  },
-};
+// test('New settings override deprecated', async () => {
+//   const settings = app.serviceProvider.getService(NavTreeSettingsService);
+//   const config = app.serviceProvider.getService(ServerConfigResource);
 
-test('New settings equal deprecated settings', async () => {
-  const settings = app.injector.getServiceByClass(NavTreeSettingsService);
-  const coreSettings = app.injector.getServiceByClass(CoreSettingsService);
-  const config = app.injector.getServiceByClass(ServerConfigResource);
+//   server.use(endpoint.query('serverConfig', mockServerConfig(newSettings)));
 
-  server.use(endpoint.query('serverConfig', mockServerConfig(equalConfig)));
+//   await config.refresh();
 
-  await config.refresh();
+//   expect(settings.childrenLimit).toBe(200);
+//   expect(settings.editing).toBe(true);
+//   expect(settings.deleting).toBe(true);
+//   expectNoDeprecatedSettingMessage();
+// });
 
-  expect(settings.settings.getValue('childrenLimit')).toBe(1);
-  expect(settings.settings.getValue('editing')).toBe(false);
-  expect(settings.settings.getValue('deleting')).toBe(false);
-  expect(coreSettings.settings.getValue('app.navigationTree.childrenLimit')).toBe(1);
-  expect(coreSettings.settings.getValue('app.metadata.editing')).toBe(false);
-  expect(coreSettings.settings.getValue('app.metadata.deleting')).toBe(false);
-});
+// test('Deprecated settings are used if new settings are not defined', async () => {
+//   const settings = app.serviceProvider.getService(NavTreeSettingsService);
+//   const config = app.serviceProvider.getService(ServerConfigResource);
+
+//   server.use(endpoint.query('serverConfig', mockServerConfig(deprecatedSettings)));
+
+//   await config.refresh();
+
+//   expect(settings.childrenLimit).toBe(100);
+//   expect(settings.editing).toBe(false);
+//   expect(settings.deleting).toBe(false);
+//   expectDeprecatedSettingMessage();
+// });

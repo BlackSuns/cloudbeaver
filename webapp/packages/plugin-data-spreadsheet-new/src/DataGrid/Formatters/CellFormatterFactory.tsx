@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,13 +8,14 @@
 import { observer } from 'mobx-react-lite';
 import { useContext, useRef } from 'react';
 
-import { IResultSetRowKey, isBooleanValuePresentationAvailable } from '@cloudbeaver/plugin-data-viewer';
-import type { RenderCellProps } from '@cloudbeaver/plugin-react-data-grid';
+import type { RenderCellProps } from '@cloudbeaver/plugin-data-grid';
+import { type IResultSetRowKey, isBooleanValuePresentationAvailable } from '@cloudbeaver/plugin-data-viewer';
 
-import { CellContext } from '../CellRenderer/CellContext';
-import { TableDataContext } from '../TableDataContext';
-import { BooleanFormatter } from './CellFormatters/BooleanFormatter';
-import { TextFormatter } from './CellFormatters/TextFormatter';
+import { CellContext } from '../CellRenderer/CellContext.js';
+import { TableDataContext } from '../TableDataContext.js';
+import { BlobFormatter } from './CellFormatters/BlobFormatter.js';
+import { BooleanFormatter } from './CellFormatters/BooleanFormatter.js';
+import { TextFormatter } from './CellFormatters/TextFormatter.js';
 
 interface IProps extends RenderCellProps<IResultSetRowKey> {
   isEditing: boolean;
@@ -29,14 +30,19 @@ export const CellFormatterFactory = observer<IProps>(function CellFormatterFacto
     formatterRef.current = TextFormatter;
 
     if (cellContext.cell) {
-      const resultColumn = tableDataContext.getColumnInfo(cellContext.cell.column);
-      const value = tableDataContext.getCellValue(cellContext.cell);
+      const isBlob = tableDataContext.format.isBinary(cellContext.cell);
 
-      if (value !== undefined) {
-        const rawValue = tableDataContext.format.get(value);
+      if (isBlob) {
+        formatterRef.current = BlobFormatter;
+      } else {
+        const value = tableDataContext.getCellValue(cellContext.cell);
+        if (value !== undefined) {
+          const resultColumn = tableDataContext.getColumnInfo(cellContext.cell.column);
+          const rawValue = tableDataContext.format.get(cellContext.cell);
 
-        if (resultColumn && isBooleanValuePresentationAvailable(rawValue, resultColumn)) {
-          formatterRef.current = BooleanFormatter;
+          if (resultColumn && isBooleanValuePresentationAvailable(rawValue, resultColumn)) {
+            formatterRef.current = BooleanFormatter;
+          }
         }
       }
     }

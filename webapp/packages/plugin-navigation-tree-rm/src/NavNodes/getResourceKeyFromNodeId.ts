@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ export function getResourceKeyFromNodeId(nodeId: string): string | undefined {
   }
 
   const parts = getPathParts(nodeId.replace('//', '\\'));
-  const projectId = parts[1];
+  const projectId = parts[1]!;
   const path = createPath(...parts.slice(2, parts.length - 1));
   let name: string | undefined;
 

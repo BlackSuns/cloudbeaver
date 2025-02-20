@@ -1,16 +1,17 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import type { GraphQLRequest, RequestHandler } from 'msw';
+import { afterAll, afterEach, beforeAll } from '@jest/globals';
+import type { GraphQLHandler } from 'msw';
 import { setupServer } from 'msw/node';
 
-import { createWebsocketEndpoint } from './createWebsocketEndpoint';
+import { createWebsocketEndpoint } from './createWebsocketEndpoint.js';
 
-export function mockGraphQL(...requestHandlers: RequestHandler<any, GraphQLRequest<any>, any, GraphQLRequest<any>>[]) {
+export function mockGraphQL(...requestHandlers: GraphQLHandler[]) {
   const server = setupServer(...requestHandlers, createWebsocketEndpoint());
 
   beforeAll(() => server.listen());

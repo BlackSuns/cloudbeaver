@@ -11,5 +11,7 @@ query getAuthProviderConfigurations($providerId: ID) {
     signOutLink
     redirectLink
     metadataLink
+    acsLink
+    entityIdLink
   }
 }

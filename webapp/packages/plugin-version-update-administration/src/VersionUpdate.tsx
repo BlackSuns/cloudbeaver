@@ -1,51 +1,44 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import styled, { css } from 'reshadow';
-import { gte } from 'semver';
 
-import type { AdministrationItemContentComponent } from '@cloudbeaver/core-administration';
-import { ColoredContainer, useResource, useStyles } from '@cloudbeaver/core-blocks';
+import type { AdministrationItemContentProps } from '@cloudbeaver/core-administration';
+import { ColoredContainer, s, useResource, useS } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import { CachedMapAllKey } from '@cloudbeaver/core-resource';
+import type { TabContainerPanelComponent } from '@cloudbeaver/core-ui';
 import { VersionResource, VersionService } from '@cloudbeaver/core-version';
+import { VersionUpdateService } from '@cloudbeaver/core-version-update';
 
-import { Instructions } from './Instructions';
-import { Recommendations } from './Recommendations';
-import { VersionChecker } from './VersionChecker';
-import { VersionSelector } from './VersionSelector';
+import { VersionChecker } from './VersionChecker.js';
+import { VersionSelector } from './VersionSelector.js';
+import styles from './VersionUpdate.module.css';
 
-const styles = css`
-  ColoredContainer {
-    composes: theme-typography--body2 from global;
-    list-style-position: inside;
-  }
-`;
-
-export const VersionUpdate: AdministrationItemContentComponent = observer(function VersionUpdate() {
-  const style = useStyles(styles);
+export const VersionUpdate: TabContainerPanelComponent<AdministrationItemContentProps> = observer(function VersionUpdate() {
+  const style = useS(styles);
   const versionService = useService(VersionService);
+  const versionUpdateService = useService(VersionUpdateService);
   const versionResource = useResource(VersionUpdate, VersionResource, CachedMapAllKey, {
     silent: true,
   });
 
-  const versions = versionResource.resource.values.filter(v => gte(v.number, versionService.current));
+  const GeneralInstructions = versionUpdateService.generalInstructionsGetter?.();
+  const versions = versionResource.resource.values.filter(v => versionService.greaterOrEqual(v.number, versionService.current));
 
-  return styled(style)(
-    <ColoredContainer wrap gap overflow parent>
+  return (
+    <ColoredContainer className={s(style, { coloredContainer: true })} wrap gap overflow parent>
       <VersionChecker />
       {versions.length > 0 && (
         <>
-          <Instructions />
+          {GeneralInstructions && <GeneralInstructions />}
           <VersionSelector versions={versions} />
         </>
       )}
-      <Recommendations />
-    </ColoredContainer>,
+    </ColoredContainer>
   );
 });

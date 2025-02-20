@@ -13,11 +13,11 @@
   },
   "tasks": [
     {
-      "label": "Run Tests",
+      "label": "Run Tests CE",
       "type": "shell",
       "command": "yarn",
       "group": "test",
-      "args": ["lerna", "run", "test", "--no-bail", "--stream", "--"]
+      "args": ["test"]
     },
     {
       "label": "Run DevServer CE",
@@ -34,13 +34,31 @@
       }
     },
     {
+      "label": "Generate Eclipse PDE CloudBeaver",
+      "type": "shell",
+      "osx": {
+        "command": "./generate_workspace.sh"
+      },
+      "windows": {
+        "command": "./generate_workspace.cmd"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/../cloudbeaver"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "close": true,
+        "clear": false
+      }
+    },
+    {
       "label": "Build CE",
       "type": "shell",
       "windows": {
-        "command": "./build-sqlite.bat"
+        "command": "./build.bat"
       },
       "osx": {
-        "command": "./build-sqlite.sh"
+        "command": "./build.sh"
       },
       "options": {
         "cwd": "${workspaceFolder}/deploy"
@@ -51,21 +69,52 @@
       }
     },
     {
+      "label": "Run Backend CE",
+      "type": "shell",
+      "windows": {
+        "command": "./run-server.bat"
+      },
+      "osx": {
+        "command": "./run-server.sh"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/deploy/cloudbeaver"
+      }
+    },
+    {
       "label": "Yarn Install",
       "type": "shell",
-      "command": "yarn",
-      "args": []
+      "command": "yarn install",
+      "args": [],
+      "presentation": {
+        "reveal": "silent",
+        "close": true,
+        "clear": false
+      }
     },
     {
-      "label": "Lerna Bootstrap",
+      "label": "Update TS references CE",
       "type": "shell",
-      "command": "yarn",
-      "args": ["lerna", "bootstrap"]
+      "command": "yarn run update-ts-references",
+      "options": {
+        "cwd": "${workspaceFolder}/webapp"
+      }
     },
     {
-      "label": "Bootstrap",
-      "dependsOrder": "sequence",
-      "dependsOn": ["Yarn Install", "Lerna Bootstrap"]
+      "label": "Clean CE",
+      "type": "shell",
+      "command": "yarn clean",
+      "options": {
+        "cwd": "${workspaceFolder}/webapp"
+      }
+    },
+    {
+      "label": "Add Custom Plugin",
+      "type": "shell",
+      "command": "yarn run add-plugin",
+      "options": {
+        "cwd": "${workspaceFolder}/webapp/packages"
+      }
     }
   ],
   "inputs": [
@@ -73,8 +122,8 @@
       "type": "pickString",
       "id": "stage.ce",
       "description": "CE Stage servers",
-      "default": "http://127.0.0.1:8978/",
-      "options": ["http://127.0.0.1:8978/"]
+      "default": "http://localhost:8978/",
+      "options": ["http://localhost:8978/"]
     }
   ]
 }

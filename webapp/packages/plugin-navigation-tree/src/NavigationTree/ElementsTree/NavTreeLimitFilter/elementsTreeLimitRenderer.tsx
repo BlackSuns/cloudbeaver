@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,11 +10,11 @@ import { observer } from 'mobx-react-lite';
 import { Link, s, useTranslate } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import { NavTreeResource } from '@cloudbeaver/core-navigation-tree';
-import { CachedResourceOffsetPageKey, getNextPageOffset } from '@cloudbeaver/core-resource';
+import { CachedResourceOffsetPageKey, CachedResourceOffsetPageTargetKey, getNextPageOffset } from '@cloudbeaver/core-resource';
 
-import type { NavigationNodeRendererComponent } from '../NavigationNodeComponent';
-import { NAVIGATION_TREE_LIMIT } from './elementsTreeLimitFilter';
-import styles from './elementsTreeLimitRenderer.m.css';
+import type { NavigationNodeRendererComponent } from '../NavigationNodeComponent.js';
+import { NAVIGATION_TREE_LIMIT } from './elementsTreeLimitFilter.js';
+import styles from './elementsTreeLimitRenderer.module.css';
 
 export function elementsTreeLimitRenderer(nodeId: string): NavigationNodeRendererComponent | undefined {
   if (nodeId === NAVIGATION_TREE_LIMIT.limit) {
@@ -31,14 +31,18 @@ const NavTreeLimitMessage: NavigationNodeRendererComponent = observer(function N
 
   function loadMore() {
     const parentNodeId = path[path.length - 1];
-    const pageInfo = navTreeResource.offsetPagination.getPageInfo(CachedResourceOffsetPageKey(0, 0).setTarget(parentNodeId));
+    const pageInfo = navTreeResource.offsetPagination.getPageInfo(
+      CachedResourceOffsetPageKey(0, 0).setParent(CachedResourceOffsetPageTargetKey(parentNodeId)),
+    );
     if (pageInfo) {
-      navTreeResource.load(CachedResourceOffsetPageKey(getNextPageOffset(pageInfo), limit).setTarget(parentNodeId));
+      navTreeResource.load(
+        CachedResourceOffsetPageKey(getNextPageOffset(pageInfo), limit).setParent(CachedResourceOffsetPageTargetKey(parentNodeId)),
+      );
     }
   }
 
   return (
-    <div className={s(styles, { loadMoreBox: true })} data-testid="load-more-box">
+    <div className={s(styles, { loadMoreBox: true })}>
       <Link title={translate('app_navigationTree_limited', undefined, { limit: limit })} onClick={loadMore}>
         {translate('ui_load_more')}
       </Link>

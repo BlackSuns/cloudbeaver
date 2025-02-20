@@ -1,91 +1,81 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import styled, { css } from 'reshadow';
 
-import { Button, SnackbarBody, SnackbarContent, SnackbarFooter, SnackbarStatus, SnackbarWrapper, useTranslate } from '@cloudbeaver/core-blocks';
-import { useController } from '@cloudbeaver/core-di';
-import { ENotificationType, NotificationComponentProps } from '@cloudbeaver/core-events';
+import {
+  Button,
+  s,
+  SnackbarBody,
+  SnackbarContent,
+  SnackbarFooter,
+  SnackbarStatus,
+  SnackbarWrapper,
+  useErrorDetails,
+  useS,
+  useTranslate,
+} from '@cloudbeaver/core-blocks';
+import { ENotificationType } from '@cloudbeaver/core-events';
 import { EDeferredState } from '@cloudbeaver/core-utils';
 
-import { ExportNotificationController } from './ExportNotificationController';
+import styles from './ExportNotification.module.css';
+import type { IExportNotification } from './IExportNotification.js';
+import { useExportNotification } from './useExportNotification.js';
 
-const styles = css`
-  message {
-    composes: theme-typography--body1 from global;
-    opacity: 0.8;
-    overflow: auto;
-    max-height: 100px;
-    word-break: break-word;
-    white-space: pre-line;
-  }
-  source-name {
-    composes: theme-typography--body2 from global;
-    padding-top: 16px;
-    max-height: 50px;
-    overflow: hidden;
-
-    & pre {
-      margin: 0;
-      text-overflow: ellipsis;
-      overflow: hidden;
-    }
-  }
-`;
-
-type Props = NotificationComponentProps<{
-  source: string;
-}>;
+interface Props {
+  notification: IExportNotification;
+}
 
 export const ExportNotification = observer<Props>(function ExportNotification({ notification }) {
-  const controller = useController(ExportNotificationController, notification);
   const translate = useTranslate();
-  const { title, status, message } = controller.status;
+  const style = useS(styles);
+  const state = useExportNotification(notification);
+  const errorDetails = useErrorDetails(state.task?.process.getRejectionReason() ?? null);
 
-  return styled(styles)(
-    <SnackbarWrapper persistent={status === ENotificationType.Loading} onClose={controller.delete}>
+  const { title, status, message } = state.status;
+
+  return (
+    <SnackbarWrapper persistent={status === ENotificationType.Loading} onClose={state.delete}>
       <SnackbarStatus status={status} />
       <SnackbarContent>
         <SnackbarBody title={translate(title)}>
-          {message && <message>{message}</message>}
-          <source-name>
-            {controller.sourceName}
-            {controller.task?.context.query && <pre title={controller.task.context.query}>{controller.task.context.query}</pre>}
-          </source-name>
+          {message && <div className={s(style, { message: true })}>{message}</div>}
+          <div className={s(style, { sourceName: true })}>
+            {state.sourceName}
+            {state.task?.context.query && (
+              <pre className={s(style, { pre: true })} title={state.task.context.query}>
+                {state.task.context.query}
+              </pre>
+            )}
+          </div>
         </SnackbarBody>
         <SnackbarFooter timestamp={notification.timestamp}>
-          {status === ENotificationType.Info && controller.downloadUrl && (
+          {status === ENotificationType.Info && state.downloadUrl && (
             <>
-              <Button type="button" mod={['outlined']} onClick={controller.delete}>
-                {translate('data_transfer_notification_delete')}
+              <Button type="button" mod={['outlined']} onClick={state.delete}>
+                {translate('ui_processing_cancel')}
               </Button>
-              <Button tag="a" href={controller.downloadUrl} mod={['unelevated']} download onClick={controller.download}>
+              <Button tag="a" href={state.downloadUrl} mod={['unelevated']} download onClick={state.download}>
                 {translate('data_transfer_notification_download')}
               </Button>
             </>
           )}
           {status === ENotificationType.Error && (
-            <Button type="button" mod={['outlined']} disabled={controller.isDetailsDialogOpen} onClick={controller.showDetails}>
+            <Button type="button" mod={['outlined']} disabled={errorDetails.isOpen} onClick={errorDetails.open}>
               {translate('ui_errors_details')}
             </Button>
           )}
           {status === ENotificationType.Loading && (
-            <Button
-              type="button"
-              mod={['outlined']}
-              disabled={controller.process?.getState() === EDeferredState.CANCELLING}
-              onClick={controller.cancel}
-            >
+            <Button type="button" mod={['outlined']} disabled={state.task?.process.getState() === EDeferredState.CANCELLING} onClick={state.cancel}>
               {translate('ui_processing_cancel')}
             </Button>
           )}
         </SnackbarFooter>
       </SnackbarContent>
-    </SnackbarWrapper>,
+    </SnackbarWrapper>
   );
 });

@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@ import { type DBObject, DBObjectParentKey, DBObjectResource, NavTreeResource } f
 import { isDefined } from '@cloudbeaver/core-utils';
 import { NavNodeViewService } from '@cloudbeaver/plugin-navigation-tree';
 
-import styles from './ObjectPropertyTable.m.css';
-import { TableLoader } from './Table/TableLoader';
+import styles from './ObjectPropertyTable.module.css';
+import { TableLoader } from './Table/TableLoader.js';
 
 interface ObjectPropertyTableProps {
   objectId: string;
@@ -26,18 +26,19 @@ interface ObjectPropertyTableProps {
 export const ObjectPropertyTable = observer<ObjectPropertyTableProps>(function ObjectPropertyTable({ objectId, parentId, className }) {
   const translate = useTranslate();
   const navNodeViewService = useService(NavNodeViewService);
-  const navTreeResource = useService(NavTreeResource);
+  const navTreeResource = useResource(ObjectPropertyTable, NavTreeResource, objectId, { forceSuspense: true });
 
   const pagination = useOffsetPagination(DBObjectResource, {
     key: DBObjectParentKey(objectId),
-    pageSize: navTreeResource.childrenLimit,
+    pageSize: navTreeResource.resource.childrenLimit,
   });
 
-  const dbObjectLoader = useResource(ObjectPropertyTable, DBObjectResource, pagination.key);
+  const dbObjectLoader = useResource(ObjectPropertyTable, DBObjectResource, pagination.currentPage);
 
-  const { nodes, duplicates } = navNodeViewService.filterDuplicates(dbObjectLoader.data.filter(isDefined).map(node => node?.id) || []);
+  const allData = dbObjectLoader.resource.get(pagination.allPages).filter(isDefined);
+  const { nodes, duplicates } = navNodeViewService.filterDuplicates(allData.map(node => node?.id) || []);
 
-  const objects = dbObjectLoader.data.filter(node => nodes.includes(node?.id || '')) as DBObject[];
+  const objects = allData.filter(node => nodes.includes(node.id)) as DBObject[];
 
   useEffect(() => {
     navNodeViewService.logDuplicates(objectId, duplicates);

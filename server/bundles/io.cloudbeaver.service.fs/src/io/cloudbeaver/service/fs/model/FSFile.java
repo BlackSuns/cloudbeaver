@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,44 +16,45 @@
  */
 package io.cloudbeaver.service.fs.model;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.meta.Property;
-import org.jkiss.utils.ArrayUtils;
+import org.jkiss.dbeaver.model.navigator.fs.DBNPathBase;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 
 public class FSFile {
-    private final Path path;
+    @NotNull
+    private final DBNPathBase node;
 
-    public FSFile(Path path) {
-        this.path = path;
+    public FSFile(@NotNull DBNPathBase node) {
+        this.node = node;
     }
 
     @Property
     public String getName() {
-        String[] pathParts = path.getFileName().toString().split(path.getFileSystem().getSeparator());
-        if (ArrayUtils.isEmpty(pathParts)) {
-            return "";
-        }
-        return pathParts[pathParts.length - 1];
+        return node.getNodeDisplayName();
     }
 
     @Property
-
     public long getLength() throws IOException {
-        return Files.size(path);
+        return Files.size(node.getPath());
     }
 
     @Property
-
     public boolean isFolder() {
-        return Files.isDirectory(path);
+        return Files.isDirectory(node.getPath());
     }
 
     @Property
     public Map<String, String> getMetaData() {
         return Map.of();
+    }
+
+    @Property
+    //TODO: node URI after finish migration to the new node path format
+    public String getNodePath() {
+        return node.getNodeItemPath();
     }
 }

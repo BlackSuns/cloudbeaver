@@ -1,18 +1,18 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
- * All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * NOTICE:  All information contained herein is, and remains
- * the property of DBeaver Corp and its suppliers, if any.
- * The intellectual and technical concepts contained
- * herein are proprietary to DBeaver Corp and its suppliers
- * and may be covered by U.S. and Foreign Patents,
- * patents in process, and are protected by trade secret or copyright law.
- * Dissemination of this information or reproduction of this material
- * is strictly forbidden unless prior written permission is obtained
- * from DBeaver Corp.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package io.cloudbeaver.model.rm;
@@ -20,7 +20,6 @@ package io.cloudbeaver.model.rm;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.DBPObject;
@@ -37,7 +36,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DBNResourceManagerProject extends DBNAbstractResourceManagerNode {
-    private static final Log log = Log.getLog(DBNResourceManagerProject.class);
 
     private final RMProject project;
 
@@ -56,19 +54,25 @@ public class DBNResourceManagerProject extends DBNAbstractResourceManagerNode {
         return project.getId();
     }
 
+    @NotNull
+    @Override
+    public String getNodeId() {
+        return project.getId();
+    }
+
     @Override
     public String getNodeType() {
         return "rm.project";
     }
 
     @Override
-    public String getNodeName() {
+    public String getNodeDisplayName() {
         return project.getDisplayName();
     }
 
     @Override
     public String getLocalizedName(String locale) {
-        return getNodeName();
+        return getNodeDisplayName();
     }
 
     @Override
@@ -87,8 +91,8 @@ public class DBNResourceManagerProject extends DBNAbstractResourceManagerNode {
     }
 
     @Override
-    public DBNResourceManagerResource[] getChildren(DBRProgressMonitor monitor) throws DBException {
-        if (children == null) {
+    public DBNResourceManagerResource[] getChildren(@NotNull DBRProgressMonitor monitor) throws DBException {
+        if (children == null && !monitor.isForceCacheUsage()) {
             List<DBNResourceManagerResource> rfList = new ArrayList<>();
             for (RMResource resource : getResourceController().listResources(
                 project.getId(), null, null, true, false, false)) {
@@ -105,6 +109,7 @@ public class DBNResourceManagerProject extends DBNAbstractResourceManagerNode {
         return ((DBNResourceManagerRoot) getParentNode()).getResourceController();
     }
 
+    @Deprecated
     @Override
     public String getNodeItemPath() {
         return getParentNode().getNodeItemPath() + "/" + getName();
@@ -116,21 +121,15 @@ public class DBNResourceManagerProject extends DBNAbstractResourceManagerNode {
         return this;
     }
 
+    @Nullable
     @Override
-    public String toString() {
-        return getNodeName();
-    }
-
-
-    @Override
-    public DBPProject getOwnerProject() {
+    public DBPProject getOwnerProjectOrNull() {
         List<? extends DBPProject> globalProjects = getModel().getModelProjects();
-        if (globalProjects == null) {
-            return null;
-        }
-        for (DBPProject modelProject : globalProjects) {
-            if (CommonUtils.equalObjects(modelProject.getId(), project.getId())) {
-                return modelProject;
+        if (globalProjects != null) {
+            for (DBPProject modelProject : globalProjects) {
+                if (CommonUtils.equalObjects(modelProject.getId(), project.getId())) {
+                    return modelProject;
+                }
             }
         }
         return null;
@@ -141,4 +140,10 @@ public class DBNResourceManagerProject extends DBNAbstractResourceManagerNode {
     public DBPObject getObjectDetails(@NotNull DBRProgressMonitor monitor, @NotNull SMSessionContext sessionContext, @NotNull Object dataSource) throws DBException {
         return project;
     }
+
+    @Override
+    public String toString() {
+        return getNodeDisplayName();
+    }
+
 }

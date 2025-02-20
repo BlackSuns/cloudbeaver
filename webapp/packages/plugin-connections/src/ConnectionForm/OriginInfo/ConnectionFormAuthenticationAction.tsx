@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,11 +8,10 @@
 import { observer } from 'mobx-react-lite';
 
 import { AUTH_PROVIDER_LOCAL_ID } from '@cloudbeaver/core-authentication';
-import { Button, getComputed, PlaceholderComponent, useResource, useTranslate } from '@cloudbeaver/core-blocks';
+import { Button, getComputed, type PlaceholderComponent, useResource, useTranslate, useAuthenticationAction } from '@cloudbeaver/core-blocks';
 import { DatabaseAuthModelsResource, DBDriverResource } from '@cloudbeaver/core-connections';
-import { useAuthenticationAction } from '@cloudbeaver/core-ui';
 
-import type { IConnectionFormProps } from '../IConnectionFormProps';
+import type { IConnectionFormProps } from '../IConnectionFormProps.js';
 
 export const AuthenticationButton: PlaceholderComponent<IConnectionFormProps> = observer(function ConnectionFormAuthenticationAction({ state }) {
   const translate = useTranslate();

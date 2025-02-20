@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,12 @@ import {
   ENodeMoveType,
   getNodesFromContext,
   type INodeMoveData,
-  NavNodeInfoResource,
   NavNodeManagerService,
   navNodeMoveContext,
   NavTreeResource,
   ProjectsNavNodeService,
 } from '@cloudbeaver/core-navigation-tree';
-import { ProjectInfoResource, ProjectsService } from '@cloudbeaver/core-projects';
+import { ProjectInfoResource } from '@cloudbeaver/core-projects';
 import {
   CachedMapAllKey,
   CachedTreeChildrenKey,
@@ -34,29 +33,24 @@ import {
 import {
   getRmResourceKey,
   getRmResourcePath,
+  isRMProjectNode,
+  isRMResourceNode,
   NAV_NODE_TYPE_RM_PROJECT,
   NAV_NODE_TYPE_RM_RESOURCE,
   ResourceManagerResource,
   RESOURCES_NODE_PATH,
 } from '@cloudbeaver/core-resource-manager';
 import { createPath, getPathParent } from '@cloudbeaver/core-utils';
-import { ACTION_NEW_FOLDER, ActionService, DATA_CONTEXT_MENU, IAction, MenuService } from '@cloudbeaver/core-view';
-import { DATA_CONTEXT_ELEMENTS_TREE, MENU_ELEMENTS_TREE_TOOLS } from '@cloudbeaver/plugin-navigation-tree';
+import { ACTION_NEW_FOLDER, ActionService, type IAction, MenuService } from '@cloudbeaver/core-view';
+import { DATA_CONTEXT_ELEMENTS_TREE, MENU_ELEMENTS_TREE_TOOLS, TreeSelectionService } from '@cloudbeaver/plugin-navigation-tree';
 import { FolderDialog } from '@cloudbeaver/plugin-projects';
 import { ResourceManagerService } from '@cloudbeaver/plugin-resource-manager';
 
-import { NavResourceNodeService } from '../NavResourceNodeService';
-import { DATA_CONTEXT_RESOURCE_MANAGER_TREE_RESOURCE_TYPE_ID } from '../Tree/DATA_CONTEXT_RESOURCE_MANAGER_TREE_RESOURCE_TYPE_ID';
-import { getResourceKeyFromNodeId } from './getResourceKeyFromNodeId';
-import { getResourceNodeId } from './getResourceNodeId';
-import { getRmProjectNodeId } from './getRmProjectNodeId';
-
-interface ITargetNode {
-  projectId: string;
-  folderId?: string;
-  projectNodeId: string;
-  selectProject: boolean;
-}
+import { NavResourceNodeService } from '../NavResourceNodeService.js';
+import { DATA_CONTEXT_RESOURCE_MANAGER_TREE_RESOURCE_TYPE_ID } from '../Tree/DATA_CONTEXT_RESOURCE_MANAGER_TREE_RESOURCE_TYPE_ID.js';
+import { getResourceKeyFromNodeId } from './getResourceKeyFromNodeId.js';
+import { getResourceNodeId } from './getResourceNodeId.js';
+import { getRmProjectNodeId } from './getRmProjectNodeId.js';
 
 @injectable()
 export class ResourceFoldersBootstrap extends Bootstrap {
@@ -68,41 +62,52 @@ export class ResourceFoldersBootstrap extends Bootstrap {
     private readonly navNodeManagerService: NavNodeManagerService,
     private readonly resourceManagerResource: ResourceManagerResource,
     private readonly resourceManagerService: ResourceManagerService,
-    private readonly projectsService: ProjectsService,
     private readonly projectInfoResource: ProjectInfoResource,
     private readonly commonDialogService: CommonDialogService,
     private readonly actionService: ActionService,
     private readonly menuService: MenuService,
     private readonly navResourceNodeService: NavResourceNodeService,
-    private readonly navNodeInfoResource: NavNodeInfoResource,
+    private readonly treeSelectionService: TreeSelectionService,
     private readonly projectsNavNodeService: ProjectsNavNodeService,
   ) {
     super();
   }
 
-  register(): void | Promise<void> {
+  override register(): void {
     this.syncNavTree();
 
     this.actionService.addHandler({
       id: 'tree-tools-menu-resource-folders-handler',
-      isActionApplicable: (context, action) => {
-        const tree = context.tryGet(DATA_CONTEXT_ELEMENTS_TREE);
+      actions: [ACTION_NEW_FOLDER],
+      contexts: [DATA_CONTEXT_ELEMENTS_TREE, DATA_CONTEXT_RESOURCE_MANAGER_TREE_RESOURCE_TYPE_ID],
+      isActionApplicable: context => {
+        const tree = context.get(DATA_CONTEXT_ELEMENTS_TREE)!;
 
-        if (![ACTION_NEW_FOLDER].includes(action) || !tree?.baseRoot.startsWith(RESOURCES_NODE_PATH) || !this.userInfoResource.data) {
+        if (!tree.baseRoot.startsWith(RESOURCES_NODE_PATH) || !this.userInfoResource.isAuthenticated()) {
           return false;
         }
 
         return true;
       },
-      getLoader: (context, action) => {
-        return getCachedMapResourceLoaderState(this.projectInfoResource, () => CachedMapAllKey);
+      getLoader: () => getCachedMapResourceLoaderState(this.projectInfoResource, () => CachedMapAllKey),
+      isDisabled: context => {
+        const tree = context.get(DATA_CONTEXT_ELEMENTS_TREE)!;
+
+        return (
+          this.treeSelectionService.getFirstSelectedNode(
+            tree,
+            getRmProjectNodeId,
+            project => project.canEditResources,
+            isRMProjectNode,
+            node => isRMResourceNode(node) && Boolean(node?.folder),
+          ) === undefined
+        );
       },
-      isDisabled: context => this.getTargetNode(context) === undefined,
       handler: this.elementsTreeActionHandler.bind(this),
     });
 
     this.menuService.addCreator({
-      isApplicable: context => context.get(DATA_CONTEXT_MENU) === MENU_ELEMENTS_TREE_TOOLS,
+      menus: [MENU_ELEMENTS_TREE_TOOLS],
       getItems: (context, items) => {
         if (!items.includes(ACTION_NEW_FOLDER)) {
           return [...items, ACTION_NEW_FOLDER];
@@ -112,8 +117,6 @@ export class ResourceFoldersBootstrap extends Bootstrap {
       },
     });
   }
-
-  load(): void | Promise<void> {}
 
   private async moveResourceToFolder({ type, targetNode, moveContexts }: INodeMoveData, contexts: IExecutionContextProvider<INodeMoveData>) {
     const move = contexts.getContext(navNodeMoveContext);
@@ -167,10 +170,18 @@ export class ResourceFoldersBootstrap extends Bootstrap {
   }
 
   private async elementsTreeActionHandler(contexts: IDataContextProvider, action: IAction) {
-    const resourceTypeId = contexts.tryGet(DATA_CONTEXT_RESOURCE_MANAGER_TREE_RESOURCE_TYPE_ID);
+    const resourceTypeId = contexts.get(DATA_CONTEXT_RESOURCE_MANAGER_TREE_RESOURCE_TYPE_ID)!;
+    const tree = contexts.get(DATA_CONTEXT_ELEMENTS_TREE)!;
+
     switch (action) {
       case ACTION_NEW_FOLDER: {
-        const targetNode = this.getTargetNode(contexts);
+        const targetNode = this.treeSelectionService.getFirstSelectedNode(
+          tree,
+          getRmProjectNodeId,
+          project => project.canEditResources,
+          isRMProjectNode,
+          node => isRMResourceNode(node) && Boolean(node?.folder),
+        );
 
         if (!targetNode) {
           return;
@@ -201,7 +212,7 @@ export class ResourceFoldersBootstrap extends Bootstrap {
           validation: async ({ name, folder, projectId }, setMessage) => {
             const trimmed = name.trim();
 
-            if (trimmed.length === 0 || !name.match(CONNECTION_FOLDER_NAME_VALIDATION)) {
+            if (trimmed.length === 0 || !trimmed.match(CONNECTION_FOLDER_NAME_VALIDATION)) {
               setMessage('connections_connection_folder_validation');
               return false;
             }
@@ -226,7 +237,7 @@ export class ResourceFoldersBootstrap extends Bootstrap {
             const key = getRmResourcePath(result.projectId, result.folder ?? root);
             await this.resourceManagerResource.create(createPath(key, result.name), true);
 
-            this.navTreeResource.refreshTree(getRmProjectNodeId(result.projectId));
+            this.navTreeResource.refreshNode(getRmProjectNodeId(result.projectId));
           } catch (exception: any) {
             this.notificationService.logException(exception, 'Error occurred while renaming');
           }
@@ -235,58 +246,6 @@ export class ResourceFoldersBootstrap extends Bootstrap {
         break;
       }
     }
-  }
-
-  private getTargetNode(contexts: IDataContextProvider): ITargetNode | undefined {
-    const tree = contexts.get(DATA_CONTEXT_ELEMENTS_TREE);
-
-    if (!tree) {
-      return undefined;
-    }
-
-    const selected = tree.getSelected();
-
-    if (selected.length === 0) {
-      const editableProjects = this.projectsService.activeProjects.filter(project => project.canEditResources);
-
-      if (editableProjects.length > 0) {
-        const project = editableProjects[0];
-
-        return {
-          projectId: project.id,
-          projectNodeId: getRmProjectNodeId(project.id),
-          selectProject: editableProjects.length > 1,
-        };
-      }
-      return;
-    }
-
-    const targetFolder = selected[0];
-    const parentIds = [...this.navNodeInfoResource.getParents(targetFolder), targetFolder];
-    const parents = this.navNodeInfoResource.get(resourceKeyList(parentIds));
-    const projectNode = parents.find(parent => parent?.nodeType === NAV_NODE_TYPE_RM_PROJECT);
-
-    if (!projectNode) {
-      return;
-    }
-
-    const project = this.projectsNavNodeService.getByNodeId(projectNode.id);
-
-    if (!project?.canEditResources) {
-      return;
-    }
-
-    const targetFolderNode = parents
-      .slice()
-      .reverse()
-      .find(parent => parent?.nodeType === NAV_NODE_TYPE_RM_RESOURCE && parent.folder);
-
-    return {
-      projectId: project.id,
-      folderId: targetFolderNode?.id,
-      projectNodeId: projectNode.id,
-      selectProject: false,
-    };
   }
 
   private getResourceTypeFolder(projectId: string, resourceTypeId: string | undefined): string | undefined {

@@ -1,46 +1,51 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import styled from 'reshadow';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { TextPlaceholder, useObjectRef, useStyles, useTranslate } from '@cloudbeaver/core-blocks';
+import { s, TextPlaceholder, useObjectRef, useS, useTranslate } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import { EventContext, EventStopPropagationFlag } from '@cloudbeaver/core-events';
 import { Executor } from '@cloudbeaver/core-executor';
 import { ClipboardService } from '@cloudbeaver/core-ui';
+import { throttle } from '@cloudbeaver/core-utils';
+import { useCaptureViewContext } from '@cloudbeaver/core-view';
+import { type CellSelectArgs, DataGrid, type DataGridHandle, type Position } from '@cloudbeaver/plugin-data-grid';
 import {
-  DatabaseDataSelectActionsData,
+  DATA_CONTEXT_DV_PRESENTATION,
+  type DatabaseDataSelectActionsData,
   DatabaseEditChangeType,
-  IDatabaseResultSet,
-  IDataPresentationProps,
-  IResultSetEditActionData,
-  IResultSetElementKey,
-  IResultSetPartialKey,
+  DatabaseSelectAction,
+  DataViewerPresentationType,
+  type IDatabaseDataModel,
+  type IDataPresentationProps,
+  type IResultSetEditActionData,
+  type IResultSetElementKey,
+  type IResultSetPartialKey,
+  type IResultSetRowKey,
   ResultSetDataKeysUtils,
+  ResultSetDataSource,
   ResultSetSelectAction,
+  ResultSetViewAction,
 } from '@cloudbeaver/plugin-data-viewer';
-import DataGrid, { type DataGridHandle, type Position } from '@cloudbeaver/plugin-react-data-grid';
-import '@cloudbeaver/plugin-react-data-grid/react-data-grid-dist/lib/styles.css';
 
-import { CellPosition, EditingContext } from '../Editing/EditingContext';
-import { useEditing } from '../Editing/useEditing';
-import baseStyles from '../styles/base.scss';
-import { reactGridStyles } from '../styles/styles';
-import { CellRenderer } from './CellRenderer/CellRenderer';
-import { DataGridContext, IColumnResizeInfo, IDataGridContext } from './DataGridContext';
-import { DataGridSelectionContext } from './DataGridSelection/DataGridSelectionContext';
-import { useGridSelectionContext } from './DataGridSelection/useGridSelectionContext';
-import { CellFormatter } from './Formatters/CellFormatter';
-import { TableDataContext } from './TableDataContext';
-import { useGridDragging } from './useGridDragging';
-import { useGridSelectedCellsCopy } from './useGridSelectedCellsCopy';
-import { useTableData } from './useTableData';
+import { type CellPosition, EditingContext } from '../Editing/EditingContext.js';
+import { useEditing } from '../Editing/useEditing.js';
+import { CellRenderer } from './CellRenderer/CellRenderer.js';
+import { DataGridContext, type IColumnResizeInfo, type IDataGridContext } from './DataGridContext.js';
+import { DataGridSelectionContext } from './DataGridSelection/DataGridSelectionContext.js';
+import { useGridSelectionContext } from './DataGridSelection/useGridSelectionContext.js';
+import classes from './DataGridTable.module.css';
+import { CellFormatter } from './Formatters/CellFormatter.js';
+import { TableDataContext } from './TableDataContext.js';
+import { useGridDragging } from './useGridDragging.js';
+import { useGridSelectedCellsCopy } from './useGridSelectedCellsCopy.js';
+import { useTableData } from './useTableData.js';
 
 interface IInnerState {
   lastCount: number;
@@ -48,21 +53,17 @@ interface IInnerState {
 }
 
 function isAtBottom(event: React.UIEvent<HTMLDivElement>): boolean {
-  const target = event.target as HTMLDivElement;
-  return target.clientHeight + target.scrollTop + 100 > target.scrollHeight;
+  const { clientHeight, scrollTop, scrollHeight } = event.target as HTMLDivElement;
+  return clientHeight + scrollTop + 100 > scrollHeight;
 }
 
 const rowHeight = 25;
 const headerHeight = 28;
+const MAX_CELL_TEXT_SIZE = 100 * 1024;
 
-export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResultSet>>(function DataGridTable({
-  model,
-  actions,
-  resultIndex,
-  simple,
-  className,
-}) {
+export const DataGridTable = observer<IDataPresentationProps>(function DataGridTable({ model, actions, resultIndex, simple, className, ...rest }) {
   const translate = useTranslate();
+  const styles = useS(classes);
 
   const clipboardService = useService(ClipboardService);
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
@@ -76,13 +77,14 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
     }),
     false,
   );
-  const styles = useStyles(reactGridStyles, baseStyles);
   const [columnResize] = useState(() => new Executor<IColumnResizeInfo>());
 
-  const selectionAction = model.source.getAction(resultIndex, ResultSetSelectAction);
+  const selectionAction = (model.source as unknown as ResultSetDataSource).getAction(resultIndex, ResultSetSelectAction);
+  const viewAction = (model.source as unknown as ResultSetDataSource).getAction(resultIndex, ResultSetViewAction);
 
   const focusSyncRef = useRef<CellPosition | null>(null);
 
+  const tableData = useTableData(model as unknown as IDatabaseDataModel<ResultSetDataSource>, resultIndex, dataGridDivRef);
   const editingContext = useEditing({
     readonly: model.isReadonly(resultIndex) || model.isDisabled(resultIndex),
     onEdit: (position, code, key) => {
@@ -115,6 +117,14 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
           }
       }
 
+      const isTruncated = tableData.dataContent.isTextTruncated(cellKey) || tableData.dataContent.isBlobTruncated(cellKey);
+      const isHugeText = tableData.format.getText(cellKey).length > MAX_CELL_TEXT_SIZE;
+
+      if (isHugeText || isTruncated) {
+        actions.setValuePresentation('value-text-presentation');
+        return false;
+      }
+
       return true;
     },
     onCloseEditor: () => {
@@ -122,18 +132,17 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
     },
   });
 
-  const tableData = useTableData(model, resultIndex, dataGridDivRef);
   const gridSelectionContext = useGridSelectionContext(tableData, selectionAction);
 
   function restoreFocus() {
     const gridDiv = gridContainerRef.current;
-    const focusSink = gridDiv?.querySelector<HTMLDivElement>('[tabindex="0"]');
+    const focusSink = gridDiv?.querySelector<HTMLDivElement>('[aria-selected="true"]');
     focusSink?.focus();
   }
 
   function isGridInFocus(): boolean {
     const gridDiv = gridContainerRef.current;
-    const focusSink = gridDiv?.querySelector('[tabindex="0"]');
+    const focusSink = gridDiv?.querySelector('[aria-selected="true"]');
 
     if (!gridDiv || !focusSink) {
       return false;
@@ -158,18 +167,46 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
     }
   }
 
-  const hamdlers = useObjectRef(() => ({
+  const handlers = useObjectRef(() => ({
     selectCell(pos: Position, scroll = false): void {
       if (dataGridRef.current?.selectedCell.idx !== pos.idx || dataGridRef.current.selectedCell.rowIdx !== pos.rowIdx || scroll) {
         dataGridRef.current?.selectCell(pos);
       }
     },
+    focusCell(key: Partial<IResultSetElementKey> | null, initial = false) {
+      if ((!key?.column || !key?.row) && initial) {
+        const selectedElements = selectionAction.getSelectedElements();
+
+        if (selectedElements.length > 0) {
+          key = selectedElements[0]!;
+        } else {
+          key = { column: viewAction.columnKeys[0], row: viewAction.rowKeys[0] };
+        }
+      }
+
+      if (!key?.column || !key?.row) {
+        if (initial) {
+          focusSyncRef.current = { idx: 0, rowIdx: -1 };
+          this.selectCell(focusSyncRef.current);
+        } else {
+          focusSyncRef.current = null;
+        }
+        return;
+      }
+
+      const idx = tableData.getColumnIndexFromColumnKey(key.column!);
+      const rowIdx = tableData.getRowIndexFromKey(key.row!);
+
+      focusSyncRef.current = { idx, rowIdx };
+
+      this.selectCell({ idx, rowIdx });
+    },
   }));
 
-  const gridSelectedCellCopy = useGridSelectedCellsCopy(tableData, selectionAction, gridSelectionContext);
+  const gridSelectedCellCopy = useGridSelectedCellsCopy(tableData, selectionAction as unknown as DatabaseSelectAction, gridSelectionContext);
   const { onMouseDownHandler, onMouseMoveHandler } = useGridDragging({
     onDragStart: startPosition => {
-      hamdlers.selectCell({ idx: startPosition.colIdx, rowIdx: startPosition.rowIdx });
+      handlers.selectCell({ idx: startPosition.colIdx, rowIdx: startPosition.rowIdx });
     },
     onDragOver: (startPosition, currentPosition, event) => {
       gridSelectionContext.selectRange(startPosition, currentPosition, event.ctrlKey || event.metaKey, true);
@@ -179,14 +216,20 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
     },
   });
 
+  useCaptureViewContext((context, id) => {
+    context.set(DATA_CONTEXT_DV_PRESENTATION, { type: DataViewerPresentationType.Data }, id);
+  });
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     gridSelectedCellCopy.onKeydownHandler(event);
+    const cell = selectionAction.getFocusedElement();
+    // we can't edit table cells if table doesn't have row identifier, but we can edit new created rows before insert (CB-6063)
+    const canEdit = model.hasElementIdentifier(resultIndex) || !!(cell && tableData.editor.getElementState(cell) === DatabaseEditChangeType.add);
 
-    if (EventContext.has(event, EventStopPropagationFlag) || tableData.isReadOnly() || model.isReadonly(resultIndex)) {
+    if (EventContext.has(event, EventStopPropagationFlag) || !canEdit || tableData.isReadOnly() || model.isReadonly(resultIndex)) {
       return;
     }
 
-    const cell = selectionAction.getFocusedElement();
     const activeElements = selectionAction.getActiveElements();
     const activeRows = selectionAction.getActiveRows();
 
@@ -207,9 +250,9 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
         tableData.editor.revert(...activeElements);
         return;
       }
-      case 'Insert': {
+      case 'KeyR': {
         if (event.altKey) {
-          if (event.ctrlKey || event.metaKey) {
+          if (event.shiftKey) {
             tableData.editor.duplicate(...activeRows);
           } else {
             tableData.editor.add(cell);
@@ -227,18 +270,18 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
 
         if (filteredRows.length > 0) {
           const editor = tableData.editor;
-          const firstRow = filteredRows[0];
+          const firstRow = filteredRows[0]!;
           const editingState = tableData.editor.getElementState(firstRow);
 
           editor.delete(...filteredRows);
 
           if (editingState === DatabaseEditChangeType.add) {
             if (rowIdx - 1 > 0) {
-              hamdlers.selectCell({ idx, rowIdx: rowIdx - 1 });
+              handlers.selectCell({ idx, rowIdx: rowIdx - 1 });
             }
           } else {
             if (rowIdx + 1 < tableData.rows.length) {
-              hamdlers.selectCell({ idx, rowIdx: rowIdx + 1 });
+              handlers.selectCell({ idx, rowIdx: rowIdx + 1 });
             }
           }
         }
@@ -271,14 +314,14 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
     editingContext.edit({ idx, rowIdx }, event.nativeEvent.code, event.key);
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     function syncEditor(data: IResultSetEditActionData) {
       const editor = tableData.editor;
       if (data.resultId !== editor.result.id || !data.value || data.value.length === 0 || data.type === DatabaseEditChangeType.delete) {
         return;
       }
 
-      const key = data.value[data.value.length - 1].key;
+      const key = data.value[data.value.length - 1]!.key;
 
       const idx = tableData.getColumnIndexFromColumnKey(key.column);
       const rowIdx = tableData.getRowIndexFromKey(key.row);
@@ -309,30 +352,22 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
         return;
       }
 
-      hamdlers.selectCell({ idx, rowIdx });
+      handlers.selectCell({ idx, rowIdx });
     }
 
     tableData.editor.action.addHandler(syncEditor);
 
     function syncFocus(data: DatabaseDataSelectActionsData<IResultSetPartialKey>) {
-      setTimeout(() => {
-        // TODO: update focus after render rows update
-        if (data.type === 'focus') {
-          if (!data.key?.column || !data.key.row) {
-            return;
-          }
-
-          const idx = tableData.getColumnIndexFromColumnKey(data.key.column);
-          const rowIdx = tableData.getRowIndexFromKey(data.key.row);
-
-          focusSyncRef.current = { idx, rowIdx };
-
-          hamdlers.selectCell({ idx, rowIdx });
-        }
-      }, 1);
+      if (data.type === 'focus') {
+        // TODO: we need this delay to update focus after render rows update
+        setTimeout(() => {
+          handlers.focusCell(data.key);
+        }, 1);
+      }
     }
 
     selectionAction.actions.addHandler(syncFocus);
+    handlers.focusCell(selectionAction.getFocusedElement(), true);
 
     return () => {
       tableData.editor.action.removeHandler(syncEditor);
@@ -355,41 +390,44 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
     innerState.lastCount = model.source.count;
   }, [model.source.count]);
 
-  const handleFocusChange = (position: CellPosition) => {
-    if (focusSyncRef.current && focusSyncRef.current.idx === position.idx && focusSyncRef.current.rowIdx === position.rowIdx) {
+  const handleFocusChange = (event: CellSelectArgs<IResultSetRowKey>) => {
+    const columnIndex = event.column.idx;
+    const rowIndex = event.rowIdx;
+
+    if (focusSyncRef.current && focusSyncRef.current.idx === columnIndex && focusSyncRef.current.rowIdx === rowIndex) {
       focusSyncRef.current = null;
       return;
     }
 
-    const column = tableData.getColumn(position.idx);
-    const row = tableData.getRow(position.rowIdx);
+    const column = tableData.getColumn(columnIndex);
+    const row = tableData.getRow(rowIndex);
 
     if (column?.columnDataIndex && row) {
       selectionAction.focus({
         row,
         column: { ...column.columnDataIndex },
       });
+    } else {
+      selectionAction.focus(null);
     }
   };
 
   const handleScroll = useCallback(
-    async (event: React.UIEvent<HTMLDivElement>) => {
-      const target = event.target as HTMLDivElement;
-      const toBottom = target.scrollTop > innerState.lastScrollTop;
+    throttle(async (event: React.UIEvent<HTMLDivElement>) => {
+      const scrollTop = (event.target as HTMLDivElement).scrollTop;
+      const toBottom = scrollTop > innerState.lastScrollTop;
 
-      innerState.lastScrollTop = target.scrollTop;
+      innerState.lastScrollTop = scrollTop;
 
-      if (!toBottom || !isAtBottom(event)) {
-        return;
+      if (toBottom && isAtBottom(event)) {
+        const result = model.source.getResult(resultIndex);
+        if (result?.loadedFully) {
+          return;
+        }
+
+        await model.requestDataPortion(0, model.countGain + model.source.count);
       }
-
-      const result = model.getResult(resultIndex);
-      if (result?.loadedFully) {
-        return;
-      }
-
-      await model.requestDataPortion(0, model.countGain + model.source.count);
-    },
+    }, 200),
     [model, resultIndex],
   );
 
@@ -412,26 +450,28 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
     return <TextPlaceholder>{translate('data_grid_table_empty_placeholder')}</TextPlaceholder>;
   }
 
-  return styled(styles)(
+  return (
     <DataGridContext.Provider value={gridContext}>
       <DataGridSelectionContext.Provider value={gridSelectionContext}>
         <EditingContext.Provider value={editingContext}>
           <TableDataContext.Provider value={tableData}>
-            <grid-container
+            <div
               ref={setContainersRef}
-              className="cb-react-grid-container"
               tabIndex={-1}
+              {...rest}
+              className={s(styles, { container: true }, className)}
               onKeyDown={handleKeyDown}
               onMouseDown={onMouseDownHandler}
               onMouseMove={onMouseMoveHandler}
             >
               <DataGrid
                 ref={dataGridRef}
-                className={`cb-react-grid-theme ${className}`}
+                className={s(styles, { grid: true }, className)}
                 columns={tableData.columns}
                 defaultColumnOptions={{
                   minWidth: 80,
                   resizable: true,
+                  // @ts-ignore
                   renderCell: props => <CellFormatter {...props} />,
                 }}
                 rows={tableData.rows}
@@ -439,17 +479,19 @@ export const DataGridTable = observer<IDataPresentationProps<any, IDatabaseResul
                 headerRowHeight={headerHeight}
                 rowHeight={rowHeight}
                 renderers={{
+                  // @ts-ignore
                   renderCell: (key, props) => <CellRenderer key={key} {...props} />,
                 }}
                 onSelectedCellChange={handleFocusChange}
+                // @ts-ignore
                 onColumnResize={(idx, width) => columnResize.execute({ column: idx, width })}
                 onScroll={handleScroll}
               />
               <div ref={editorRef} />
-            </grid-container>
+            </div>
           </TableDataContext.Provider>
         </EditingContext.Provider>
       </DataGridSelectionContext.Provider>
-    </DataGridContext.Provider>,
+    </DataGridContext.Provider>
   );
 });

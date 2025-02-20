@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package io.cloudbeaver.service.auth;
 import io.cloudbeaver.DBWebException;
 import io.cloudbeaver.model.session.WebSession;
 import io.cloudbeaver.model.user.WebUser;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.meta.Property;
@@ -68,6 +69,9 @@ public class WebUserInfo {
 
     @Property
     public List<String> getLinkedAuthProviders() throws DBWebException {
+        if (isAnonymous()) {
+            return List.of();
+        }
         if (linkedProviders == null) {
             try {
                 linkedProviders = session.getSecurityController().getCurrentUserLinkedProviders();
@@ -85,11 +89,27 @@ public class WebUserInfo {
 
     @Property
     public Map<String, Object> getConfigurationParameters() throws DBWebException {
-        try {
-            return session.getSecurityController().getCurrentUserParameters();
-        } catch (DBException e) {
-            throw new DBWebException("Error reading user parameters", e);
+        return session.getUserContext().getPreferenceStore().getCustomUserParameters();
+    }
+
+    @NotNull
+    @Property
+    public List<WebUserTeamInfo> getTeams() throws DBWebException {
+        if (session.getUserContext().isNonAnonymousUserAuthorizedInSM()) {
+            try {
+                return Arrays.stream(session.getSecurityController().getCurrentUserTeams())
+                    .map(WebUserTeamInfo::new)
+                    .toList();
+            } catch (DBException e) {
+                throw new DBWebException("Error reading user's teams", e);
+            }
+        } else {
+            return List.of();
         }
     }
 
+    @Property
+    public boolean isAnonymous() {
+        return session.getUser() == null;
+    }
 }

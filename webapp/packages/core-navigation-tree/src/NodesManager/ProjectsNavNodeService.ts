@@ -1,22 +1,25 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { injectable } from '@cloudbeaver/core-di';
-import { NAV_NODE_TYPE_PROJECT, ProjectInfo, ProjectInfoResource } from '@cloudbeaver/core-projects';
+import { NAV_NODE_TYPE_PROJECT, type ProjectInfo, ProjectInfoResource } from '@cloudbeaver/core-projects';
 import { resourceKeyList } from '@cloudbeaver/core-resource';
 
-import { NavNodeInfoResource } from './NavNodeInfoResource';
+import { NavNodeInfoResource } from './NavNodeInfoResource.js';
 
 @injectable()
 export class ProjectsNavNodeService {
   projectTypes: string[];
   projectPrefixes: string[];
 
-  constructor(private readonly navNodeInfoResource: NavNodeInfoResource, private readonly projectInfoResource: ProjectInfoResource) {
+  constructor(
+    private readonly navNodeInfoResource: NavNodeInfoResource,
+    private readonly projectInfoResource: ProjectInfoResource,
+  ) {
     this.projectTypes = [NAV_NODE_TYPE_PROJECT];
     this.projectPrefixes = ['resource://'];
   }

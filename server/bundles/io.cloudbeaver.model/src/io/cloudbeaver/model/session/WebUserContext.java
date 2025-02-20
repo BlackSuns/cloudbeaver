@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 package io.cloudbeaver.model.session;
 
-import io.cloudbeaver.model.app.WebApplication;
+import io.cloudbeaver.model.app.ServletApplication;
 import io.cloudbeaver.model.user.WebUser;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
@@ -36,22 +36,21 @@ import org.jkiss.dbeaver.model.secret.DBSSecretController;
 import org.jkiss.dbeaver.model.security.SMAdminController;
 import org.jkiss.dbeaver.model.security.SMController;
 import org.jkiss.dbeaver.model.security.user.SMAuthPermissions;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * Web user context.
  * Contains user state and services based on available permissions
  */
+//TODO: split to authenticated and non authenticated context
 public class WebUserContext implements SMCredentialsProvider {
     private static final Log log = Log.getLog(WebUserContext.class);
 
-    private final WebApplication application;
+    private final ServletApplication application;
     private final DBPWorkspace workspace;
 
     private WebUser user;
@@ -66,13 +65,15 @@ public class WebUserContext implements SMCredentialsProvider {
     private RMController rmController;
     private DBFileController fileController;
     private Set<String> accessibleProjectIds = new HashSet<>();
+    private final WebSessionPreferenceStore preferenceStore;
 
-    public WebUserContext(WebApplication application, DBPWorkspace workspace) throws DBException {
+    public WebUserContext(ServletApplication application, DBPWorkspace workspace) throws DBException {
         this.application = application;
         this.workspace = workspace;
         this.securityController = application.createSecurityController(this);
         this.rmController = application.createResourceController(this, workspace);
         this.fileController = application.createFileController(this);
+        this.preferenceStore = new WebSessionPreferenceStore(DBWorkbench.getPlatform().getPreferenceStore());
         setUserPermissions(getDefaultPermissions());
     }
 
@@ -116,7 +117,13 @@ public class WebUserContext implements SMCredentialsProvider {
         setRefreshToken(smRefreshToken);
         setUserPermissions(smAuthPermissions.getPermissions());
         this.adminSecurityController = application.getAdminSecurityController(this);
+        this.rmController = application.createResourceController(this, workspace);
         if (isSessionChanged) {
+            if (smAuthPermissions.getUserId() != null) {
+                this.preferenceStore.updateAllUserPreferences(securityController.getCurrentUserParameters());
+            } else {
+                this.preferenceStore.updateAllUserPreferences(Map.of());
+            }
             this.smSessionId = smAuthPermissions.getSessionId();
             setUser(smAuthPermissions.getUserId() == null ? null : new WebUser(securityController.getCurrentUser()));
             refreshAccessibleProjects();
@@ -161,7 +168,7 @@ public class WebUserContext implements SMCredentialsProvider {
         this.user = null;
         this.securityController = application.createSecurityController(this);
         this.adminSecurityController = null;
-        this.secretController = application.getSecretController(this);
+        this.secretController = null;
     }
 
     @NotNull
@@ -220,7 +227,10 @@ public class WebUserContext implements SMCredentialsProvider {
         this.userPermissions = permissions;
     }
 
-    public DBSSecretController getSecretController() {
+    public DBSSecretController getSecretController() throws DBException {
+        if (this.securityController == null) {
+            this.secretController = application.getSecretController(this, workspace.getAuthContext());
+        }
         return secretController;
     }
 
@@ -247,5 +257,9 @@ public class WebUserContext implements SMCredentialsProvider {
 
     private void setRefreshToken(@Nullable String refreshToken) {
         this.refreshToken = refreshToken;
+    }
+
+    public WebSessionPreferenceStore getPreferenceStore() {
+        return preferenceStore;
     }
 }

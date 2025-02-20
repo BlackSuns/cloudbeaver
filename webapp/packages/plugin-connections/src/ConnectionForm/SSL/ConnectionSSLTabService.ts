@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,22 @@ import type { NetworkHandlerConfigInput } from '@cloudbeaver/core-sdk';
 import { formStateContext } from '@cloudbeaver/core-ui';
 import { isNotNullDefined, isObjectsEqual } from '@cloudbeaver/core-utils';
 
-import { connectionFormConfigureContext } from '../connectionFormConfigureContext';
-import { ConnectionFormService } from '../ConnectionFormService';
-import { connectionConfigContext } from '../Contexts/connectionConfigContext';
-import { connectionCredentialsStateContext } from '../Contexts/connectionCredentialsStateContext';
-import type { IConnectionFormFillConfigData, IConnectionFormState, IConnectionFormSubmitData } from '../IConnectionFormProps';
-import { getSSLDefaultConfig } from './getSSLDefaultConfig';
-import { getSSLDriverHandler } from './getSSLDriverHandler';
-import { PROPERTY_FEATURE_SECURED } from './PROPERTY_FEATURE_SECURED';
-import { SSL_CODE_NAME } from './SSL_CODE_NAME';
+import { connectionFormConfigureContext } from '../connectionFormConfigureContext.js';
+import { ConnectionFormService } from '../ConnectionFormService.js';
+import { connectionConfigContext } from '../Contexts/connectionConfigContext.js';
+import { connectionCredentialsStateContext } from '../Contexts/connectionCredentialsStateContext.js';
+import type { IConnectionFormFillConfigData, IConnectionFormState, IConnectionFormSubmitData } from '../IConnectionFormProps.js';
+import { getSSLDefaultConfig } from './getSSLDefaultConfig.js';
+import { getSSLDriverHandler } from './getSSLDriverHandler.js';
+import { PROPERTY_FEATURE_SECURED } from './PROPERTY_FEATURE_SECURED.js';
+import { SSL_CODE_NAME } from './SSL_CODE_NAME.js';
 
 export const SSLTab = React.lazy(async () => {
-  const { SSLTab } = await import('./SSLTab');
+  const { SSLTab } = await import('./SSLTab.js');
   return { default: SSLTab };
 });
 export const SSLPanel = React.lazy(async () => {
-  const { SSLPanel } = await import('./SSLPanel');
+  const { SSLPanel } = await import('./SSLPanel.js');
   return { default: SSLPanel };
 });
 
@@ -50,7 +50,7 @@ export class ConnectionSSLTabService extends Bootstrap {
     });
   }
 
-  register(): void {
+  override register(): void {
     this.connectionFormService.tabsContainer.add({
       key: 'ssl',
       order: 4,
@@ -75,8 +75,6 @@ export class ConnectionSSLTabService extends Bootstrap {
 
     this.connectionFormService.fillConfigTask.addHandler(this.fillConfig.bind(this));
   }
-
-  load(): void {}
 
   private async fillConfig({ state, updated }: IConnectionFormFillConfigData, contexts: IExecutionContextProvider<IConnectionFormFillConfigData>) {
     if (!updated || !state.config.driverId) {
@@ -115,7 +113,7 @@ export class ConnectionSSLTabService extends Bootstrap {
     configuration.include('includeNetworkHandlersConfig');
   }
 
-  private async prepareConfig({ state }: IConnectionFormSubmitData, contexts: IExecutionContextProvider<IConnectionFormSubmitData>) {
+  private async prepareConfig({ state, submitType }: IConnectionFormSubmitData, contexts: IExecutionContextProvider<IConnectionFormSubmitData>) {
     const config = contexts.getContext(connectionConfigContext);
     const credentialsState = contexts.getContext(connectionCredentialsStateContext);
 
@@ -136,6 +134,7 @@ export class ConnectionSSLTabService extends Bootstrap {
 
     const initial = state.info?.networkHandlersConfig?.find(h => h.id === handler.id);
     const handlerConfig: NetworkHandlerConfigInput = toJS(handler);
+    handlerConfig.savePassword = handler.savePassword || config.sharedCredentials;
 
     const changed = this.isChanged(handlerConfig, initial);
 
@@ -168,12 +167,14 @@ export class ConnectionSSLTabService extends Bootstrap {
         }
       }
 
-      if (Object.keys(handlerConfig.secureProperties).length === 0) {
-        delete handlerConfig.secureProperties;
-      }
+      if (submitType === 'submit') {
+        if (Object.keys(handlerConfig.secureProperties).length === 0) {
+          delete handlerConfig.secureProperties;
+        }
 
-      if (Object.keys(handlerConfig.properties).length === 0) {
-        delete handlerConfig.properties;
+        if (Object.keys(handlerConfig.properties).length === 0) {
+          delete handlerConfig.properties;
+        }
       }
     }
 
@@ -186,7 +187,26 @@ export class ConnectionSSLTabService extends Bootstrap {
         config.networkHandlersConfig = [];
       }
 
+      this.trimSSLConfig(handlerConfig);
       config.networkHandlersConfig.push(handlerConfig);
+    }
+  }
+
+  private trimSSLConfig(input: NetworkHandlerConfigInput) {
+    const { secureProperties } = input;
+
+    if (!secureProperties) {
+      return;
+    }
+
+    if (!Object.keys(secureProperties).length) {
+      return;
+    }
+
+    for (const key in secureProperties) {
+      if (typeof secureProperties[key] === 'string') {
+        secureProperties[key] = secureProperties[key]?.trim();
+      }
     }
   }
 

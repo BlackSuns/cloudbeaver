@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,8 +53,9 @@ public class WebServiceBindingNavigator extends WebServiceBindingBase<DBWService
             ))
             .dataFetcher("navRefreshNode", env -> getService(env).refreshNavigatorNode(
                 getWebSession(env),
-                env.getArgument("nodePath")
-            ))
+                env.getArgument("nodePath"),
+                false
+            ) != null)
             .dataFetcher("navGetStructContainers", env -> getService(env).getStructContainers(
                 getProjectReference(env),
                 getWebConnection(env),
@@ -63,6 +64,11 @@ public class WebServiceBindingNavigator extends WebServiceBindingBase<DBWService
 
             ));
         model.getMutationType()
+            .dataFetcher("navReloadNode", env -> getService(env).refreshNavigatorNode(
+                getWebSession(env),
+                env.getArgument("nodePath"),
+                true
+            ))
             .dataFetcher("navSetFolderFilter", env -> getService(env).setNavigatorNodeFilter(
                 getWebSession(env),
                 env.getArgument("nodePath"),

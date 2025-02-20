@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -9,20 +9,20 @@ import React, { useContext, useState } from 'react';
 
 import { Executor, ExecutorInterrupter, SyncExecutor } from '@cloudbeaver/core-executor';
 
-import { useExecutor } from '../useExecutor';
-import { useObjectRef } from '../useObjectRef';
-import { FormChangeHandler, FormContext, type IChangeData, type IFormContext } from './FormContext';
+import { useExecutor } from '../useExecutor.js';
+import { useObjectRef } from '../useObjectRef.js';
+import { type FormChangeHandler, FormContext, type IChangeData, type IFormContext } from './FormContext.js';
 
 interface IOptions {
   parent?: IFormContext;
   disableEnterSubmit?: boolean;
-  onSubmit?: (event?: SubmitEvent | undefined) => void;
+  onSubmit?: (event?: SubmitEvent | undefined) => Promise<void> | void;
   onChange?: FormChangeHandler;
 }
 
 export function useForm(options?: IOptions): IFormContext {
   let parentForm = useContext(FormContext);
-  const [submittingExecutor] = useState(() => new SyncExecutor());
+  const [submittingExecutor] = useState(() => new Executor<SubmitEvent | undefined>());
   const [validationExecutor] = useState(() => new SyncExecutor());
   const [changeExecutor] = useState(() => new Executor<IChangeData>());
 
@@ -49,7 +49,7 @@ export function useForm(options?: IOptions): IFormContext {
 
   useExecutor({
     executor: submittingExecutor,
-    handlers: [() => options?.onSubmit?.()],
+    handlers: [event => options?.onSubmit?.(event)],
   });
 
   const context = useObjectRef<IFormContext>(
@@ -78,22 +78,33 @@ export function useForm(options?: IOptions): IFormContext {
           this.onChange.execute({ value, name });
         }
       },
-      keyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+      keyDown(event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) {
+        const isCtrlEnterSubmit =
+          event.key === 'Enter' &&
+          (event.ctrlKey || event.metaKey) &&
+          this.disableEnterSubmit === false &&
+          event.target instanceof HTMLTextAreaElement;
+        const isEnterSubmit = event.key === 'Enter' && this.disableEnterSubmit === false && event.target instanceof HTMLInputElement;
+
         if (this.parent) {
           this.parent.keyDown(event);
-        } else if (event.key === 'Enter' && this.disableEnterSubmit === false) {
+        } else if (isCtrlEnterSubmit || isEnterSubmit) {
           event.preventDefault();
-          this.submit();
+          if (this.ref) {
+            this.ref?.requestSubmit();
+          } else {
+            this.submit();
+          }
         }
       },
-      submit(event) {
+      async submit(event) {
         if (this.parent) {
-          this.parent.submit(event);
+          await this.parent.submit(event);
         } else {
           event?.preventDefault();
 
           if (this.validate()) {
-            this.onSubmit.execute();
+            await this.onSubmit.execute(event);
           }
         }
       },

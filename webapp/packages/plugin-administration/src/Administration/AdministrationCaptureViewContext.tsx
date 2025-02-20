@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@ export const AdministrationCaptureViewContext = observer(function Administration
   const administrationScreenService = useService(AdministrationScreenService);
   const route = administrationScreenService.activeScreen;
 
-  useCaptureViewContext(context => {
-    context?.set(DATA_CONTEXT_ADMINISTRATION_ITEM_ROUTE, route);
+  useCaptureViewContext((context, id) => {
+    context.set(DATA_CONTEXT_ADMINISTRATION_ITEM_ROUTE, route, id);
   });
 
   return null;

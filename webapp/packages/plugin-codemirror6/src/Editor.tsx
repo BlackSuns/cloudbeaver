@@ -1,22 +1,21 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { forwardRef } from 'react';
-import styled from 'reshadow';
 
-import { clsx } from '@cloudbeaver/core-utils';
+import { s, useS } from '@cloudbeaver/core-blocks';
 
-import type { IEditorProps } from './IEditorProps';
-import type { IEditorRef } from './IEditorRef';
-import { ReactCodemirror } from './ReactCodemirror';
-import { EDITOR_BASE_STYLES } from './theme';
-import { useCodemirrorExtensions } from './useCodemirrorExtensions';
-import { type IDefaultExtensions, useEditorDefaultExtensions } from './useEditorDefaultExtensions';
+import type { IEditorProps } from './IEditorProps.js';
+import type { IEditorRef } from './IEditorRef.js';
+import { ReactCodemirror } from './ReactCodemirror.js';
+import { EDITOR_BASE_STYLES } from './theme/index.js';
+import { useCodemirrorExtensions } from './useCodemirrorExtensions.js';
+import { type IDefaultExtensions, useEditorDefaultExtensions } from './useEditorDefaultExtensions.js';
 
 export const Editor = observer<IEditorProps & IDefaultExtensions, IEditorRef>(
   forwardRef(function Editor(
@@ -41,8 +40,8 @@ export const Editor = observer<IEditorProps & IDefaultExtensions, IEditorRef>(
     },
     ref,
   ) {
+    useS(EDITOR_BASE_STYLES);
     extensions = useCodemirrorExtensions(extensions);
-
 
     const defaultExtensions = useEditorDefaultExtensions({
       lineNumbers,
@@ -64,10 +63,11 @@ export const Editor = observer<IEditorProps & IDefaultExtensions, IEditorRef>(
 
     extensions.set(...defaultExtensions);
 
-    return styled(EDITOR_BASE_STYLES)(
-      <wrapper className={clsx('editor', rest.className)}>
+    return (
+      // all styles is global scoped so we can't get them from module
+      <div className={s({ editor: 'editor' }, { editor: true }, rest.className)}>
         <ReactCodemirror {...rest} ref={ref} extensions={extensions} />
-      </wrapper>,
+      </div>
     );
   }),
 );

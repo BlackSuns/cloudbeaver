@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,10 @@ import {
   type ResourceKeySimple,
   ResourceKeyUtils,
 } from '@cloudbeaver/core-resource';
-import { SessionPermissionsResource } from '@cloudbeaver/core-root';
-import { AdminAuthProviderConfiguration, GetAuthProviderConfigurationsQueryVariables, GraphQLService } from '@cloudbeaver/core-sdk';
+import { EAdminPermission, SessionPermissionsResource } from '@cloudbeaver/core-root';
+import { type AdminAuthProviderConfiguration, type GetAuthProviderConfigurationsQueryVariables, GraphQLService } from '@cloudbeaver/core-sdk';
 
-import type { AuthProviderConfiguration } from './AuthProvidersResource';
-import { EAdminPermission } from './EAdminPermission';
+import type { AuthProviderConfiguration } from './AuthProvidersResource.js';
 
 const NEW_CONFIGURATION_SYMBOL = Symbol('new-configuration');
 
@@ -31,7 +30,10 @@ type NewConfiguration = AuthConfiguration & { [NEW_CONFIGURATION_SYMBOL]: boolea
 
 @injectable()
 export class AuthConfigurationsResource extends CachedMapResource<string, AuthConfiguration, GetAuthProviderConfigurationsQueryVariables> {
-  constructor(private readonly graphQLService: GraphQLService, permissionsResource: SessionPermissionsResource) {
+  constructor(
+    private readonly graphQLService: GraphQLService,
+    permissionsResource: SessionPermissionsResource,
+  ) {
     super(() => new Map(), []);
 
     permissionsResource.require(this, EAdminPermission.admin).outdateResource(this);
@@ -52,6 +54,7 @@ export class AuthConfigurationsResource extends CachedMapResource<string, AuthCo
       }
 
       this.set(configuration.id, configuration);
+      this.onDataOutdated.execute(configuration.id);
     });
 
     return this.get(config.id)!;
@@ -103,7 +106,7 @@ export class AuthConfigurationsResource extends CachedMapResource<string, AuthCo
     return this.data;
   }
 
-  protected dataSet(key: string, value: AdminAuthProviderConfiguration): void {
+  protected override dataSet(key: string, value: AdminAuthProviderConfiguration): void {
     const oldConfiguration = this.dataGet(key);
     super.dataSet(key, { ...oldConfiguration, ...value });
   }

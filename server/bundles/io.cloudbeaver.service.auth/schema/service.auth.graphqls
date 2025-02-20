@@ -30,6 +30,7 @@ type AuthProviderConfiguration {
     id: ID!
     displayName: String!
     disabled: Boolean!
+    authRoleProvided: Boolean
 
     iconURL: String
     description: String
@@ -40,6 +41,8 @@ type AuthProviderConfiguration {
     signInLink: String
     signOutLink: String
     metadataLink: String
+    acsLink: String
+    entityIdLink: String @since(version: "24.2.1")
 }
 
 type AuthProviderCredentialsProfile {
@@ -58,6 +61,7 @@ type AuthProviderInfo {
     defaultProvider: Boolean!
     trusted: Boolean!
     private: Boolean!
+    authHidden: Boolean! @since(version: "24.2.4")
     supportProvisioning: Boolean!
 
     # Configurable providers must be configured first. See configurations field.
@@ -68,9 +72,13 @@ type AuthProviderInfo {
     # Provider configurations (applicable only if configurable=true)
     configurations: [AuthProviderConfiguration!]
 
+    templateConfiguration: AuthProviderConfiguration! @since(version: "24.1.2")
+
     credentialProfiles: [AuthProviderCredentialsProfile!]!
 
     requiredFeatures: [String!]!
+
+    required: Boolean!
 }
 
 type AuthInfo {
@@ -81,6 +89,11 @@ type AuthInfo {
     authStatus: AuthStatus!
 
     userTokens: [UserAuthToken!]
+}
+
+
+type LogoutInfo @since(version: "23.3.3") {
+    redirectLinks: [String!]!
 }
 
 type UserAuthToken {
@@ -125,18 +138,34 @@ type UserInfo {
     metaParameters: Object!
     # User configuration parameters
     configurationParameters: Object!
+    # User teams
+    teams: [UserTeamInfo!]!
 
+    @since(version: "24.2.3")
+    isAnonymous: Boolean!
+}
+
+type UserTeamInfo {
+    teamId: String!
+    teamName: String!
+    teamRole: String
 }
 
 extend type Query {
 
     # Authorize user using specified auth provider. If linkUser=true then associates new
-    authLogin(provider: ID!, configuration: ID, credentials: Object, linkUser: Boolean): AuthInfo!
+    # If forceSessionsLogout=true then kill another sessions
+    authLogin(provider: ID!, configuration: ID, credentials: Object, linkUser: Boolean, forceSessionsLogout: Boolean): AuthInfo!
 
     authUpdateStatus(authId: ID!, linkUser: Boolean): AuthInfo!
 
     # Logouts user. If provider not specified then all authorizations are revoked from session.
+    @deprecated
     authLogout(provider: ID, configuration: ID): Boolean
+
+    # Same as #authLogout, but returns additional information
+    @since(version: "23.3.3")
+    authLogoutExtended(provider: ID, configuration: ID): LogoutInfo!
 
     # Active user information. null is no user was authorized within session
     activeUser: UserInfo
@@ -149,9 +178,12 @@ extend type Query {
 
 }
 
+
 extend type Mutation {
 
     # Set user config parameter. If parameter value is null then removes the parameter
     setUserConfigurationParameter(name: String!, value: Object): Boolean!
+    # Updates user preferences
+    setUserPreferences(preferences: Object!): UserInfo! @since(version: "24.0.1")
 
 }

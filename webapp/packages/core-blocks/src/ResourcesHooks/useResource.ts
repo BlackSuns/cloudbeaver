@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,53 +8,51 @@
 import { action, comparer, computed, observable, reaction, toJS, untracked } from 'mobx';
 import { useContext, useDeferredValue, useEffect, useState } from 'react';
 
-import { IServiceConstructor, useService } from '@cloudbeaver/core-di';
+import { type IServiceConstructor, useService } from '@cloudbeaver/core-di';
 import {
   CachedDataResource,
-  CachedDataResourceGetter,
+  type CachedDataResourceGetter,
   CachedMapResource,
-  CachedMapResourceGetter,
-  CachedMapResourceListGetter,
-  CachedMapResourceLoader,
-  CachedMapResourceValue,
-  CachedResource,
-  CachedResourceContext,
-  CachedResourceData,
-  CachedResourceKey,
+  type CachedMapResourceGetter,
+  type CachedMapResourceListGetter,
+  type CachedMapResourceLoader,
+  type CachedMapResourceValue,
+  type CachedResourceContext,
+  type CachedResourceData,
+  type CachedResourceKey,
+  type IResource,
   isResourceKeyList,
   isResourceKeyListAlias,
-  ResourceKey,
+  Resource,
+  type ResourceKey,
   ResourceKeyList,
   ResourceKeyListAlias,
 } from '@cloudbeaver/core-resource';
-import { ILoadableState, isArraysEqual, isContainsException, LoadingError } from '@cloudbeaver/core-utils';
+import { type ILoadableState, isArraysEqual, isContainsException, LoadingError } from '@cloudbeaver/core-utils';
 
-import { ErrorContext } from '../ErrorContext';
-import { getComputed } from '../getComputed';
-import { useObjectRef } from '../useObjectRef';
-import { useObservableRef } from '../useObservableRef';
+import { ErrorContext } from '../ErrorContext.js';
+import { getComputed } from '../getComputed.js';
+import { useObjectRef } from '../useObjectRef.js';
+import { useObservableRef } from '../useObservableRef.js';
 
 export interface ResourceKeyWithIncludes<TKey, TIncludes> {
   readonly key: TKey | null;
   readonly includes: TIncludes;
 }
 
-type ResourceData<TResource extends CachedResource<any, any, any, any, any>, TKey, TIncludes> = TResource extends CachedDataResource<
-  any,
-  any,
-  any,
-  any
->
-  ? CachedResourceData<TResource>
-  : CachedMapResourceLoader<TKey, CachedResourceKey<TResource>, CachedResourceData<TResource> extends Map<any, infer I> ? I : never, TIncludes>;
+type ResourceData<TResource extends IResource<any, any, any, any>, TKey, TIncludes> =
+  TResource extends CachedDataResource<any, any, any, any>
+    ? CachedResourceData<TResource>
+    : CachedMapResourceLoader<TKey, CachedResourceKey<TResource>, CachedResourceData<TResource> extends Map<any, infer I> ? I : never, TIncludes>;
 
-interface IActions<TResource extends CachedResource<any, any, any, any, any>, TKey, TIncludes> {
+interface IActions<TResource extends IResource<any, any, any, any>, TKey, TIncludes> {
   active?: boolean;
+  /** Indicates whether the resource should be loadable without modifying data, unlike the "active" field */
+  freeze?: boolean;
   forceSuspense?: boolean;
   silent?: boolean;
-  onData?: (data: ResourceData<TResource, TKey, TIncludes>, resource: TResource) => Promise<any> | any;
+  onData?: (data: ResourceData<TResource, TKey, TIncludes>, resource: TResource) => any;
   onError?: (exception: Error | Error[] | null) => void;
-  preload?: ILoadableState[];
 }
 
 interface IResourcePrivateState {
@@ -96,11 +94,12 @@ interface IDataResourceResult<TResource, TIncludes> extends IMapResourceState<TR
   exception: Error | null;
 }
 
-type TResult<TResource, TKey, TIncludes> = TResource extends CachedDataResource<any, any, any>
-  ? IDataResourceResult<TResource, TIncludes>
-  : TKey extends ResourceKeyList<any> | ResourceKeyListAlias<any, any>
-  ? IMapResourceListResult<TResource, TIncludes>
-  : IMapResourceResult<TResource, TIncludes>;
+type TResult<TResource, TKey, TIncludes> =
+  TResource extends CachedDataResource<any, any, any>
+    ? IDataResourceResult<TResource, TIncludes>
+    : TKey extends ResourceKeyList<any> | ResourceKeyListAlias<any, any>
+      ? IMapResourceListResult<TResource, TIncludes>
+      : IMapResourceResult<TResource, TIncludes>;
 
 /**
  * Accepts resource class or instance and returns resource state.
@@ -111,7 +110,7 @@ type TResult<TResource, TKey, TIncludes> = TResource extends CachedDataResource<
  * @param actions
  */
 export function useResource<
-  TResource extends CachedResource<any, any, any, any, any>,
+  TResource extends IResource<any, any, any, any>,
   TKeyArg extends ResourceKey<CachedResourceKey<TResource>>,
   TIncludes extends Readonly<CachedResourceContext<TResource>>,
 >(
@@ -122,7 +121,7 @@ export function useResource<
 ): TResult<TResource, TKeyArg, TIncludes>;
 
 export function useResource<
-  TResource extends CachedResource<any, any, any, any, any>,
+  TResource extends Resource<any, any, any, any>,
   TKeyArg extends ResourceKey<CachedResourceKey<TResource>>,
   TIncludes extends CachedResourceContext<TResource>,
 >(
@@ -132,7 +131,7 @@ export function useResource<
   actions?: TResource extends any ? IActions<TResource, TKeyArg, TIncludes> : never,
 ): IMapResourceResult<TResource, TIncludes> | IMapResourceListResult<TResource, TIncludes> | IDataResourceResult<TResource, TIncludes> {
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const resource = ctor instanceof CachedResource ? ctor : useService(ctor);
+  const resource = ctor instanceof Resource ? ctor : useService(ctor);
   const errorContext = useContext(ErrorContext);
   let key: ResourceKey<TKeyArg> | null = keyObj as ResourceKey<TKeyArg>;
   let includes: TIncludes = [] as unknown as TIncludes;
@@ -166,8 +165,10 @@ export function useResource<
       propertiesRef.includes = includes;
     }
 
-    if (key === null || propertiesRef.key === null || !propertiesRef.resource.isIntersect(key, propertiesRef.key)) {
-      propertiesRef.key = key;
+    if (key === null || propertiesRef.key === null || !propertiesRef.resource.isEqual(key, propertiesRef.key)) {
+      if (propertiesRef.key !== key) {
+        propertiesRef.key = key;
+      }
     }
   });
 
@@ -185,19 +186,13 @@ export function useResource<
       }
       return propertiesRef.resource.get(propertiesRef.key);
     }
+
     return propertiesRef.resource.data;
   }
 
   const preloaded = getComputed(() => {
     if (actions?.active === false) {
       return false;
-    }
-    if (actions?.preload) {
-      for (const preload of actions.preload) {
-        if (!preload.isLoaded() || preload.isOutdated?.() || preload.isLoading() || preload.isError()) {
-          return false;
-        }
-      }
     }
     return true;
   });
@@ -221,7 +216,7 @@ export function useResource<
         key = toJS(key);
 
         if (this.useRef[0] !== null && propertiesRef.resource.useTracker.hasUseId(this.useRef[1])) {
-          if (key !== null && propertiesRef.resource.isIntersect(key, this.useRef[0])) {
+          if (key !== null && propertiesRef.resource.isEqual(key, this.useRef[0])) {
             return;
           }
 
@@ -233,10 +228,10 @@ export function useResource<
         const { key, includes, resource } = propertiesRef;
 
         if (refresh) {
-          resource.markOutdated(key);
+          await resource.refresh(key, includes as any);
+        } else {
+          await resource.load(key, includes as any);
         }
-
-        await resource.load(key, includes as any);
       },
       async load(refresh?: boolean): Promise<void> {
         if (propertiesRef.key === null) {
@@ -254,6 +249,7 @@ export function useResource<
           }
           this.exception = null;
         } catch (exception: any) {
+          console.error(exception);
           if (this.loadingPromise !== loadingPromise) {
             return;
           }
@@ -297,6 +293,10 @@ export function useResource<
     () => ({
       preloaded,
       get canLoad(): boolean {
+        if (actions?.freeze) {
+          return false;
+        }
+
         return propertiesRef.key !== null && this.preloaded && this.outdated && !this.loading;
       },
       get resource() {
@@ -332,7 +332,7 @@ export function useResource<
 
         if (!this.isLoaded()) {
           if (this.loading) {
-            throw this.resource.waitLoad();
+            throw refObj.load();
           }
 
           if (this.canLoad) {
@@ -348,14 +348,16 @@ export function useResource<
         return getData();
       },
       get outdated(): boolean {
-        return propertiesRef.key === null || !this.preloaded || this.loading || !this.loaded || this.resource.isOutdated(propertiesRef.key);
+        return (
+          propertiesRef.key === null ||
+          !this.preloaded ||
+          this.loading ||
+          !this.loaded ||
+          this.resource.isOutdated(propertiesRef.key, propertiesRef.includes)
+        );
       },
       get loaded() {
         if (propertiesRef.key === null) {
-          return true;
-        }
-
-        if (this.isError()) {
           return true;
         }
 
@@ -467,7 +469,7 @@ export function useResource<
 
   useEffect(() => {
     refObj.use(loadKey);
-    if (canLoad && !result.isError()) {
+    if (canLoad) {
       result.load();
     }
   }, [canLoad, loadKey]);

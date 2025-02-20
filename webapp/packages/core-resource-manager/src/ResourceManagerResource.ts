@@ -1,12 +1,11 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { injectable } from '@cloudbeaver/core-di';
-import { Executor, IExecutor } from '@cloudbeaver/core-executor';
 import { ProjectsService } from '@cloudbeaver/core-projects';
 import {
   type CachedResourceIncludeArgs,
@@ -18,22 +17,16 @@ import {
   ResourceKeyUtils,
 } from '@cloudbeaver/core-resource';
 import { DataSynchronizationService, ServerEventId } from '@cloudbeaver/core-root';
-import { DetailsError, GetResourceListQueryVariables, GraphQLService, RmResource } from '@cloudbeaver/core-sdk';
+import { DetailsError, type GetResourceListQueryVariables, GraphQLService, type RmResource } from '@cloudbeaver/core-sdk';
 import { createPath, getPathParent, getPathParts } from '@cloudbeaver/core-utils';
 
-import { ResourceManagerEventHandler } from './ResourceManagerEventHandler';
+import { ResourceManagerEventHandler } from './ResourceManagerEventHandler.js';
 
 export type ResourceInfoIncludes = Omit<GetResourceListQueryVariables, 'projectId'>;
 export type RmResourceInfo = RmResource;
 
-export interface IResourceManagerMoveData {
-  from: string;
-  to: string;
-}
-
 @injectable()
 export class ResourceManagerResource extends CachedTreeResource<RmResourceInfo, ResourceInfoIncludes> {
-  readonly onMove: IExecutor<IResourceManagerMoveData>;
   constructor(
     private readonly graphQLService: GraphQLService,
     private readonly projectsService: ProjectsService,
@@ -41,8 +34,6 @@ export class ResourceManagerResource extends CachedTreeResource<RmResourceInfo, 
     dataSynchronizationService: DataSynchronizationService,
   ) {
     super();
-
-    this.onMove = new Executor();
 
     this.projectsService.onActiveProjectChange.addHandler(data => {
       if (data.type === 'after') {
@@ -123,11 +114,11 @@ export class ResourceManagerResource extends CachedTreeResource<RmResourceInfo, 
         newPath: toResourceKey.path,
       });
 
-      await this.onMove.execute({ from, to });
-      this.delete(from);
-    });
+      await this.loader(to, []);
 
-    await this.load(to);
+      this.moveSync(from, to, this.get(to)!);
+      this.onDataOutdated.execute(from);
+    });
   }
 
   async setProperties(key: string, diff: Record<string, any>): Promise<Record<string, any>> {
@@ -153,6 +144,7 @@ export class ResourceManagerResource extends CachedTreeResource<RmResourceInfo, 
       }
 
       Object.assign(properties, propertiesPatch);
+      this.onDataOutdated.execute(key);
     });
 
     return properties;
@@ -204,6 +196,7 @@ export class ResourceManagerResource extends CachedTreeResource<RmResourceInfo, 
       });
 
       this.delete(path);
+      this.onDataOutdated.execute(path);
     });
   }
 
@@ -246,7 +239,7 @@ export class ResourceManagerResource extends CachedTreeResource<RmResourceInfo, 
           throw new DetailsError(`Resource "${key}" not found`);
         }
 
-        resourcesList.set(key, resources[0]);
+        resourcesList.set(key, resources[0]!);
       }
     });
 
@@ -275,7 +268,7 @@ interface IRmResourceKey {
 
 export function getRmResourceKey(path: string): IRmResourceKey {
   const parts = getPathParts(path);
-  const projectId = parts[0];
+  const projectId = parts[0]!;
   const name = parts.length > 1 ? parts[parts.length - 1] : undefined;
 
   return {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,9 @@
 package io.cloudbeaver.model.session;
 
 import io.cloudbeaver.model.WebServerMessage;
-import io.cloudbeaver.model.app.WebAuthApplication;
+import io.cloudbeaver.model.app.ServletAuthApplication;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.auth.SMSessionPrincipal;
 
@@ -28,7 +29,7 @@ import org.jkiss.dbeaver.model.auth.SMSessionPrincipal;
 public class WebHeadlessSession extends BaseWebSession {
     public WebHeadlessSession(
         @NotNull String id,
-        @NotNull WebAuthApplication application
+        @NotNull ServletAuthApplication application
     ) throws DBException {
         super(id, application);
     }
@@ -43,6 +44,7 @@ public class WebHeadlessSession extends BaseWebSession {
 
     }
 
+    @Nullable
     @Override
     public SMSessionPrincipal getSessionPrincipal() {
         return null;

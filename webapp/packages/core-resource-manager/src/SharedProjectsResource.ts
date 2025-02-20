@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,7 +8,6 @@
 import { runInAction } from 'mobx';
 
 import type { AdminObjectGrantInfo } from '@cloudbeaver/core-administration';
-import { EAdminPermission } from '@cloudbeaver/core-authentication';
 import { injectable } from '@cloudbeaver/core-di';
 import { ProjectInfoResource } from '@cloudbeaver/core-projects';
 import {
@@ -19,8 +18,8 @@ import {
   resourceKeyList,
   ResourceKeyUtils,
 } from '@cloudbeaver/core-resource';
-import { SessionPermissionsResource } from '@cloudbeaver/core-root';
-import { GraphQLService, RmProject, RmProjectPermissions, RmSubjectProjectPermissions } from '@cloudbeaver/core-sdk';
+import { EAdminPermission, SessionPermissionsResource } from '@cloudbeaver/core-root';
+import { GraphQLService, type RmProject, type RmProjectPermissions, type RmSubjectProjectPermissions } from '@cloudbeaver/core-sdk';
 import { isArraysEqual } from '@cloudbeaver/core-utils';
 
 const newSymbol = Symbol('new-project');
@@ -46,7 +45,7 @@ export class SharedProjectsResource extends CachedMapResource<string, SharedProj
     super(() => new Map(), []);
 
     sessionPermissionsResource.require(this, EAdminPermission.admin);
-    this.sync(sessionPermissionsResource, () => {});
+    sessionPermissionsResource.onDataOutdated.addHandler(() => this.markOutdated());
 
     this.connect(projectInfoResource);
     this.onDataOutdated.addHandler(() => projectInfoResource.markOutdated());
@@ -67,16 +66,18 @@ export class SharedProjectsResource extends CachedMapResource<string, SharedProj
     }
   }
 
-  async setAccessSubjects(projectId: string, permissions: ProjectPermission[]): Promise<void> {
-    await this.graphQLService.sdk.setProjectPermissions({
-      projectId,
+  async addProjectPermissions(projectIds: string[], subjectIds: string[], permissions: string[]): Promise<void> {
+    await this.graphQLService.sdk.addProjectsPermissions({
+      projectIds,
+      subjectIds,
       permissions,
     });
   }
 
-  async setSubjectProjectsAccess(subjectId: string, permissions: ProjectSubjectPermission[]): Promise<void> {
-    await this.graphQLService.sdk.setSubjectProjectsPermissions({
-      subjectId,
+  async deleteProjectPermissions(projectIds: string[], subjectIds: string[], permissions: string[]): Promise<void> {
+    await this.graphQLService.sdk.deleteProjectsPermissions({
+      projectIds,
+      subjectIds,
       permissions,
     });
   }
@@ -125,6 +126,8 @@ export class SharedProjectsResource extends CachedMapResource<string, SharedProj
 
           deleted.push(projectId);
         });
+
+        this.onDataOutdated.execute(key);
       });
     } finally {
       if (deleted.length > 0) {
@@ -157,7 +160,7 @@ export class SharedProjectsResource extends CachedMapResource<string, SharedProj
     return this.data;
   }
 
-  protected dataSet(key: string, value: SharedProject): void {
+  protected override dataSet(key: string, value: SharedProject): void {
     key = this.getKeyRef(key);
 
     const data = this.data.get(key);

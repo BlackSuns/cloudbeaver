@@ -1,20 +1,22 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
+import { importLazyComponent } from '@cloudbeaver/core-blocks';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
 import { getCachedDataResourceLoaderState } from '@cloudbeaver/core-resource';
 import { ServerConfigResource } from '@cloudbeaver/core-root';
 import { SideBarPanelService } from '@cloudbeaver/core-ui';
-import { ActionService, DATA_CONTEXT_MENU, menuExtractItems, MenuService } from '@cloudbeaver/core-view';
+import { ActionService, menuExtractItems, MenuService } from '@cloudbeaver/core-view';
 import { MENU_TOOLS } from '@cloudbeaver/plugin-tools-panel';
 
-import { ACTION_RESOURCE_MANAGER_SCRIPTS } from './Actions/ACTION_RESOURCE_MANAGER_SCRIPTS';
-import { ResourceManagerScripts } from './ResourceManagerScripts';
-import { ResourceManagerScriptsService } from './ResourceManagerScriptsService';
+import { ACTION_RESOURCE_MANAGER_SCRIPTS } from './Actions/ACTION_RESOURCE_MANAGER_SCRIPTS.js';
+import { ResourceManagerScriptsService } from './ResourceManagerScriptsService.js';
+
+const ResourceManagerScripts = importLazyComponent(() => import('./ResourceManagerScripts.js').then(m => m.ResourceManagerScripts));
 
 @injectable()
 export class PluginBootstrap extends Bootstrap {
@@ -28,7 +30,7 @@ export class PluginBootstrap extends Bootstrap {
     super();
   }
 
-  register(): void | Promise<void> {
+  override register(): void | Promise<void> {
     this.registerMenu();
     this.sideBarPanelService.tabsContainer.add({
       key: 'resource-manager-scripts-tab',
@@ -40,11 +42,9 @@ export class PluginBootstrap extends Bootstrap {
     });
   }
 
-  async load(): Promise<void> {}
-
   private registerMenu() {
     this.menuService.addCreator({
-      isApplicable: context => context.tryGet(DATA_CONTEXT_MENU) === MENU_TOOLS,
+      menus: [MENU_TOOLS],
       getItems: (context, items) => [...items, ACTION_RESOURCE_MANAGER_SCRIPTS],
       orderItems: (context, items) => {
         const extracted = menuExtractItems(items, [ACTION_RESOURCE_MANAGER_SCRIPTS]);
@@ -54,12 +54,15 @@ export class PluginBootstrap extends Bootstrap {
 
     this.actionService.addHandler({
       id: 'resource-manager-scripts-base',
-      isActionApplicable: (context, action) => [ACTION_RESOURCE_MANAGER_SCRIPTS].includes(action),
+      actions: [ACTION_RESOURCE_MANAGER_SCRIPTS],
       isHidden: () => !this.resourceManagerScriptsService.enabled,
       isChecked: () => this.resourceManagerScriptsService.active,
-      getLoader: (context, action) => {
-        return getCachedDataResourceLoaderState(this.serverConfigResource, undefined, undefined);
-      },
+      getLoader: () =>
+        getCachedDataResourceLoaderState(
+          this.serverConfigResource,
+          () => undefined,
+          () => undefined,
+        ),
       handler: (context, action) => {
         switch (action) {
           case ACTION_RESOURCE_MANAGER_SCRIPTS: {

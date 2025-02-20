@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -11,28 +11,28 @@ import { AdministrationScreenService } from '@cloudbeaver/core-administration';
 import {
   AppAuthService,
   AUTH_PROVIDER_LOCAL_ID,
-  AuthInfoService,
   AuthProviderContext,
   AuthProviderService,
   AuthProvidersResource,
-  IUserAuthConfiguration,
-  RequestedProvider,
+  type RequestedProvider,
   UserInfoResource,
+  type UserLogoutInfo,
 } from '@cloudbeaver/core-authentication';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
-import type { DialogueStateResult } from '@cloudbeaver/core-dialogs';
+import { DialogueStateResult } from '@cloudbeaver/core-dialogs';
 import { NotificationService } from '@cloudbeaver/core-events';
-import { Executor, ExecutorInterrupter, IExecutionContextProvider, IExecutorHandler } from '@cloudbeaver/core-executor';
+import { Executor, ExecutorInterrupter, type IExecutionContextProvider, type IExecutorHandler } from '@cloudbeaver/core-executor';
 import { CachedMapAllKey } from '@cloudbeaver/core-resource';
-import { ISessionAction, ServerConfigResource, sessionActionContext, SessionActionService, SessionDataResource } from '@cloudbeaver/core-root';
+import { type ISessionAction, ServerConfigResource, sessionActionContext, SessionActionService, SessionDataResource } from '@cloudbeaver/core-root';
 import { ScreenService, WindowsService } from '@cloudbeaver/core-routing';
 import { NavigationService } from '@cloudbeaver/core-ui';
+import { uuid } from '@cloudbeaver/core-utils';
 
-import { AuthDialogService } from './Dialog/AuthDialogService';
-import type { IAuthOptions } from './IAuthOptions';
-import { isAutoLoginSessionAction } from './isAutoLoginSessionAction';
+import { AuthDialogService } from './Dialog/AuthDialogService.js';
+import type { IAuthOptions } from './IAuthOptions.js';
+import { isAutoLoginSessionAction } from './isAutoLoginSessionAction.js';
 
-type AuthEventType = 'before' | 'after';
+export type AuthEventType = 'before' | 'after';
 
 @injectable()
 export class AuthenticationService extends Bootstrap {
@@ -54,7 +54,6 @@ export class AuthenticationService extends Bootstrap {
     private readonly authProviderService: AuthProviderService,
     private readonly authProvidersResource: AuthProvidersResource,
     private readonly sessionDataResource: SessionDataResource,
-    private readonly authInfoService: AuthInfoService,
     private readonly serverConfigResource: ServerConfigResource,
     private readonly windowsService: WindowsService,
     private readonly sessionActionService: SessionActionService,
@@ -66,6 +65,7 @@ export class AuthenticationService extends Bootstrap {
     this.onLogin = new Executor();
 
     this.onLogout.before(this.navigationService.navigationTask);
+    this.onLogin.before(this.navigationService.navigationTask, undefined, () => userInfoResource.isAnonymous());
 
     this.authPromise = null;
     this.configureAuthProvider = null;
@@ -91,22 +91,10 @@ export class AuthenticationService extends Bootstrap {
       return;
     }
 
-    let userAuthConfiguration: IUserAuthConfiguration | undefined = undefined;
-
-    if (providerId) {
-      userAuthConfiguration = this.authInfoService.userAuthConfigurations.find(
-        c => c.providerId === providerId && c.configuration.id === configurationId,
-      );
-    } else if (this.authInfoService.userAuthConfigurations.length > 0) {
-      userAuthConfiguration = this.authInfoService.userAuthConfigurations[0];
-    }
-
-    if (userAuthConfiguration?.configuration.signOutLink) {
-      this.logoutConfiguration(userAuthConfiguration);
-    }
-
     try {
-      await this.userInfoResource.logout(providerId, configurationId);
+      const logoutResult = await this.userInfoResource.logout(providerId, configurationId);
+
+      this.handleRedirectLinks(logoutResult.result);
 
       if (!this.administrationScreenService.isConfigurationMode && !providerId) {
         this.screenService.navigateToRoot();
@@ -114,15 +102,20 @@ export class AuthenticationService extends Bootstrap {
 
       await this.onLogout.execute('after');
     } catch (exception: any) {
-      this.notificationService.logException(exception, "Can't logout");
+      this.notificationService.logException(exception, 'authentication_logout_error');
     }
   }
 
-  private async logoutConfiguration(configuration: IUserAuthConfiguration): Promise<void> {
-    if (configuration.configuration.signOutLink) {
-      const id = `${configuration.configuration.id}-sign-out`;
+  // TODO handle all redirect links once we know what to do with multiple popups issue
+  private handleRedirectLinks(userLogoutInfo: UserLogoutInfo) {
+    const redirectLinks = userLogoutInfo.redirectLinks;
+
+    if (redirectLinks.length) {
+      const url = redirectLinks[0];
+      const id = `okta-logout-id-${uuid()}`;
+
       const popup = this.windowsService.open(id, {
-        url: configuration.configuration.signOutLink,
+        url,
         target: id,
         width: 600,
         height: 700,
@@ -149,16 +142,6 @@ export class AuthenticationService extends Bootstrap {
 
     options = observable(options);
 
-    this.authPromise = this.authDialogService
-      .showLoginForm(persistent, options)
-      .then(async state => {
-        await this.onLogin.execute('after');
-        return state;
-      })
-      .finally(() => {
-        this.authPromise = null;
-      });
-
     if (this.serverConfigResource.redirectOnFederatedAuth) {
       await this.authProvidersResource.load(CachedMapAllKey);
 
@@ -168,13 +151,31 @@ export class AuthenticationService extends Bootstrap {
         const configurableProvider = providers.find(provider => provider.configurable);
 
         if (configurableProvider?.configurations?.length === 1) {
-          const configuration = configurableProvider.configurations[0];
+          const configuration = configurableProvider.configurations[0]!;
 
           options.providerId = configurableProvider.id;
           options.configurationId = configuration.id;
         }
       }
     }
+
+    if (this.authPromise) {
+      await this.waitAuth();
+      return;
+    }
+
+    this.authPromise = this.authDialogService
+      .showLoginForm(persistent, options)
+      .then(async state => {
+        if (state === DialogueStateResult.Rejected) {
+          return state;
+        }
+        await this.onLogin.execute('after');
+        return state;
+      })
+      .finally(() => {
+        this.authPromise = null;
+      });
 
     await this.authPromise;
   }
@@ -190,7 +191,7 @@ export class AuthenticationService extends Bootstrap {
     await this.auth(true, { accessRequest: true, providerId: null, linkUser: false });
   }
 
-  register(): void {
+  override register(): void {
     // this.sessionDataResource.beforeLoad.addHandler(
     //   ExecutorInterrupter.interrupter(() => this.appAuthService.isAuthNeeded())
     // );
@@ -213,8 +214,6 @@ export class AuthenticationService extends Bootstrap {
     });
     this.authProviderService.requestAuthProvider.addHandler(this.requestAuthProviderHandler);
   }
-
-  load(): void {}
 
   private async authSessionAction(data: ISessionAction | null, contexts: IExecutionContextProvider<ISessionAction | null>) {
     const action = contexts.getContext(sessionActionContext);

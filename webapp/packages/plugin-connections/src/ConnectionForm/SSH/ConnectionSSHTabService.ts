@@ -1,37 +1,40 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { action, makeObservable } from 'mobx';
+import { action, makeObservable, toJS } from 'mobx';
 import React from 'react';
 
 import { DBDriverResource, SSH_TUNNEL_ID } from '@cloudbeaver/core-connections';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
 import type { IExecutionContextProvider } from '@cloudbeaver/core-executor';
-import { DriverConfigurationType, NetworkHandlerAuthType, NetworkHandlerConfigInput } from '@cloudbeaver/core-sdk';
+import { DriverConfigurationType, NetworkHandlerAuthType, type NetworkHandlerConfigInput } from '@cloudbeaver/core-sdk';
 import { formStateContext } from '@cloudbeaver/core-ui';
 
-import { connectionFormConfigureContext } from '../connectionFormConfigureContext';
-import { ConnectionFormService } from '../ConnectionFormService';
-import { connectionConfigContext } from '../Contexts/connectionConfigContext';
-import { connectionCredentialsStateContext } from '../Contexts/connectionCredentialsStateContext';
-import type { IConnectionFormFillConfigData, IConnectionFormState, IConnectionFormSubmitData } from '../IConnectionFormProps';
+import { connectionFormConfigureContext } from '../connectionFormConfigureContext.js';
+import { ConnectionFormService } from '../ConnectionFormService.js';
+import { connectionConfigContext } from '../Contexts/connectionConfigContext.js';
+import { connectionCredentialsStateContext } from '../Contexts/connectionCredentialsStateContext.js';
+import type { IConnectionFormFillConfigData, IConnectionFormState, IConnectionFormSubmitData } from '../IConnectionFormProps.js';
 
 export const SSHTab = React.lazy(async () => {
-  const { SSHTab } = await import('./SSHTab');
+  const { SSHTab } = await import('./SSHTab.js');
   return { default: SSHTab };
 });
 export const SSHPanel = React.lazy(async () => {
-  const { SSHPanel } = await import('./SSHPanel');
+  const { SSHPanel } = await import('./SSHPanel.js');
   return { default: SSHPanel };
 });
 
 @injectable()
 export class ConnectionSSHTabService extends Bootstrap {
-  constructor(private readonly connectionFormService: ConnectionFormService, private readonly dbDriverResource: DBDriverResource) {
+  constructor(
+    private readonly connectionFormService: ConnectionFormService,
+    private readonly dbDriverResource: DBDriverResource,
+  ) {
     super();
 
     makeObservable<this, 'fillConfig' | 'prepareConfig'>(this, {
@@ -40,10 +43,10 @@ export class ConnectionSSHTabService extends Bootstrap {
     });
   }
 
-  register(): void {
+  override register(): void {
     this.connectionFormService.tabsContainer.add({
       key: 'ssh',
-      name: 'customConnection_options',
+      name: 'plugin_connections_connection_form_part_main',
       order: 3,
       tab: () => SSHTab,
       panel: () => SSHPanel,
@@ -69,8 +72,6 @@ export class ConnectionSSHTabService extends Bootstrap {
 
     this.connectionFormService.fillConfigTask.addHandler(this.fillConfig.bind(this));
   }
-
-  load(): void {}
 
   private fillConfig({ state, updated }: IConnectionFormFillConfigData, contexts: IExecutionContextProvider<IConnectionFormFillConfigData>) {
     if (!updated) {
@@ -176,6 +177,7 @@ export class ConnectionSSHTabService extends Bootstrap {
     if (this.isChanged(handler, initial) || passwordChanged || keyChanged) {
       handlerConfig = {
         ...handler,
+        savePassword: handler.savePassword || config.sharedCredentials,
         key: handler.authType === NetworkHandlerAuthType.PublicKey && keyChanged ? handler.key : undefined,
         password: passwordChanged ? handler.password : undefined,
       };
@@ -192,8 +194,28 @@ export class ConnectionSSHTabService extends Bootstrap {
         config.networkHandlersConfig = [];
       }
 
+      handlerConfig = this.getTrimmedSSHConfig(handlerConfig);
       config.networkHandlersConfig.push(handlerConfig);
     }
+  }
+
+  private getTrimmedSSHConfig(input: NetworkHandlerConfigInput): NetworkHandlerConfigInput {
+    const trimmedInput = toJS(input);
+    const attributesToTrim = Object.keys(input) as (keyof NetworkHandlerConfigInput)[];
+
+    for (const key of attributesToTrim) {
+      if (typeof trimmedInput[key] === 'string') {
+        trimmedInput[key] = trimmedInput[key]?.trim();
+      }
+    }
+
+    for (const key in trimmedInput.properties) {
+      if (typeof trimmedInput.properties[key] === 'string') {
+        trimmedInput.properties[key] = trimmedInput.properties[key]?.trim();
+      }
+    }
+
+    return trimmedInput;
   }
 
   private formState(data: IConnectionFormState, contexts: IExecutionContextProvider<IConnectionFormState>) {

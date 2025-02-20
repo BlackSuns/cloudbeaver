@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@ type QueryGutterEffectType = 'run' | 'error';
 const QUERY_STATUS_SIZE_MARKER = new (class extends GutterMarker {})();
 
 const RUN_QUERY_MARKER = new (class extends GutterMarker {
-  toDOM(): Node {
+  override toDOM(): Node {
     const span = document.createElement('div');
     span.className = 'running-query-line';
     return span;
@@ -20,7 +20,7 @@ const RUN_QUERY_MARKER = new (class extends GutterMarker {
 })();
 
 const ERROR_QUERY_MARKER = new (class extends GutterMarker {
-  toDOM(): Node {
+  override toDOM(): Node {
     const span = document.createElement('div');
     span.className = 'running-query-error-line';
     return span;

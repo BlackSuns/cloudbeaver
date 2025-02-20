@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -9,16 +9,23 @@ import { action, computed, observable, untracked } from 'mobx';
 import { useEffect } from 'react';
 
 import { AdministrationScreenService } from '@cloudbeaver/core-administration';
-import { AuthInfoService, AuthProvider, AuthProviderConfiguration, AuthProvidersResource, IAuthCredentials } from '@cloudbeaver/core-authentication';
-import { useObservableRef, useResource } from '@cloudbeaver/core-blocks';
+import {
+  AuthInfoService,
+  type AuthProvider,
+  type AuthProviderConfiguration,
+  AuthProvidersResource,
+  type IAuthCredentials,
+} from '@cloudbeaver/core-authentication';
+import { ConfirmationDialog, useObservableRef, useResource } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
-import { NotificationService } from '@cloudbeaver/core-events';
+import { CommonDialogService, DialogueStateResult } from '@cloudbeaver/core-dialogs';
+import { NotificationService, UIError } from '@cloudbeaver/core-events';
 import type { ITask } from '@cloudbeaver/core-executor';
 import { CachedMapAllKey } from '@cloudbeaver/core-resource';
-import type { UserInfo } from '@cloudbeaver/core-sdk';
-import { isArraysEqual } from '@cloudbeaver/core-utils';
+import { EServerErrorCode, GQLError, type UserInfo } from '@cloudbeaver/core-sdk';
+import { errorOf, isArraysEqual } from '@cloudbeaver/core-utils';
 
-import { FEDERATED_AUTH } from './FEDERATED_AUTH';
+import { FEDERATED_AUTH } from './FEDERATED_AUTH.js';
 
 interface IData {
   state: IState;
@@ -42,9 +49,11 @@ interface IState {
   activeConfiguration: AuthProviderConfiguration | null;
   credentials: IAuthCredentials;
   tabIds: string[];
-
-  setTabId: (tabId: string | null) => void;
+  isTooManySessions: boolean;
+  forceSessionsLogout: boolean;
+  switchAuthMode: (tabId: string | null, resetError?: boolean) => void;
   setActiveProvider: (provider: AuthProvider | null, configuration: AuthProviderConfiguration | null) => void;
+  resetErrorState: VoidFunction;
 }
 
 export function useAuthDialogState(accessRequest: boolean, providerId: string | null, configurationId?: string): IData {
@@ -52,17 +61,13 @@ export function useAuthDialogState(accessRequest: boolean, providerId: string | 
   const administrationScreenService = useService(AdministrationScreenService);
   const authInfoService = useService(AuthInfoService);
   const notificationService = useService(NotificationService);
+  const commonDialogService = useService(CommonDialogService);
 
-  const primaryId = authProvidersResource.resource.getPrimary();
   const adminPageActive = administrationScreenService.isAdministrationPageActive;
   const providers = authProvidersResource.data.filter(notEmptyProvider).sort(compareProviders);
 
   const activeProviders = providers.filter(provider => {
-    if (provider.id === primaryId && adminPageActive && accessRequest) {
-      return true;
-    }
-
-    if (provider.federated || provider.trusted || provider.private) {
+    if (provider.federated || provider.trusted || provider.private || provider.authHidden) {
       return false;
     }
 
@@ -115,12 +120,27 @@ export function useAuthDialogState(accessRequest: boolean, providerId: string | 
         profile: '0',
         credentials: {},
       },
-      setTabId(tabId: string | null): void {
+      isTooManySessions: false,
+      forceSessionsLogout: false,
+      switchAuthMode(tabId: string | null, resetError = true): void {
+        if (tabId !== null && tabId === this.tabId) {
+          return;
+        }
+
         if (tabIds.includes(tabId as any)) {
           this.tabId = tabId;
         } else {
           this.tabId = tabIds[0] ?? null;
         }
+
+        if (resetError) {
+          this.resetErrorState();
+        }
+      },
+      resetErrorState(): void {
+        this.isTooManySessions = false;
+        this.forceSessionsLogout = false;
+        data.exception = null;
       },
       setActiveProvider(provider: AuthProvider | null, configuration: AuthProviderConfiguration | null): void {
         const providerChanged = this.activeProvider?.id !== provider?.id;
@@ -136,12 +156,12 @@ export function useAuthDialogState(accessRequest: boolean, providerId: string | 
 
         if (provider) {
           if (provider.federated) {
-            this.setTabId(FEDERATED_AUTH);
+            this.switchAuthMode(FEDERATED_AUTH);
           } else {
-            this.setTabId(getAuthProviderTabId(provider, configuration));
+            this.switchAuthMode(getAuthProviderTabId(provider, configuration));
           }
         } else {
-          this.setTabId(null);
+          this.switchAuthMode(null, false);
         }
       },
     }),
@@ -150,7 +170,11 @@ export function useAuthDialogState(accessRequest: boolean, providerId: string | 
       activeProvider: observable.ref,
       activeConfiguration: observable.ref,
       credentials: observable,
-      setActiveProvider: action,
+      isTooManySessions: observable.ref,
+      forceSessionsLogout: observable.ref,
+      switchAuthMode: action.bound,
+      setActiveProvider: action.bound,
+      resetErrorState: action.bound,
     },
     false,
   );
@@ -170,9 +194,6 @@ export function useAuthDialogState(accessRequest: boolean, providerId: string | 
 
       get configure(): boolean {
         if (state.activeProvider) {
-          if (this.adminPageActive && authProvidersResource.resource.isPrimary(state.activeProvider.id)) {
-            return false;
-          }
           return !authProvidersResource.resource.isAuthEnabled(state.activeProvider.id);
         }
         return false;
@@ -185,24 +206,52 @@ export function useAuthDialogState(accessRequest: boolean, providerId: string | 
           return;
         }
 
+        if (state.isTooManySessions && state.forceSessionsLogout) {
+          const result = await commonDialogService.open(ConfirmationDialog, {
+            title: 'authentication_auth_force_session_logout_popup_title',
+            message: 'authentication_auth_force_session_logout_popup_message',
+          });
+
+          if (result === DialogueStateResult.Rejected) {
+            throw new UIError('Force session logout confirmation dialog rejected');
+          }
+        }
+
         this.authenticating = true;
+        state.isTooManySessions = false;
+
         try {
           this.state.setActiveProvider(provider, configuration ?? null);
 
           const loginTask = authInfoService.login(provider.id, {
             configurationId: configuration?.id,
-            credentials: state.credentials,
+            credentials: {
+              ...state.credentials,
+              credentials: {
+                ...state.credentials.credentials,
+                user: state.credentials.credentials['user']?.trim(),
+                password: state.credentials.credentials['password']?.trim(),
+              },
+            },
+            forceSessionsLogout: state.forceSessionsLogout,
             linkUser,
           });
           this.authTask = loginTask;
 
           await loginTask;
         } catch (exception: any) {
+          const gqlError = errorOf(exception, GQLError);
+
+          if (gqlError?.errorCode === EServerErrorCode.tooManySessions) {
+            state.isTooManySessions = true;
+          }
+
           if (this.destroyed) {
             notificationService.logException(exception, 'Login failed');
           } else {
             this.exception = exception;
           }
+
           throw exception;
         } finally {
           this.authTask = null;
@@ -210,9 +259,11 @@ export function useAuthDialogState(accessRequest: boolean, providerId: string | 
 
           if (provider.federated) {
             this.state.setActiveProvider(null, null);
-            this.state.setTabId(FEDERATED_AUTH);
+            this.state.switchAuthMode(FEDERATED_AUTH, false);
           }
         }
+
+        return;
       },
     }),
     {

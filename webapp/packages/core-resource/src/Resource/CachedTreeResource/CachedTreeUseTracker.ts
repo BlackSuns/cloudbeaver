@@ -1,26 +1,30 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { flat, getPathParents, uuid } from '@cloudbeaver/core-utils';
 
-import type { ICachedResourceMetadata } from '../ICachedResourceMetadata';
-import type { ResourceAliases } from '../ResourceAliases';
-import type { ResourceKey } from '../ResourceKey';
-import { resourceKeyList } from '../ResourceKeyList';
-import { ResourceKeyUtils } from '../ResourceKeyUtils';
-import type { ResourceLogger } from '../ResourceLogger';
-import { ResourceUseTracker } from '../ResourceUseTracker';
-import type { CachedTreeMetadata } from './CachedTreeMetadata';
+import type { ICachedResourceMetadata } from '../ICachedResourceMetadata.js';
+import type { ResourceAliases } from '../ResourceAliases.js';
+import type { ResourceKey } from '../ResourceKey.js';
+import { resourceKeyList } from '../ResourceKeyList.js';
+import { ResourceKeyUtils } from '../ResourceKeyUtils.js';
+import type { ResourceLogger } from '../ResourceLogger.js';
+import { ResourceUseTracker } from '../ResourceUseTracker.js';
+import type { CachedTreeMetadata } from './CachedTreeMetadata.js';
 
 export class CachedTreeUseTracker<TValue, TMetadata extends ICachedResourceMetadata> extends ResourceUseTracker<string, TMetadata> {
-  constructor(logger: ResourceLogger, aliases: ResourceAliases<string>, protected metadata: CachedTreeMetadata<TValue, TMetadata>) {
+  constructor(
+    logger: ResourceLogger,
+    aliases: ResourceAliases<string>,
+    protected override metadata: CachedTreeMetadata<TValue, TMetadata>,
+  ) {
     super(logger, aliases, metadata);
   }
-  use(param: ResourceKey<string>, id = uuid()): string {
+  override use(param: ResourceKey<string>, id = uuid()): string {
     const transformedList = resourceKeyList(flat(ResourceKeyUtils.toList(this.aliases.transformToKey(param)).map(getPathParents)));
 
     this.metadata.update(transformedList, metadata => {
@@ -30,7 +34,7 @@ export class CachedTreeUseTracker<TValue, TMetadata extends ICachedResourceMetad
     return super.use(param, id);
   }
 
-  free(param: ResourceKey<string>, id: string): void {
+  override free(param: ResourceKey<string>, id: string): void {
     const transformedList = resourceKeyList(flat(ResourceKeyUtils.toList(this.aliases.transformToKey(param)).map(getPathParents)));
     this.metadata.update(transformedList, metadata => {
       if (metadata.dependencies.length > 0) {

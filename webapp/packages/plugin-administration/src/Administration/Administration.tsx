@@ -1,81 +1,45 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useLayoutEffect, useRef } from 'react';
-import styled, { css } from 'reshadow';
 
-import { AdministrationItemService, filterOnlyActive, IAdministrationItemRoute } from '@cloudbeaver/core-administration';
+import {
+  AdministrationItemService,
+  AdministrationScreenService,
+  filterOnlyActive,
+  type IAdministrationItemRoute,
+} from '@cloudbeaver/core-administration';
 import {
   Loader,
+  s,
   SContext,
   SlideBox,
   SlideElement,
   SlideOverlay,
-  StyleRegistry,
+  type StyleRegistry,
   ToolsActionStyles,
   ToolsPanelStyles,
-  useStyles,
+  useAutoLoad,
+  useS,
 } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
-import { BASE_TAB_STYLES, OptionsPanelService, TabList, TabsState, verticalTabStyles } from '@cloudbeaver/core-ui';
+import { OptionsPanelService, TabList, TabListStyles, TabsState, TabStyles } from '@cloudbeaver/core-ui';
+import type { ILoadableState } from '@cloudbeaver/core-utils';
 import { CaptureView } from '@cloudbeaver/core-view';
 
-import { AdministrationCaptureViewContext } from './AdministrationCaptureViewContext';
-import AdministrationToolbarStyles from './AdministrationToolbarStyles.m.css';
-import { AdministrationViewService } from './AdministrationViewService';
-import { DrawerItem } from './DrawerItem';
-import { ItemContent } from './ItemContent';
-
-const tabsStyles = css`
-  TabList {
-    composes: theme-background-surface theme-text-on-surface theme-border-color-background from global;
-  }
-  Tab {
-    composes: theme-ripple theme-background-background theme-ripple-selectable from global;
-    color: inherit;
-  }
-`;
-
-const administrationStyles = css`
-  SlideElement {
-    composes: theme-background-secondary theme-text-on-secondary from global;
-  }
-  CaptureView {
-    composes: theme-background-secondary theme-text-on-secondary from global;
-    display: flex;
-    flex-direction: row;
-    flex: 1;
-    overflow: hidden;
-  }
-  TabList {
-    width: 240px;
-    padding-top: 16px;
-    border-right: 2px solid;
-  }
-  content-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-  }
-  SlideBox {
-    flex: 1;
-  }
-  content {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-  }
-  Loader {
-    height: 100%;
-  }
-`;
+import { AdministrationCaptureViewContext } from './AdministrationCaptureViewContext.js';
+import { AdministrationViewService } from './AdministrationViewService.js';
+import { DrawerItem } from './DrawerItem.js';
+import { ItemContent } from './ItemContent.js';
+import style from './shared/Administration.module.css';
+import AdministrationStylesTab from './shared/AdministrationTab.module.css';
+import AdministrationStylesTabList from './shared/AdministrationTabList.module.css';
+import AdministrationToolsPanelStyles from './shared/AdministrationToolsPanel.module.css';
 
 interface Props {
   configurationWizard: boolean;
@@ -83,19 +47,36 @@ interface Props {
   onItemSelect: (name: string) => void;
 }
 
-const registry: StyleRegistry = [
+const adminPageRegistry: StyleRegistry = [
   [
     ToolsPanelStyles,
     {
       mode: 'append',
-      styles: [AdministrationToolbarStyles],
+      styles: [AdministrationToolsPanelStyles],
     },
   ],
   [
     ToolsActionStyles,
     {
       mode: 'append',
-      styles: [AdministrationToolbarStyles],
+      styles: [AdministrationToolsPanelStyles],
+    },
+  ],
+];
+
+const tabsRegistry: StyleRegistry = [
+  [
+    TabStyles,
+    {
+      mode: 'append',
+      styles: [AdministrationStylesTab],
+    },
+  ],
+  [
+    TabListStyles,
+    {
+      mode: 'append',
+      styles: [AdministrationStylesTabList],
     },
   ],
 ];
@@ -106,58 +87,66 @@ export const Administration = observer<React.PropsWithChildren<Props>>(function 
   onItemSelect,
   children,
 }) {
+  const styles = useS(style);
   const contentRef = useRef<HTMLDivElement>(null);
+  const administrationScreenService = useService(AdministrationScreenService);
   const administrationViewService = useService(AdministrationViewService);
   const administrationItemService = useService(AdministrationItemService);
   const optionsPanelService = useService(OptionsPanelService);
 
   const OptionsPanel = optionsPanelService.getPanelComponent();
-  const items = administrationItemService.getActiveItems(configurationWizard);
-  const onlyActiveItem = items.find(filterOnlyActive(configurationWizard));
+  const visibleItems = administrationItemService.getActiveItems(configurationWizard);
+  const onlyActiveItem = administrationItemService.items.find(filterOnlyActive(configurationWizard));
+  const loaders = administrationItemService.items.reduce<ILoadableState[]>((acc, item) => [...acc, item.getLoader?.() || []].flat(), []);
+
+  useAutoLoad(Administration, loaders);
 
   useLayoutEffect(() => {
     contentRef.current?.scrollTo({ top: 0, left: 0 });
   }, [activeScreen?.item]);
 
-  return styled(useStyles(BASE_TAB_STYLES, verticalTabStyles, administrationStyles, tabsStyles))(
-    <CaptureView view={administrationViewService}>
-      <SContext registry={registry}>
-        <AdministrationCaptureViewContext />
-        <TabsState currentTabId={activeScreen?.item} orientation="vertical">
-          <TabList aria-label="Administration items">
-            {items.map(item => (
+  function close() {
+    optionsPanelService.close();
+  }
+
+  return (
+    <CaptureView view={administrationViewService} className={s(styles, { captureView: true })}>
+      <AdministrationCaptureViewContext />
+      <TabsState currentTabId={activeScreen?.item} localState={administrationScreenService.itemState} orientation="vertical">
+        <SContext registry={tabsRegistry}>
+          <TabList aria-label="Administration items" vertical>
+            {visibleItems.map(item => (
               <DrawerItem
                 key={item.name}
                 item={item}
                 configurationWizard={configurationWizard}
-                style={[BASE_TAB_STYLES, verticalTabStyles, tabsStyles]}
                 disabled={!!(onlyActiveItem && onlyActiveItem.filterOnlyActive?.(configurationWizard, item) !== true)}
                 onSelect={onItemSelect}
               />
             ))}
           </TabList>
-          <content-container ref={contentRef} as="div">
-            {children}
-            <SlideBox open={optionsPanelService.active}>
-              <SlideElement>
-                <Loader suspense>
-                  <content>
-                    <OptionsPanel />
-                  </content>
-                </Loader>
+        </SContext>
+        <div ref={contentRef} className={s(styles, { contentContainer: true })}>
+          {children}
+          <SContext registry={adminPageRegistry}>
+            <SlideBox className={s(styles, { slideBox: true })} open={optionsPanelService.active} onClose={close}>
+              <SlideElement className={s(styles, { slideElement: true })}>
+                <div className={s(styles, { content: true })}>
+                  <ItemContent activeScreen={activeScreen} configurationWizard={configurationWizard} />
+                </div>
+                <SlideOverlay onClick={close} />
               </SlideElement>
-              <SlideElement>
-                <Loader suspense>
-                  <content>
-                    <ItemContent activeScreen={activeScreen} configurationWizard={configurationWizard} />
-                  </content>
+              <SlideElement className={s(styles, { slideElement: true })}>
+                <Loader className={s(styles, { loader: true })} suspense>
+                  <div className={s(styles, { content: true })}>
+                    <OptionsPanel />
+                  </div>
                 </Loader>
-                <SlideOverlay onClick={() => optionsPanelService.close()} />
               </SlideElement>
             </SlideBox>
-          </content-container>
-        </TabsState>
-      </SContext>
-    </CaptureView>,
+          </SContext>
+        </div>
+      </TabsState>
+    </CaptureView>
   );
 });

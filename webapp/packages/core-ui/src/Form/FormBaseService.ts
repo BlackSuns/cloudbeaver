@@ -1,44 +1,43 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { PlaceholderContainer } from '@cloudbeaver/core-blocks';
 import { ENotificationType, NotificationService } from '@cloudbeaver/core-events';
-import { ExecutorHandlersCollection, ExecutorInterrupter, IExecutorHandler, type IExecutorHandlersCollection } from '@cloudbeaver/core-executor';
+import { ExecutorHandlersCollection, ExecutorInterrupter, type IExecutorHandler, type IExecutorHandlersCollection } from '@cloudbeaver/core-executor';
 import type { LocalizationService } from '@cloudbeaver/core-localization';
 
-import { TabsContainer } from '../Tabs/TabsContainer/TabsContainer';
-import { formStatusContext } from './formStatusContext';
-import { formValidationContext } from './formValidationContext';
-import type { IFormProps } from './IFormProps';
-import type { IFormState } from './IFormState';
+import { TabsContainer } from '../Tabs/TabsContainer/TabsContainer.js';
+import { formStatusContext } from './formStatusContext.js';
+import { formValidationContext } from './formValidationContext.js';
+import type { IFormProps } from './IFormProps.js';
+import type { IFormState } from './IFormState.js';
 
 export class FormBaseService<TState, TProps extends IFormProps<TState> = IFormProps<TState>> {
   readonly parts: TabsContainer<TProps>;
   readonly actionsContainer: PlaceholderContainer<TProps>;
 
-  readonly onConfigure: IExecutorHandlersCollection<IFormState<TState>>;
-  readonly onFillDefaultConfig: IExecutorHandlersCollection<IFormState<TState>>;
-  readonly onPrepareConfig: IExecutorHandlersCollection<TState>;
+  readonly onFormat: IExecutorHandlersCollection<IFormState<TState>>;
   readonly onValidate: IExecutorHandlersCollection<IFormState<TState>>;
   readonly onSubmit: IExecutorHandlersCollection<IFormState<TState>>;
+  readonly onLoaded: IExecutorHandlersCollection<IFormState<TState>>;
   readonly onState: IExecutorHandlersCollection<TState>;
 
-  constructor(private readonly localizationService: LocalizationService, private readonly notificationService: NotificationService, name: string) {
+  constructor(
+    private readonly localizationService: LocalizationService,
+    private readonly notificationService: NotificationService,
+    name: string,
+  ) {
     this.parts = new TabsContainer(name);
     this.actionsContainer = new PlaceholderContainer();
-    this.onConfigure = new ExecutorHandlersCollection();
-    this.onFillDefaultConfig = new ExecutorHandlersCollection();
-    this.onPrepareConfig = new ExecutorHandlersCollection();
+    this.onFormat = new ExecutorHandlersCollection();
     this.onValidate = new ExecutorHandlersCollection();
     this.onSubmit = new ExecutorHandlersCollection();
+    this.onLoaded = new ExecutorHandlersCollection();
     this.onState = new ExecutorHandlersCollection();
-
-    this.onSubmit.before(this.onPrepareConfig);
-    this.onState.before(this.onPrepareConfig);
 
     this.onSubmit.addPostHandler(this.handleSubmittingStatus);
     this.onValidate.addPostHandler(this.handleValidation);

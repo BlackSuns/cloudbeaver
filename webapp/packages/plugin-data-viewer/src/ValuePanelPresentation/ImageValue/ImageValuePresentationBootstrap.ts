@@ -1,21 +1,21 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
+import { importLazyComponent } from '@cloudbeaver/core-blocks';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
 import { ResultDataFormat } from '@cloudbeaver/core-sdk';
-import { getMIME, isImageFormat, isValidUrl } from '@cloudbeaver/core-utils';
 
-import type { IResultSetContentValue } from '../../DatabaseDataModel/Actions/ResultSet/IResultSetContentValue';
-import { isResultSetContentValue } from '../../DatabaseDataModel/Actions/ResultSet/isResultSetContentValue';
-import type { IResultSetValue } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetFormatAction';
-import { ResultSetSelectAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetSelectAction';
-import { ResultSetViewAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetViewAction';
-import { DataValuePanelService } from '../../TableViewer/ValuePanel/DataValuePanelService';
-import { ImageValuePresentation } from './ImageValuePresentation';
+import { ResultSetSelectAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetSelectAction.js';
+import { ResultSetViewAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetViewAction.js';
+import { isResultSetDataSource } from '../../ResultSet/ResultSetDataSource.js';
+import { DataValuePanelService } from '../../TableViewer/ValuePanel/DataValuePanelService.js';
+import { isImageValuePresentationAvailable } from './isImageValuePresentationAvailable.js';
+
+const ImageValuePresentation = importLazyComponent(() => import('./ImageValuePresentation.js').then(module => module.ImageValuePresentation));
 
 @injectable()
 export class ImageValuePresentationBootstrap extends Bootstrap {
@@ -23,52 +23,37 @@ export class ImageValuePresentationBootstrap extends Bootstrap {
     super();
   }
 
-  register(): void | Promise<void> {
+  override register(): void | Promise<void> {
     this.dataValuePanelService.add({
       key: 'image-presentation',
-      options: { dataFormat: [ResultDataFormat.Resultset] },
+      options: {
+        dataFormat: [ResultDataFormat.Resultset],
+      },
       name: 'data_viewer_presentation_value_image_title',
       order: 1,
       panel: () => ImageValuePresentation,
       isHidden: (_, context) => {
-        if (!context?.model.source.hasResult(context.resultIndex)) {
+        const source = context?.model.source as any;
+        if (!context?.model.source.hasResult(context.resultIndex) || !isResultSetDataSource(source)) {
           return true;
         }
 
-        const selection = context.model.source.getAction(context.resultIndex, ResultSetSelectAction);
+        const selection = source.getAction(context.resultIndex, ResultSetSelectAction);
 
-        const focusedElement = selection.getFocusedElement();
+        const activeElements = selection.getActiveElements();
 
-        if (selection.elements.length > 0 || focusedElement) {
-          const view = context.model.source.getAction(context.resultIndex, ResultSetViewAction);
+        if (activeElements.length > 0) {
+          const view = source.getAction(context.resultIndex, ResultSetViewAction);
 
-          const firstSelectedCell = selection.elements[0] || focusedElement;
+          const firstSelectedCell = activeElements[0]!;
 
           const cellValue = view.getCellValue(firstSelectedCell);
 
-          return !(this.isImageUrl(cellValue) || (isResultSetContentValue(cellValue) && this.isImage(cellValue)));
+          return !isImageValuePresentationAvailable(cellValue);
         }
 
         return true;
       },
     });
-  }
-
-  load(): void {}
-
-  private isImage(value: IResultSetContentValue | null) {
-    if (value !== null && 'binary' in value) {
-      return getMIME(value.binary || '') !== null;
-    }
-
-    return false;
-  }
-
-  private isImageUrl(value: IResultSetValue | undefined) {
-    if (typeof value !== 'string') {
-      return false;
-    }
-
-    return isValidUrl(value) && isImageFormat(value);
   }
 }

@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,14 +10,14 @@ import { forwardRef, useCallback, useContext } from 'react';
 
 import { EventContext } from '@cloudbeaver/core-events';
 
-import { s } from '../s';
-import { useObjectRef } from '../useObjectRef';
-import { useS } from '../useS';
-import { EventTableItemExpandFlag } from './EventTableItemExpandFlag';
-import { EventTableItemSelectionFlag } from './EventTableItemSelectionFlag';
-import style from './TableColumnValue.m.css';
-import { TableContext } from './TableContext';
-import { TableItemContext } from './TableItemContext';
+import { s } from '../s.js';
+import { useObjectRef } from '../useObjectRef.js';
+import { useS } from '../useS.js';
+import { EventTableItemExpandFlag } from './EventTableItemExpandFlag.js';
+import { EventTableItemSelectionFlag } from './EventTableItemSelectionFlag.js';
+import style from './TableColumnValue.module.css';
+import { TableContext } from './TableContext.js';
+import { TableItemContext } from './TableItemContext.js';
 
 type Props = {
   align?: 'left' | 'center' | 'right' | 'justify' | 'char';
@@ -26,12 +26,16 @@ type Props = {
   ellipsis?: boolean;
   flex?: boolean;
   expand?: boolean;
+  nowrap?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
 } & React.DetailedHTMLProps<React.TdHTMLAttributes<HTMLTableCellElement>, HTMLTableCellElement>;
 
 export const TableColumnValue = observer<Props, HTMLTableCellElement>(
-  forwardRef(function TableColumnValue({ align, children, centerContent, ellipsis, flex, expand, className, onClick, onDoubleClick, ...rest }, ref) {
+  forwardRef(function TableColumnValue(
+    { align, children, centerContent, ellipsis, flex, expand, nowrap, className, onClick, onDoubleClick, ...rest },
+    ref,
+  ) {
     const tableContext = useContext(TableContext);
     const context = useContext(TableItemContext);
     const props = useObjectRef({ onClick, onDoubleClick });
@@ -67,7 +71,7 @@ export const TableColumnValue = observer<Props, HTMLTableCellElement>(
       <td
         ref={ref}
         align={align}
-        className={s(styles, { centerContent, ellipsis, cell: true }, className)}
+        className={s(styles, { centerContent, ellipsis, nowrap, cell: true }, className)}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         {...rest}

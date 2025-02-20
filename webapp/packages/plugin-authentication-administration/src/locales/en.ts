@@ -1,3 +1,10 @@
+/*
+ * CloudBeaver - Cloud Database Manager
+ * Copyright (C) 2020-2024 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0.
+ * you may not use this file except in compliance with the License.
+ */
 export default [
   ['authentication_administration_user_connections_user_add', 'User Creation'],
   ['authentication_administration_user_connections_user_new', 'New user'],
@@ -12,7 +19,11 @@ export default [
   ['authentication_administration_user_origin_empty', 'No available details'],
   ['authentication_administration_user_info', 'Info'],
   ['authentication_administration_user_local', 'Local user'],
-  ['authentication_administration_item', 'Access Management'],
+  ['authentication_administration_user_auth_method', 'Auth Method'],
+  ['authentication_administration_user_auth_methods', 'Auth Methods'],
+  ['authentication_administration_user_auth_methods_empty', 'No available auth methods'],
+  ['authentication_administration_user_auth_method_no_details', 'No details available'],
+  ['authentication_administration_item', 'Users and Teams'],
   ['authentication_administration_item_users', 'Users'],
   ['authentication_administration_item_metaParameters', 'Meta Parameters'],
   ['authentication_administration_tools_add_tooltip', 'Create new user'],
@@ -31,12 +42,30 @@ export default [
   ['authentication_administration_users_filters_status_disabled', 'DISABLED'],
   ['authentication_administration_users_filters_status_all', 'ALL'],
   ['authentication_administration_users_empty', 'There are no users'],
-
-  ['authentication_administration_user_remove_credentials_error', 'Failed to remove user credentials'],
-  ['authentication_administration_user_remove_credentials_success', 'User credentials were removed'],
+  ['authentication_administration_users_delete_user', 'Delete user'],
+  ['authentication_administration_users_delete_user_fail', 'Failed to delete user'],
+  ['authentication_administration_users_delete_user_success', 'User deleted'],
+  ['authentication_administration_users_disable_user_fail', 'Failed to disable user'],
+  ['authentication_administration_users_disable_user_success', 'User disabled'],
   [
-    'authentication_administration_user_remove_credentials_confirmation_message',
-    'Are you sure you want to delete "{arg:originName}" credentials from "{arg:userId}"?',
+    'authentication_administration_users_delete_user_confirmation_input_description',
+    'Please type in the username of the account to confirm its deletion.',
+  ],
+  ['authentication_administration_users_delete_user_confirmation_input_placeholder', 'Type username here...'],
+  [
+    'authentication_administration_users_delete_user_disable_info',
+    'Are you sure you want to delete "{arg:username}"? If you just want to prevent access temporarily, you can choose to disable the account instead.',
+  ],
+  [
+    'authentication_administration_users_delete_user_info',
+    'Deleting this account will permanently remove all associated user data from the system. Please confirm you want to proceed with deletion of "{arg:username}" user.',
+  ],
+
+  ['authentication_administration_user_delete_credentials_error', 'Failed to remove user credentials'],
+  ['authentication_administration_user_delete_credentials_success', 'User credentials were removed'],
+  [
+    'authentication_administration_user_delete_credentials_confirmation_message',
+    'Are you sure you want to delete "{arg:originName}" auth method from "{arg:userId}"?',
   ],
 
   ['administration_configuration_wizard_configuration_admin', 'Administrator Credentials'],
@@ -56,7 +85,7 @@ export default [
   ['administration_identity_providers_tab_title', 'Identity Providers'],
   ['administration_identity_providers_provider', 'Provider'],
   ['administration_identity_providers_provider_id', 'ID'],
-  ['administration_identity_providers_provider_configuration_name', 'Configuration name'],
+  ['administration_identity_providers_provider_configuration_name', 'Configuration Name'],
   ['administration_identity_providers_provider_configuration_disabled', 'Disabled'],
   ['administration_identity_providers_provider_configuration_description', 'Description'],
   ['administration_identity_providers_provider_configuration_icon_url', 'Icon URL'],
@@ -66,6 +95,7 @@ export default [
   ['administration_identity_providers_wizard_description', 'Add identity providers'],
   ['administration_identity_providers_configuration_add', 'Configuration creation'],
   ['administration_identity_providers_choose_provider_placeholder', 'Select provider...'],
+  ['administration_identity_providers_choose_provider_placeholder_empty', 'No available providers'],
   ['administration_identity_providers_add_tooltip', 'Add new configuration'],
   ['administration_identity_providers_refresh_tooltip', 'Refresh configuration list'],
   ['administration_identity_providers_delete_tooltip', 'Delete selected configurations'],
@@ -78,9 +108,9 @@ export default [
 
   ['administration_teams_tab_title', 'Teams'],
   ['administration_teams_tab_description', 'Team management'],
-  ['administration_teams_team_creation', 'Team creation'],
+  ['administration_teams_team_creation', 'Team Creation'],
   ['administration_teams_team_id', 'Team ID'],
-  ['administration_teams_team_name', 'Team name'],
+  ['administration_teams_team_name', 'Team Name'],
   ['administration_teams_team_description', 'Description'],
   ['administration_teams_team_permissions', 'Permissions'],
   ['administration_teams_team_create_error', 'Create team error'],
@@ -107,4 +137,12 @@ export default [
   ['administration_teams_team_granted_connections_tab_title', 'Connections'],
   ['administration_teams_team_granted_connections_search_placeholder', 'Search for connection name...'],
   ['administration_teams_team_granted_connections_empty', 'No available connections'],
+
+  ['plugin_authentication_administration_user_team_default_readonly_tooltip', "Default team. Can't be revoked"],
+  ['plugin_authentication_administration_team_default_users_tooltip', 'Default team. Contains all users'],
+  ['plugin_authentication_administration_team_user_team_role_supervisor', 'Supervisor'],
+  ['plugin_authentication_administration_team_user_team_role_supervisor_description', 'Supervisors can view their team’s executed queries'],
+
+  ['plugin_authentication_administration_team_form_edit_label', 'Team editing form'],
+  ['plugin_authentication_administration_user_form_edit_label', 'User editing form'],
 ];

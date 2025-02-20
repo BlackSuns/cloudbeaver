@@ -1,13 +1,14 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
+import { WEBSITE_LINKS } from '@cloudbeaver/core-links';
 import type { ServerConfigQuery } from '@cloudbeaver/core-sdk';
 
-import { defaultProductConfiguration } from './defaultProductConfiguration';
+import { defaultProductConfiguration } from './defaultProductConfiguration.js';
 
 export const defaultServerConfig: (productConfiguration?: Record<string, any>) => ServerConfigQuery = (
   productConfiguration = defaultProductConfiguration,
@@ -27,6 +28,7 @@ export const defaultServerConfig: (productConfiguration?: Record<string, any>) =
     anonymousAccessEnabled: true,
     adminCredentialsSaveEnabled: true,
     publicCredentialsSaveEnabled: true,
+    secretManagerEnabled: true,
     resourceManagerEnabled: true,
     licenseRequired: false,
     licenseValid: false,
@@ -112,12 +114,18 @@ export const defaultServerConfig: (productConfiguration?: Record<string, any>) =
     productInfo: {
       id: 'io.cloudbeaver.product.ce.product',
       version: '22.1.2.202207140640',
-      latestVersionInfo: 'https://dbeaver.com/product/cloudbeaver-ce-version.json',
+      latestVersionInfo: WEBSITE_LINKS.LATEST_COMMUNITY_VERSION_PAGE,
       name: 'CloudBeaver CE Server',
       description: 'Cloudbeaver Web UI Application',
       buildTime: 'July 14, 2022',
       releaseTime: 'July 11, 2022',
       licenseInfo: '',
+    },
+    passwordPolicyConfiguration: {
+      minLength: 8,
+      minNumberCount: 0,
+      minSymbolCount: 0,
+      requireMixedCase: false,
     },
   },
 });

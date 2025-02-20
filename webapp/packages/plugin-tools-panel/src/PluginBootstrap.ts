@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -9,14 +9,14 @@ import React from 'react';
 
 import { AppScreenService } from '@cloudbeaver/core-app';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
-import { DATA_CONTEXT_MENU, MenuService } from '@cloudbeaver/core-view';
+import { MenuService } from '@cloudbeaver/core-view';
 import { MENU_APP_ACTIONS } from '@cloudbeaver/plugin-top-app-bar';
 
-import { MENU_TOOLS } from './Menu/MENU_TOOLS';
-import { ToolsPanelService } from './ToolsPanel/ToolsPanelService';
+import { MENU_TOOLS } from './Menu/MENU_TOOLS.js';
+import { ToolsPanelService } from './ToolsPanel/ToolsPanelService.js';
 
 const ToolsPanel = React.lazy(async () => {
-  const { ToolsPanel } = await import('./ToolsPanel/ToolsPanel');
+  const { ToolsPanel } = await import('./ToolsPanel/ToolsPanel.js');
   return { default: ToolsPanel };
 });
 
@@ -30,7 +30,7 @@ export class PluginBootstrap extends Bootstrap {
     super();
   }
 
-  register(): void {
+  override register(): void {
     this.appScreenService.rightAreaBottom.add(
       ToolsPanel,
       undefined,
@@ -42,11 +42,9 @@ export class PluginBootstrap extends Bootstrap {
     });
     this.menuService.setHandler({
       id: 'tools-menu-base',
-      isApplicable: context => context.tryGet(DATA_CONTEXT_MENU) === MENU_TOOLS,
+      menus: [MENU_TOOLS],
       isLabelVisible: () => false,
       isHidden: () => this.toolsPanelService.disabled,
     });
   }
-
-  load(): void | Promise<void> {}
 }

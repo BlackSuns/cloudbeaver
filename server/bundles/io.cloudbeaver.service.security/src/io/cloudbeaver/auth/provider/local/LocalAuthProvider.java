@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package io.cloudbeaver.auth.provider.local;
 
+import io.cloudbeaver.auth.SMBruteForceProtected;
 import io.cloudbeaver.model.session.WebSession;
 import io.cloudbeaver.registry.WebAuthProviderDescriptor;
 import io.cloudbeaver.registry.WebAuthProviderRegistry;
@@ -35,7 +36,7 @@ import java.util.Map;
 /**
  * Local auth provider
  */
-public class LocalAuthProvider implements SMAuthProvider<LocalAuthSession> {
+public class LocalAuthProvider implements SMAuthProvider<LocalAuthSession>, SMBruteForceProtected {
 
     public static final String PROVIDER_ID = LocalAuthProviderConstants.PROVIDER_ID;
     public static final String CRED_USER = LocalAuthProviderConstants.CRED_USER;
@@ -67,7 +68,9 @@ public class LocalAuthProvider implements SMAuthProvider<LocalAuthSession> {
             throw new DBException("No user password provided");
         }
         String clientPasswordHash = AuthPropertyEncryption.hash.encrypt(userName, clientPassword);
-        if (!storedPasswordHash.equals(clientPasswordHash)) {
+        // we also need to check a hash with lower case (CB-5833)
+        String clientPasswordHashLowerCase = AuthPropertyEncryption.hash.encrypt(userName.toLowerCase(), clientPassword);
+        if (!storedPasswordHash.equals(clientPasswordHash) && !clientPasswordHashLowerCase.equals(storedPasswordHash)) {
             throw new DBException("Invalid user name or password");
         }
 
@@ -126,4 +129,8 @@ public class LocalAuthProvider implements SMAuthProvider<LocalAuthSession> {
         return true;
     }
 
+    @Override
+    public Object getInputUsername(@NotNull Map<String, Object> cred) {
+        return cred.get("user");
+    }
 }

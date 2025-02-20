@@ -1,54 +1,26 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import styled, { css, use } from 'reshadow';
-
-import { IconOrImage } from '../IconOrImage';
-
-const styles = css`
-  logo {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    padding: 0 14px;
-    cursor: pointer;
-  }
-
-  IconOrImage {
-    height: 32px;
-    width: 154px;
-    &[|small] {
-      display: none;
-    }
-  }
-
-  @media only screen and (min-width: 480px) {
-    IconOrImage {
-      &[|primary] {
-        display: none;
-      }
-      &[|small] {
-        display: block;
-        width: auto;
-      }
-    }
-  }
-`;
+import { IconOrImage } from '../IconOrImage.js';
+import { s } from '../s.js';
+import { useS } from '../useS.js';
+import styles from './AppLogo.module.css';
 
 interface Props {
   title: string;
   onClick?: () => void;
+  iconSrc?: string;
 }
 
-export const AppLogo: React.FC<Props> = function AppLogo({ title, onClick }) {
-  return styled(styles)(
-    <logo title={title} onClick={onClick}>
-      <IconOrImage icon="/icons/logo.svg" {...use({ primary: true })} />
-      <IconOrImage icon="/icons/logo_sm.svg" {...use({ small: true })} />
-    </logo>,
+export const AppLogo: React.FC<Props> = function AppLogo({ title, onClick, iconSrc = '/icons/logo_sm.svg' }) {
+  const style = useS(styles);
+  return (
+    <div tabIndex={0} className={s(style, { container: true, active: onClick !== undefined })} onClick={onClick}>
+      <IconOrImage title={title} className={s(style, { logo: true })} icon={iconSrc} />
+    </div>
   );
 };

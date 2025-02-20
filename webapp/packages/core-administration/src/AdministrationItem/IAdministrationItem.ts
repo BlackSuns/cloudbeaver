@@ -1,13 +1,13 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import type { ComponentStyle } from '@cloudbeaver/core-theming';
+import type { ILoadableState } from '@cloudbeaver/core-utils';
 
-import type { IRouteParams } from './IRouteParams';
+import type { IRouteParams } from './IRouteParams.js';
 
 export enum AdministrationItemType {
   Default,
@@ -24,7 +24,6 @@ export interface AdministrationItemDrawerProps {
   item: IAdministrationItem;
   configurationWizard: boolean;
   onSelect: (id: string) => void;
-  style: ComponentStyle;
   disabled?: boolean;
 }
 export type AdministrationItemDrawerComponent = React.FunctionComponent<AdministrationItemDrawerProps>;
@@ -87,6 +86,7 @@ export interface IAdministrationItemOptions {
   replace?: IAdministrationItemReplaceOptions;
   defaultSub?: string;
   defaultParam?: string;
+  getLoader?: () => ILoadableState[] | ILoadableState;
   getDrawerComponent: () => AdministrationItemDrawerComponent;
   getContentComponent: () => AdministrationItemContentComponent;
   onLoad?: AdministrationItemEvent;

@@ -1,17 +1,17 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { makeObservable, observable, runInAction } from 'mobx';
-import createRouter, { Router, State, SubscribeFn, SubscribeState } from 'router5';
+import { createRouter, type Router, type State, type SubscribeFn, type SubscribeState } from 'router5';
 import browserPlugin from 'router5-plugin-browser';
-import type { DoneFn } from 'router5/dist/types/base';
+import type { DoneFn } from 'router5/dist/types/base.js';
 
 import { App, Bootstrap, injectable } from '@cloudbeaver/core-di';
-import { Executor, ExecutorInterrupter, IExecutor } from '@cloudbeaver/core-executor';
+import { Executor, ExecutorInterrupter, type IExecutor } from '@cloudbeaver/core-executor';
 import { GlobalConstants } from '@cloudbeaver/core-utils';
 
 export type RouterState = State;
@@ -67,13 +67,12 @@ export class RouterService extends Bootstrap {
     return this.router.subscribe(subscriber);
   }
 
-  register(): void | Promise<void> {}
-  load(): void | Promise<void> {
+  override load(): void {
     this.start();
   }
 
   reload(): void {
-    this.app.start();
+    this.app.restart();
     // this.router.navigate(
     //   this.route,
     //   this.params,
@@ -90,7 +89,7 @@ export class RouterService extends Bootstrap {
     }
 
     this.router.usePlugin(
-      browserPlugin({
+      (browserPlugin as any)({
         useHash: true,
         base: root,
       }),
@@ -101,7 +100,6 @@ export class RouterService extends Bootstrap {
       const contexts = await this.transitionTask.execute({ fromState: toState, toState: fromState, done });
 
       if (ExecutorInterrupter.isInterrupted(contexts)) {
-        // eslint-disable-next-line prefer-promise-reject-errors
         return Promise.reject();
       }
 

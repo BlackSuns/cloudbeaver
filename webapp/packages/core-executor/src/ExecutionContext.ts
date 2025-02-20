@@ -1,17 +1,20 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import type { IAsyncContextLoader, IContextLoader, IExecutionContext, ISyncContextLoader } from './IExecutionContext';
+import type { IAsyncContextLoader, IContextLoader, IExecutionContext, ISyncContextLoader } from './IExecutionContext.js';
 
 export class ExecutionContext<TData> implements IExecutionContext<TData> {
   readonly contexts: Map<IContextLoader<any, TData>, any>;
   readonly contextCreators: Map<IContextLoader<any, TData>, IContextLoader<any, TData>>;
 
-  constructor(private readonly data: TData, context?: IExecutionContext<any>) {
+  constructor(
+    private readonly data: TData,
+    context?: IExecutionContext<any>,
+  ) {
     this.contexts = context?.contexts || new Map();
     this.contextCreators = context?.contextCreators ?? new Map();
   }

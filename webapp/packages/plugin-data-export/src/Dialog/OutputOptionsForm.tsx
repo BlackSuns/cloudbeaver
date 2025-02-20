@@ -1,23 +1,16 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import styled, { css } from 'reshadow';
 
 import { Combobox, Container, FieldCheckbox, Loader, useResource, useTranslate } from '@cloudbeaver/core-blocks';
 import type { DataTransferOutputSettings } from '@cloudbeaver/core-sdk';
 
-import { DefaultExportOutputSettingsResource } from './DefaultExportOutputSettingsResource';
-
-const styles = css`
-  Combobox {
-    width: 140px;
-  }
-`;
+import { DefaultExportOutputSettingsResource } from './DefaultExportOutputSettingsResource.js';
 
 interface Props {
   outputSettings: Partial<DataTransferOutputSettings>;
@@ -25,7 +18,6 @@ interface Props {
 
 export const OutputOptionsForm = observer(function OutputOptionsForm(props: Props) {
   const translate = useTranslate();
-
   const resource = useResource(OutputOptionsForm, DefaultExportOutputSettingsResource, undefined);
 
   return (
@@ -37,7 +29,7 @@ export const OutputOptionsForm = observer(function OutputOptionsForm(props: Prop
           return null;
         }
 
-        return styled(styles)(
+        return (
           <Container gap parent>
             <Container wrap gap flexEnd>
               <Combobox name="encoding" state={props.outputSettings} items={data.supportedEncodings} tiny searchable>
@@ -52,7 +44,7 @@ export const OutputOptionsForm = observer(function OutputOptionsForm(props: Prop
                 </FieldCheckbox>
               </Container>
             </Container>
-          </Container>,
+          </Container>
         );
       }}
     </Loader>

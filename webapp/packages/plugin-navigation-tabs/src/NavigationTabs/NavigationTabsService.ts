@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -11,16 +11,16 @@ import { AdministrationScreenService } from '@cloudbeaver/core-administration';
 import { AppAuthService, UserInfoResource } from '@cloudbeaver/core-authentication';
 import { injectable } from '@cloudbeaver/core-di';
 import { NotificationService } from '@cloudbeaver/core-events';
-import { ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
+import { type ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
 import { ProjectsService } from '@cloudbeaver/core-projects';
-import { resourceKeyList, ResourceKeySimple, ResourceKeyUtils } from '@cloudbeaver/core-resource';
-import { LocalStorageSaveService } from '@cloudbeaver/core-settings';
+import { resourceKeyList, type ResourceKeySimple, ResourceKeyUtils } from '@cloudbeaver/core-resource';
+import { StorageService } from '@cloudbeaver/core-storage';
 import { isArraysEqual, MetadataMap, TempMap } from '@cloudbeaver/core-utils';
-import { ACTION_OPEN_IN_TAB, IActiveView, View } from '@cloudbeaver/core-view';
+import { ACTION_OPEN_IN_TAB, type IActiveView, View } from '@cloudbeaver/core-view';
 
-import type { ITab, ITabMetadata } from './ITab';
-import { TabHandler, TabHandlerEvent, TabHandlerOptions, TabSyncHandlerEvent } from './TabHandler';
-import { ITabNavigationContext, TabNavigationContext } from './TabNavigationContext';
+import type { ITab, ITabMetadata } from './ITab.js';
+import { TabHandler, type TabHandlerEvent, type TabHandlerOptions, type TabSyncHandlerEvent } from './TabHandler.js';
+import { type ITabNavigationContext, TabNavigationContext } from './TabNavigationContext.js';
 
 interface INavigatorHistory {
   history: string[];
@@ -67,7 +67,7 @@ export class NavigationTabsService extends View<ITab> {
     let projectId = MULTI_PROJECTS;
 
     if (this.projectsService.activeProjects.length === 1) {
-      projectId = this.projectsService.activeProjects[0].id;
+      projectId = this.projectsService.activeProjects[0]!.id;
     }
 
     if (!this.tempHistoryState.has(projectId)) {
@@ -110,7 +110,7 @@ export class NavigationTabsService extends View<ITab> {
 
   constructor(
     private readonly notificationService: NotificationService,
-    private readonly autoSaveService: LocalStorageSaveService,
+    private readonly storageService: StorageService,
     private readonly userInfoResource: UserInfoResource,
     private readonly projectsService: ProjectsService,
     private readonly administrationScreenService: AdministrationScreenService,
@@ -152,7 +152,7 @@ export class NavigationTabsService extends View<ITab> {
     });
     this.tempHistoryState = new TempMap(this.historyState);
 
-    this.autoSaveService.withAutoSave(
+    this.storageService.registerSettings(
       `${NAVIGATION_TABS_BASE_KEY}_tab_map`,
       this.tabsMap,
       () => new Map(),
@@ -171,7 +171,7 @@ export class NavigationTabsService extends View<ITab> {
       },
     );
 
-    this.autoSaveService.withAutoSave(
+    this.storageService.registerSettings(
       `${NAVIGATION_TABS_BASE_KEY}_history`,
       this.historyState,
       () => new Map(),
@@ -185,7 +185,7 @@ export class NavigationTabsService extends View<ITab> {
       },
     );
 
-    this.autoSaveService.withAutoSave(
+    this.storageService.registerSettings(
       NAVIGATION_TABS_BASE_KEY,
       this.state,
       () => new Map(),
@@ -200,7 +200,7 @@ export class NavigationTabsService extends View<ITab> {
     );
 
     this.userInfoResource.onUserChange.addHandler(this.unloadTabs.bind(this));
-    this.autoSaveService.onStorageChange.next(this.onStateUpdate, () => {});
+    this.storageService.onStorageChange.next(this.onStateUpdate, () => {});
   }
 
   getTabMetadata(tabId: string): ITabMetadata {

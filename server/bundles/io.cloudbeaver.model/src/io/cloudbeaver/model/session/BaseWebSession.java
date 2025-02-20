@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 package io.cloudbeaver.model.session;
 
 import io.cloudbeaver.model.WebServerMessage;
-import io.cloudbeaver.model.app.WebApplication;
-import io.cloudbeaver.model.app.WebAuthApplication;
+import io.cloudbeaver.model.app.ServletApplication;
+import io.cloudbeaver.model.app.ServletAuthApplication;
 import io.cloudbeaver.websocket.CBWebSessionEventHandler;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
@@ -30,6 +30,7 @@ import org.jkiss.dbeaver.model.auth.SMSessionContext;
 import org.jkiss.dbeaver.model.auth.impl.AbstractSessionPersistent;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.websocket.event.WSEvent;
+import org.jkiss.dbeaver.model.websocket.event.WSEventDeleteTempFile;
 import org.jkiss.dbeaver.model.websocket.event.session.WSSessionExpiredEvent;
 
 import java.time.Instant;
@@ -50,27 +51,33 @@ public abstract class BaseWebSession extends AbstractSessionPersistent {
     @NotNull
     protected final WebUserContext userContext;
     @NotNull
-    protected final WebAuthApplication application;
+    protected final ServletApplication application;
     protected volatile long lastAccessTime;
 
     private final List<CBWebSessionEventHandler> sessionEventHandlers = new CopyOnWriteArrayList<>();
     private WebSessionEventsFilter eventsFilter = new WebSessionEventsFilter();
     private final WebSessionWorkspace workspace;
 
-    public BaseWebSession(@NotNull String id, @NotNull WebAuthApplication application) throws DBException {
+    public BaseWebSession(@NotNull String id, @NotNull ServletApplication application) throws DBException {
         this.id = id;
         this.application = application;
         this.createTime = System.currentTimeMillis();
         this.lastAccessTime = this.createTime;
-        this.workspace = new WebSessionWorkspace(this);
+        this.workspace = createWebWorkspace();
         this.workspace.getAuthContext().addSession(this);
         this.userContext = createUserContext();
+    }
+
+    @NotNull
+    protected WebSessionWorkspace createWebWorkspace() {
+        return new WebSessionWorkspace(this);
     }
 
     protected WebUserContext createUserContext() throws DBException {
         return new WebUserContext(this.application, this.workspace);
     }
 
+    @NotNull
     public WebSessionWorkspace getWorkspace() {
         return workspace;
     }
@@ -113,7 +120,9 @@ public abstract class BaseWebSession extends AbstractSessionPersistent {
     public synchronized void refreshUserData() {
         try {
             userContext.refreshPermissions();
-            userContext.refreshAccessibleProjects();
+            if (userContext.isAuthorizedInSecurityManager()) {
+                userContext.refreshAccessibleProjects();
+            }
         } catch (DBException e) {
             addSessionError(e);
             log.error("Error refreshing accessible projects", e);
@@ -132,6 +141,11 @@ public abstract class BaseWebSession extends AbstractSessionPersistent {
         return workspace.getAuthContext();
     }
 
+    protected void clearSessionContext() {
+        this.workspace.getAuthContext().clear();
+        this.workspace.getAuthContext().addSession(this);
+    }
+
     @NotNull
     @Property
     public String getSessionId() {
@@ -139,7 +153,7 @@ public abstract class BaseWebSession extends AbstractSessionPersistent {
     }
 
     @NotNull
-    public WebApplication getApplication() {
+    public ServletApplication getApplication() {
         return application;
     }
 
@@ -165,19 +179,32 @@ public abstract class BaseWebSession extends AbstractSessionPersistent {
     @Override
     public void close() {
         super.close();
-        var sessionExpiredEvent = new WSSessionExpiredEvent();
+        cleanUpSession(true);
+    }
+
+    public void close(boolean clearTokens, boolean sendSessionExpiredEvent) {
+        cleanUpSession(sendSessionExpiredEvent);
+    }
+
+    private void cleanUpSession(boolean sendSessionExpiredEvent) {
+        application.getEventController().addEvent(new WSEventDeleteTempFile(getSessionId()));
         synchronized (sessionEventHandlers) {
+            var sessionExpiredEvent = new WSSessionExpiredEvent();
             for (CBWebSessionEventHandler sessionEventHandler : sessionEventHandlers) {
-                try {
-                    sessionEventHandler.handleWebSessionEvent(sessionExpiredEvent);
-                } catch (DBException e) {
-                    log.warn("Failed to send session expiration event", e);
+                if (sendSessionExpiredEvent) {
+                    try {
+                        sessionEventHandler.handleWebSessionEvent(sessionExpiredEvent);
+                    } catch (DBException e) {
+                        log.warn("Failed to send session expiration event", e);
+                    }
                 }
                 sessionEventHandler.close();
             }
             sessionEventHandlers.clear();
 
             workspace.dispose();
+
+            clearSessionContext();
         }
     }
 
@@ -211,6 +238,9 @@ public abstract class BaseWebSession extends AbstractSessionPersistent {
 
     @Property
     public long getRemainingTime() {
-        return application.getMaxSessionIdleTime() + lastAccessTime - System.currentTimeMillis();
+        if (application instanceof ServletAuthApplication authApplication) {
+            return authApplication.getMaxSessionIdleTime() + lastAccessTime - System.currentTimeMillis();
+        }
+        return Integer.MAX_VALUE;
     }
 }

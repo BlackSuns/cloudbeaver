@@ -1,21 +1,26 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
+import { isArraysEqual } from '@cloudbeaver/core-utils';
 
 export class ResourceKeyList<TKey> extends Array<TKey> {
-  static get [Symbol.species]() {
+  static get [Symbol.species!]() {
     return Array;
   }
 
-  includes(key: TKey, fromIndex?: number): boolean;
-  includes(key: TKey | ResourceKeyList<TKey>): boolean;
-  includes(key: TKey | ResourceKeyList<TKey>, isEqual: (keyA: TKey, keyB: TKey) => boolean): boolean;
-  includes(key: TKey | ResourceKeyList<TKey>, dynamic?: number | ((keyA: TKey, keyB: TKey) => boolean)): boolean;
-  includes(key: TKey | ResourceKeyList<TKey>, dynamic?: number | ((keyA: TKey, keyB: TKey) => boolean)): boolean {
+  isEqual(key: ResourceKeyList<TKey>, isEqual?: (a: TKey, b: TKey) => boolean): boolean {
+    return isArraysEqual(this, key, isEqual, true);
+  }
+
+  override includes(key: TKey, fromIndex?: number): boolean;
+  override includes(key: TKey | ResourceKeyList<TKey>): boolean;
+  override includes(key: TKey | ResourceKeyList<TKey>, isEqual: (keyA: TKey, keyB: TKey) => boolean): boolean;
+  override includes(key: TKey | ResourceKeyList<TKey>, dynamic?: number | ((keyA: TKey, keyB: TKey) => boolean)): boolean;
+  override includes(key: TKey | ResourceKeyList<TKey>, dynamic?: number | ((keyA: TKey, keyB: TKey) => boolean)): boolean {
     let fromIndex = 0;
     let isEqual = (keyA: TKey, keyB: TKey) => keyA === keyB;
 
@@ -43,7 +48,7 @@ export class ResourceKeyList<TKey> extends Array<TKey> {
     return resourceKeyList(this.filter(param => param !== key));
   }
 
-  toString(): string {
+  override toString(): string {
     const list = this.map(s => {
       if (typeof s === 'symbol') {
         return s.toString();

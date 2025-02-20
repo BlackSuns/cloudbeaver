@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -11,9 +11,9 @@ import { forwardRef, useContext, useDeferredValue, useMemo } from 'react';
 import { getComputed, s, TreeNodeNested, TreeNodeNestedMessage, useS, useTranslate } from '@cloudbeaver/core-blocks';
 import { isArraysEqual } from '@cloudbeaver/core-utils';
 
-import { ElementsTreeContext } from '../../ElementsTreeContext';
-import type { NavTreeNodeComponent } from '../../NavigationNodeComponent';
-import style from './NavigationNodeNested.m.css';
+import { ElementsTreeContext } from '../../ElementsTreeContext.js';
+import type { NavTreeNodeComponent } from '../../NavigationNodeComponent.js';
+import style from './NavigationNodeNested.module.css';
 
 interface Props {
   nodeId?: string;
@@ -50,6 +50,10 @@ export const NavigationNodeNested = observer(
     children = useDeferredValue(children);
     empty = useDeferredValue(empty);
 
+    if (empty && !treeContext?.tree.settings?.foldersTree) {
+      return null;
+    }
+
     if (nodeId !== undefined && rootFolder) {
       return <NavigationNode nodeId={nodeId} path={path} expanded />;
     }
@@ -68,3 +72,5 @@ export const NavigationNodeNested = observer(
     );
   }),
 );
+
+NavigationNodeNested.displayName = 'NavigationNodeNested';

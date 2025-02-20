@@ -1,36 +1,49 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { injectable } from '@cloudbeaver/core-di';
-import { PluginManagerService, PluginSettings } from '@cloudbeaver/core-plugin';
-import { SettingsManagerService } from '@cloudbeaver/core-settings';
+import {
+  createSettingsAliasResolver,
+  ROOT_SETTINGS_LAYER,
+  SettingsProvider,
+  SettingsProviderService,
+  SettingsResolverService,
+} from '@cloudbeaver/core-settings';
+import { schema } from '@cloudbeaver/core-utils';
 
-import { settings, THEME_SETTINGS_GROUP } from './THEME_SETTINGS_GROUP';
-import { themes } from './themes';
+import { DEFAULT_THEME_ID } from './themes.js';
 
-export interface IThemeSettings {
-  defaultTheme: string;
-}
+const settingsSchema = schema.object({
+  'core.theming.theme': schema.string().default(DEFAULT_THEME_ID),
+});
 
-export const defaultThemeSettings: IThemeSettings = {
-  defaultTheme: themes[0].id,
-};
+export type IThemeSettings = schema.infer<typeof settingsSchema>;
 
 @injectable()
 export class ThemeSettingsService {
-  readonly settings: PluginSettings<IThemeSettings>;
-  /** @deprecated Use settings instead, will be removed in 23.0.0 */
-  readonly deprecatedSettings: PluginSettings<IThemeSettings>;
+  get theme(): string {
+    return this.settings.getValue('core.theming.theme');
+  }
+  readonly settings: SettingsProvider<typeof settingsSchema>;
 
-  constructor(private readonly pluginManagerService: PluginManagerService, settingsManagerService: SettingsManagerService) {
-    this.settings = this.pluginManagerService.createSettings('theming', 'core', defaultThemeSettings);
-    this.deprecatedSettings = this.pluginManagerService.createSettings('user', 'core', defaultThemeSettings);
+  constructor(
+    private readonly settingsProviderService: SettingsProviderService,
+    private readonly settingsResolverService: SettingsResolverService,
+  ) {
+    this.settings = this.settingsProviderService.createSettings(settingsSchema);
 
-    settingsManagerService.addGroup(THEME_SETTINGS_GROUP);
-    settingsManagerService.addSettings(settings.scopeType, settings.scope, settings.settingsData);
+    this.settingsResolverService.addResolver(
+      ROOT_SETTINGS_LAYER,
+      /** @deprecated Use settings instead, will be removed in 23.0.0 */
+      createSettingsAliasResolver(this.settingsResolverService, this.settings, { 'core.theming.theme': 'core.user.defaultTheme' }),
+      createSettingsAliasResolver(this.settingsResolverService, this.settings, {
+        'core.theming.theme': 'core.localization.defaultTheme',
+      }),
+      createSettingsAliasResolver(this.settingsResolverService, this.settings, { 'core.theming.theme': 'app.defaultTheme' }),
+    );
   }
 }

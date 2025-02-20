@@ -1,59 +1,36 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import { useCallback, useContext } from 'react';
-import styled, { css, use } from 'reshadow';
+import { useCallback, useContext, useLayoutEffect, useRef } from 'react';
 
-import type { ComponentStyle } from '@cloudbeaver/core-theming';
+import { getTextFileReadingProcess } from '@cloudbeaver/core-utils';
 
-import { filterLayoutFakeProps, getLayoutProps } from '../Containers/filterLayoutFakeProps';
-import type { ILayoutSizeProps } from '../Containers/ILayoutSizeProps';
-import elementsSizeStyles from '../Containers/shared/ElementsSize.m.css';
-import { s } from '../s';
-import { useS } from '../useS';
-import { useStyles } from '../useStyles';
-import { baseFormControlStyles, baseValidFormControlStyles } from './baseFormControlStyles';
-import { FormContext } from './FormContext';
-
-const styles = css`
-  textarea {
-    line-height: 19px;
-  }
-  field[|embedded] {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-
-    & textarea {
-      border-radius: 0 !important;
-      height: 100%;
-      resize: none !important;
-    }
-  }
-  field-label {
-    display: block;
-    padding-bottom: 10px;
-    composes: theme-typography--body1 from global;
-    font-weight: 500;
-
-    &:empty {
-      display: none;
-    }
-  }
-`;
+import { Button } from '../Button.js';
+import { filterLayoutFakeProps, getLayoutProps } from '../Containers/filterLayoutFakeProps.js';
+import type { ILayoutSizeProps } from '../Containers/ILayoutSizeProps.js';
+import { useTranslate } from '../localization/useTranslate.js';
+import { s } from '../s.js';
+import { UploadArea } from '../UploadArea.js';
+import { useCombinedHandler } from '../useCombinedHandler.js';
+import { useS } from '../useS.js';
+import { Field } from './Field.js';
+import { FieldDescription } from './FieldDescription.js';
+import { FieldLabel } from './FieldLabel.js';
+import { FormContext } from './FormContext.js';
+import textareaStyle from './Textarea.module.css';
 
 type BaseProps = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange' | 'style'> &
   ILayoutSizeProps & {
     description?: string;
     labelTooltip?: string;
-    mod?: 'surface';
-    style?: ComponentStyle;
     embedded?: boolean;
+    cursorInitiallyAtEnd?: boolean;
+    uploadable?: boolean;
   };
 
 type ControlledProps = BaseProps & {
@@ -71,13 +48,12 @@ type ObjectProps<TKey extends keyof TState, TState> = BaseProps & {
 };
 
 interface TextareaType {
-  (props: ControlledProps): JSX.Element;
-  <TKey extends keyof TState, TState>(props: ObjectProps<TKey, TState>): JSX.Element;
+  (props: ControlledProps): React.JSX.Element;
+  <TKey extends keyof TState, TState>(props: ObjectProps<TKey, TState>): React.JSX.Element;
 }
 
 export const Textarea: TextareaType = observer(function Textarea({
   name,
-  style,
   value: controlledValue,
   state,
   required,
@@ -85,26 +61,31 @@ export const Textarea: TextareaType = observer(function Textarea({
   className,
   description,
   labelTooltip,
-  mod,
   embedded,
+  cursorInitiallyAtEnd,
+  uploadable,
+  onKeyDown,
   onChange = () => {},
   ...rest
 }: ControlledProps | ObjectProps<any, any>) {
+  const translate = useTranslate();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const layoutProps = getLayoutProps(rest);
   rest = filterLayoutFakeProps(rest);
-  const sizeStyles = useS(elementsSizeStyles);
+  const styles = useS(textareaStyle);
   const context = useContext(FormContext);
+  const handleKeyDown = useCombinedHandler(onKeyDown, context?.keyDown);
 
   const handleChange = useCallback(
-    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    (value: string) => {
       if (state) {
-        state[name] = event.target.value;
+        state[name] = value;
       }
       if (onChange) {
-        onChange(event.target.value, name);
+        onChange(value, name);
       }
       if (context) {
-        context.change(event.target.value, name);
+        context.change(value, name);
       }
     },
     [state, name, onChange],
@@ -112,14 +93,55 @@ export const Textarea: TextareaType = observer(function Textarea({
 
   const value = state ? state[name] : controlledValue;
 
-  return styled(useStyles(baseFormControlStyles, baseValidFormControlStyles, styles, style))(
-    <field className={s(sizeStyles, { ...layoutProps }, className)} {...use({ embedded })}>
-      <field-label title={labelTooltip || rest.title}>
+  useLayoutEffect(() => {
+    if (cursorInitiallyAtEnd && typeof value === 'string') {
+      const position = value.length;
+      textareaRef.current?.setSelectionRange(position, position);
+    }
+  }, [cursorInitiallyAtEnd]);
+
+  return (
+    <Field {...layoutProps} className={s(styles, { field: true, embedded }, className)}>
+      <FieldLabel className={s(styles, { fieldLabel: true })} title={labelTooltip || rest.title} required={required}>
         {children}
-        {required && ' *'}
-      </field-label>
-      <textarea {...rest} value={value ?? ''} name={name} data-embedded={embedded} onChange={handleChange} {...use({ mod })} />
-      {description && <field-description>{description}</field-description>}
-    </field>,
+      </FieldLabel>
+      <textarea
+        {...rest}
+        ref={textareaRef}
+        required={required}
+        className={s(styles, { textarea: true })}
+        value={value ?? ''}
+        name={name}
+        data-embedded={embedded}
+        onKeyDown={handleKeyDown}
+        onChange={event => handleChange(event.target.value)}
+      />
+      {description && <FieldDescription>{description}</FieldDescription>}
+      {uploadable && (
+        <UploadArea
+          className={s(styles, { uploadButton: true })}
+          disabled={rest.disabled || rest.readOnly}
+          reset
+          onChange={async event => {
+            const file = event.target.files?.[0];
+
+            if (!file) {
+              throw new Error('File is not found');
+            }
+
+            const process = getTextFileReadingProcess(file);
+            const value = await process.promise;
+
+            if (value) {
+              handleChange(value);
+            }
+          }}
+        >
+          <Button tag="div" disabled={rest.disabled || rest.readOnly} mod={['outlined']}>
+            {translate('ui_file')}
+          </Button>
+        </UploadArea>
+      )}
+    </Field>
   );
 });

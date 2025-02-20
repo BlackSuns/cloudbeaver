@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,12 +8,13 @@
 import { runInAction } from 'mobx';
 
 import { useObjectRef } from '@cloudbeaver/core-blocks';
-import { DBDriver, DBDriverResource, isJDBCConnection } from '@cloudbeaver/core-connections';
+import { type DBDriver, DBDriverResource, isJDBCConnection } from '@cloudbeaver/core-connections';
 import { useService } from '@cloudbeaver/core-di';
-import { DatabaseAuthModel, DriverConfigurationType } from '@cloudbeaver/core-sdk';
+import type { DatabaseAuthModel } from '@cloudbeaver/core-sdk';
 
-import type { IConnectionFormState } from '../IConnectionFormProps';
-import { getConnectionName } from './getConnectionName';
+import type { IConnectionFormState } from '../IConnectionFormProps.js';
+import { getConnectionName } from './getConnectionName.js';
+import { getDefaultConfigurationType } from './getDefaultConfigurationType.js';
 
 export function useOptions(state: IConnectionFormState) {
   const dbDriverResource = useService(DBDriverResource);
@@ -71,9 +72,7 @@ export function useOptions(state: IConnectionFormState) {
         refObject.prevDriverId = driver?.id || null;
 
         if (!config.configurationType || !driver?.configurationTypes.includes(config.configurationType)) {
-          config.configurationType = driver?.configurationTypes.includes(DriverConfigurationType.Manual)
-            ? DriverConfigurationType.Manual
-            : DriverConfigurationType.Url;
+          state.config.configurationType = getDefaultConfigurationType(driver);
         }
 
         if ((!prevDriver && config.host === undefined) || config.host === prevDriver?.defaultServer) {

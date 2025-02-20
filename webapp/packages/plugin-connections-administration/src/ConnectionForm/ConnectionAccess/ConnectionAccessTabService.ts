@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,26 +8,25 @@
 import React from 'react';
 
 import { AdministrationScreenService } from '@cloudbeaver/core-administration';
-import { EAdminPermission } from '@cloudbeaver/core-authentication';
-import { ConnectionInfoResource, createConnectionParam, IConnectionInfoParams } from '@cloudbeaver/core-connections';
+import { ConnectionInfoResource, createConnectionParam, type IConnectionInfoParams } from '@cloudbeaver/core-connections';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
-import { executorHandlerFilter, IExecutionContextProvider } from '@cloudbeaver/core-executor';
+import { executorHandlerFilter, type IExecutionContextProvider } from '@cloudbeaver/core-executor';
 import { isGlobalProject, ProjectInfoResource } from '@cloudbeaver/core-projects';
-import { PermissionsService } from '@cloudbeaver/core-root';
+import { EAdminPermission, PermissionsService } from '@cloudbeaver/core-root';
 import { formStateContext } from '@cloudbeaver/core-ui';
 import type { MetadataValueGetter } from '@cloudbeaver/core-utils';
 import {
   connectionConfigContext,
   ConnectionFormService,
-  IConnectionFormProps,
-  IConnectionFormState,
-  IConnectionFormSubmitData,
+  type IConnectionFormProps,
+  type IConnectionFormState,
+  type IConnectionFormSubmitData,
 } from '@cloudbeaver/plugin-connections';
 
-import type { IConnectionAccessTabState } from './IConnectionAccessTabState';
+import type { IConnectionAccessTabState } from './IConnectionAccessTabState.js';
 
 const ConnectionAccess = React.lazy(async () => {
-  const { ConnectionAccess } = await import('./ConnectionAccess');
+  const { ConnectionAccess } = await import('./ConnectionAccess.js');
   return { default: ConnectionAccess };
 });
 
@@ -46,7 +45,7 @@ export class ConnectionAccessTabService extends Bootstrap {
     this.key = 'access';
   }
 
-  register(): void {
+  override register(): void {
     this.connectionFormService.tabsContainer.add({
       key: this.key,
       name: 'connections_connection_edit_access',
@@ -62,8 +61,6 @@ export class ConnectionAccessTabService extends Bootstrap {
 
     this.connectionFormService.formStateTask.addHandler(executorHandlerFilter(this.isAccessTabActive.bind(this), this.formState.bind(this)));
   }
-
-  load(): void {}
 
   private isAccessTabActive(state: IConnectionFormState): boolean {
     return (
@@ -104,12 +101,24 @@ export class ConnectionAccessTabService extends Bootstrap {
 
     const key = createConnectionParam(data.state.projectId, config.connectionId);
 
-    const changed = await this.isChanged(key, state.grantedSubjects);
+    const currentGrantedSubjects = await this.connectionInfoResource.loadAccessSubjects(key);
+    const currentGrantedSubjectIds = currentGrantedSubjects.map(subject => subject.subjectId);
 
-    if (changed) {
-      await this.connectionInfoResource.setAccessSubjects(key, state.grantedSubjects);
-      state.initialGrantedSubjects = state.grantedSubjects.slice();
+    const { subjectsToRevoke, subjectsToGrant } = this.getSubjectDifferences(currentGrantedSubjectIds, state.grantedSubjects);
+
+    if (subjectsToRevoke.length === 0 && subjectsToGrant.length === 0) {
+      return;
     }
+
+    if (subjectsToRevoke.length > 0) {
+      await this.connectionInfoResource.deleteConnectionsAccess(key, subjectsToRevoke);
+    }
+
+    if (subjectsToGrant.length > 0) {
+      await this.connectionInfoResource.addConnectionsAccess(key, subjectsToGrant);
+    }
+
+    state.initialGrantedSubjects = state.grantedSubjects.slice();
   }
 
   private async formState(data: IConnectionFormState, contexts: IExecutionContextProvider<IConnectionFormState>) {
@@ -137,5 +146,12 @@ export class ConnectionAccessTabService extends Bootstrap {
     }
 
     return current.some(value => !next.some(subjectId => subjectId === value.subjectId));
+  }
+
+  private getSubjectDifferences(current: string[], next: string[]): { subjectsToRevoke: string[]; subjectsToGrant: string[] } {
+    const subjectsToRevoke = current.filter(subjectId => !next.includes(subjectId));
+    const subjectsToGrant = next.filter(subjectId => !current.includes(subjectId));
+
+    return { subjectsToRevoke, subjectsToGrant };
   }
 }

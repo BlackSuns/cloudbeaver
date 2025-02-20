@@ -1,12 +1,12 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { isValidUrl } from './isValidUrl';
-import { pathJoin } from './pathJoin';
+import { isValidUrl } from './isValidUrl.js';
+import { pathJoin } from './pathJoin.js';
 
 declare const _VERSION_: string | undefined;
 declare const _DEV_: boolean | undefined;
@@ -52,6 +52,10 @@ export const GlobalConstants = {
     return pathJoin(this.rootURI, 'api');
   },
 
+  getHealthCheckUrl(host: string): string {
+    return `${host}/status`;
+  },
+
   absoluteRootUrl(...parts: string[]): string {
     return pathJoin(this.rootURI, ...parts);
   },
@@ -69,7 +73,7 @@ export const GlobalConstants = {
   },
 
   absoluteUrl(...parts: string[]): string {
-    if (parts[0].startsWith('platform:')) {
+    if (parts[0]?.startsWith('platform:')) {
       return this.absoluteServiceUrl('images', ...parts);
     }
 

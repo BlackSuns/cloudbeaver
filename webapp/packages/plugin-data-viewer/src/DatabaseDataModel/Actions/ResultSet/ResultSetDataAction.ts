@@ -1,30 +1,30 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { computed, makeObservable } from 'mobx';
 
-import { DataTypeLogicalOperation, ResultDataFormat, SqlResultColumn } from '@cloudbeaver/core-sdk';
+import { type DataTypeLogicalOperation, ResultDataFormat, type SqlResultColumn } from '@cloudbeaver/core-sdk';
 
-import { DatabaseDataAction } from '../../DatabaseDataAction';
-import type { IDatabaseDataSource } from '../../IDatabaseDataSource';
-import type { IDatabaseResultSet } from '../../IDatabaseResultSet';
-import { databaseDataAction } from '../DatabaseDataActionDecorator';
-import type { IDatabaseDataResultAction } from '../IDatabaseDataResultAction';
-import type { IResultSetContentValue } from './IResultSetContentValue';
-import type { IResultSetColumnKey, IResultSetElementKey, IResultSetRowKey } from './IResultSetDataKey';
-import { isResultSetContentValue } from './isResultSetContentValue';
-import type { IResultSetValue } from './ResultSetFormatAction';
+import type { IDatabaseDataSource } from '../../IDatabaseDataSource.js';
+import type { IDatabaseResultSet } from '../../IDatabaseResultSet.js';
+import { databaseDataAction } from '../DatabaseDataActionDecorator.js';
+import { DatabaseDataResultAction } from '../DatabaseDataResultAction.js';
+import type { IResultSetContentValue } from './IResultSetContentValue.js';
+import type { IResultSetColumnKey, IResultSetElementKey, IResultSetRowKey } from './IResultSetDataKey.js';
+import { isResultSetContentValue } from './isResultSetContentValue.js';
+import { ResultSetDataKeysUtils } from './ResultSetDataKeysUtils.js';
+import type { IResultSetValue } from './ResultSetFormatAction.js';
 
 @databaseDataAction()
-export class ResultSetDataAction extends DatabaseDataAction<any, IDatabaseResultSet> implements IDatabaseDataResultAction<IDatabaseResultSet> {
-  static dataFormat = [ResultDataFormat.Resultset];
+export class ResultSetDataAction extends DatabaseDataResultAction<IResultSetElementKey, IDatabaseResultSet> {
+  static override dataFormat = [ResultDataFormat.Resultset];
 
-  get rows(): IResultSetValue[][] {
-    return this.result.data?.rows || [];
+  get rows() {
+    return this.result.data?.rowsWithMetaData || [];
   }
 
   get columns(): SqlResultColumn[] {
@@ -39,10 +39,23 @@ export class ResultSetDataAction extends DatabaseDataAction<any, IDatabaseResult
     });
   }
 
+  getIdentifier(key: IResultSetElementKey): string {
+    return ResultSetDataKeysUtils.serialize(key.column);
+  }
+
+  serialize(key: IResultSetElementKey): string {
+    return ResultSetDataKeysUtils.serializeElementKey(key);
+  }
+
+  serializeRowKey(key: IResultSetRowKey): string {
+    return ResultSetDataKeysUtils.serialize(key);
+  }
+
   getDefaultKey(): IResultSetElementKey {
     return {
       row: {
         index: 0,
+        subIndex: 0,
       },
       column: {
         index: 0,
@@ -51,29 +64,29 @@ export class ResultSetDataAction extends DatabaseDataAction<any, IDatabaseResult
   }
 
   insertRow(row: IResultSetRowKey, value: IResultSetValue[], shift = 0): IResultSetRowKey | undefined {
-    if (this.result.data?.rows) {
+    if (this.result.data?.rowsWithMetaData) {
       const index = row.index + shift;
-      this.result.data.rows.splice(index, 0, value);
+      this.result.data.rowsWithMetaData.splice(index, 0, { data: value, metaData: {} });
 
-      return { index };
+      return { index, subIndex: 0 };
     }
 
     return undefined;
   }
 
   removeRow(row: IResultSetRowKey, shift = 0): IResultSetRowKey | undefined {
-    if (this.result.data?.rows) {
+    if (this.result.data?.rowsWithMetaData) {
       const index = row.index + shift;
-      this.result.data.rows.splice(index, 1);
+      this.result.data.rowsWithMetaData.splice(index, 1);
 
-      return { index: index - 1 };
+      return { index: index - 1, subIndex: 0 };
     }
     return undefined;
   }
 
   setRowValue(row: IResultSetRowKey, value: IResultSetValue[], shift = 0): void {
-    if (this.result.data?.rows) {
-      this.result.data.rows[row.index + shift] = value;
+    if (this.result.data?.rowsWithMetaData) {
+      this.result.data.rowsWithMetaData[row.index + shift] = { data: value, metaData: this.getRowMetadata(row) };
     }
   }
 
@@ -82,7 +95,15 @@ export class ResultSetDataAction extends DatabaseDataAction<any, IDatabaseResult
       return undefined;
     }
 
-    return this.rows[row.index];
+    return this.rows[row.index]?.data;
+  }
+
+  getRowMetadata(row: IResultSetRowKey) {
+    if (row.index >= this.rows.length) {
+      return undefined;
+    }
+
+    return this.rows[row.index]?.metaData;
   }
 
   getCellValue(cell: IResultSetElementKey): IResultSetValue | undefined {
@@ -90,7 +111,7 @@ export class ResultSetDataAction extends DatabaseDataAction<any, IDatabaseResult
       return undefined;
     }
 
-    return this.rows[cell.row.index][cell.column.index];
+    return this.rows[cell.row.index]?.data?.[cell.column.index];
   }
 
   getContent(cell: IResultSetElementKey): IResultSetContentValue | null {

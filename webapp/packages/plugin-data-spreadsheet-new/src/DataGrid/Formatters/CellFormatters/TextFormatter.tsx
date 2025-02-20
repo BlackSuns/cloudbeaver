@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,16 +8,16 @@
 import { observer } from 'mobx-react-lite';
 import { useCallback, useContext, useEffect, useRef } from 'react';
 
-import { getComputed, IconOrImage, s, useS } from '@cloudbeaver/core-blocks';
+import { getComputed, IconOrImage, Loader, s, useS } from '@cloudbeaver/core-blocks';
 import { isValidUrl } from '@cloudbeaver/core-utils';
+import type { RenderCellProps } from '@cloudbeaver/plugin-data-grid';
 import type { IResultSetRowKey } from '@cloudbeaver/plugin-data-viewer';
-import type { RenderCellProps } from '@cloudbeaver/plugin-react-data-grid';
 
-import { EditingContext } from '../../../Editing/EditingContext';
-import { CellEditor, IEditorRef } from '../../CellEditor';
-import { CellContext } from '../../CellRenderer/CellContext';
-import { TableDataContext } from '../../TableDataContext';
-import styles from './TextFormatter.m.css';
+import { EditingContext } from '../../../Editing/EditingContext.js';
+import { CellEditor, type IEditorRef } from '../../CellEditor.js';
+import { CellContext } from '../../CellRenderer/CellContext.js';
+import { TableDataContext } from '../../TableDataContext.js';
+import styles from './TextFormatter.module.css';
 
 export const TextFormatter = observer<RenderCellProps<IResultSetRowKey>>(function TextFormatter({ row, column }) {
   const editorRef = useRef<IEditorRef>(null);
@@ -31,11 +31,11 @@ export const TextFormatter = observer<RenderCellProps<IResultSetRowKey>>(functio
 
   const style = useS(styles);
   const formatter = tableDataContext.format;
-  const rawValue = getComputed(() => formatter.get(tableDataContext.getCellValue(cellContext.cell!)!));
+  const rawValue = getComputed(() => formatter.get(cellContext.cell!));
+  const textValue = formatter.getText(cellContext.cell!);
+  const displayValue = formatter.getDisplayString(cellContext.cell!);
 
   const classes = s(style, { textFormatter: true, nullValue: rawValue === null });
-
-  const value = formatter.toDisplayString(rawValue);
 
   const handleClose = useCallback(() => {
     editingContext.closeEditor(cellContext.position);
@@ -53,21 +53,21 @@ export const TextFormatter = observer<RenderCellProps<IResultSetRowKey>>(functio
   if (cellContext.isEditing) {
     return (
       <div className={classes}>
-        <CellEditor ref={editorRef} row={row} column={column} onClose={handleClose} />
+        <Loader className={s(style, { loader: true })} suspense small>
+          <CellEditor ref={editorRef} row={row} column={column} onClose={handleClose} />
+        </Loader>
       </div>
     );
   }
 
-  const isUrl = typeof rawValue === 'string' && isValidUrl(rawValue);
-
   return (
-    <div title={value} className={classes}>
-      {isUrl && (
-        <a href={rawValue as string} target="_blank" rel="noreferrer" draggable={false} className={s(style, { a: true })}>
+    <div title={displayValue} className={classes}>
+      {isValidUrl(textValue) && (
+        <a href={textValue} target="_blank" rel="noreferrer" draggable={false} className={s(style, { a: true })}>
           <IconOrImage icon="external-link" viewBox="0 0 24 24" className={s(style, { icon: true })} />
         </a>
       )}
-      <div className={s(style, { textFormatterValue: true })}>{value}</div>
+      <div className={s(style, { textFormatterValue: true })}>{displayValue}</div>
     </div>
   );
 });

@@ -11,6 +11,11 @@ type AdminConnectionGrantInfo {
     subjectType: AdminSubjectType!
 }
 
+type AdminUserTeamGrantInfo @since(version: "24.0.5"){
+    userId: ID!
+    teamRole: String
+}
+
 type AdminObjectPermissions {
     objectId: ID!
     permissions: [String!]!
@@ -53,6 +58,7 @@ type AdminTeamInfo {
     metaParameters: Object!
 
     grantedUsers: [ID!]!
+    grantedUsersInfo: [AdminUserTeamGrantInfo!]! @since(version: "24.0.5")
     grantedConnections: [AdminConnectionGrantInfo!]!
 
     teamPermissions: [ID!]!
@@ -82,6 +88,8 @@ type AdminAuthProviderConfiguration {
     signOutLink: String
     redirectLink: String
     metadataLink: String
+    acsLink: String
+    entityIdLink: String @since(version: "24.2.1")
 }
 
 type WebFeatureSet {
@@ -106,6 +114,7 @@ input ServerConfigInput {
     publicCredentialsSaveEnabled: Boolean
     adminCredentialsSaveEnabled: Boolean
     resourceManagerEnabled: Boolean
+    secretManagerEnabled: Boolean @since(version: "24.3.2")
 
     enabledFeatures: [ID!]
     enabledAuthProviders: [ID!]
@@ -127,6 +136,7 @@ extend type Query {
     listTeams(teamId: ID): [AdminTeamInfo!]!
     listPermissions: [AdminPermissionInfo!]!
     listAuthRoles: [String!]!
+    listTeamRoles: [String!]!
     listTeamMetaParameters: [ObjectPropertyInfo!]!
 
     createUser(userId: ID!, enabled: Boolean!, authRole: String): AdminUserInfo!
@@ -149,6 +159,8 @@ extend type Query {
 
     setUserAuthRole(userId: ID!, authRole: String): Boolean
 
+    setUserTeamRole(userId: ID!, teamId: ID!, teamRole: String): Boolean @since(version: "24.0.5")
+
     #### Connection management
 
     # All connection configurations
@@ -157,9 +169,15 @@ extend type Query {
     # Permissions
 
     getConnectionSubjectAccess(projectId: ID!, connectionId: ID): [AdminConnectionGrantInfo!]!
+    @deprecated(reason: "23.2.2")
     setConnectionSubjectAccess(projectId: ID!, connectionId: ID!, subjects: [ID!]!): Boolean
+    @since(version: "23.2.2")
+    addConnectionsAccess(projectId: ID!, connectionIds: [ID!]!, subjects: [ID!]!): Boolean
+    @since(version: "23.2.2")
+    deleteConnectionsAccess(projectId: ID!, connectionIds: [ID!]!, subjects: [ID!]!): Boolean
 
     getSubjectConnectionAccess(subjectId: ID!): [AdminConnectionGrantInfo!]!
+    @deprecated(reason: "23.2.2")
     setSubjectConnectionAccess(subjectId: ID!, connections: [ID!]!): Boolean
 
     #### Feature sets
@@ -198,4 +216,9 @@ extend type Query {
     # Changes default navigator settings
     setDefaultNavigatorSettings( settings: NavigatorSettingsInput!): Boolean!
 
+}
+
+extend type Mutation {
+    # Updates product configuration
+    adminUpdateProductConfiguration(configuration: Object!): Boolean! @since(version: "23.3.4")
 }

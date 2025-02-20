@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,18 @@
  */
 package io.cloudbeaver.service.sql;
 
-import io.cloudbeaver.service.DBWService;
 import io.cloudbeaver.DBWebException;
 import io.cloudbeaver.WebAction;
 import io.cloudbeaver.model.WebAsyncTaskInfo;
 import io.cloudbeaver.model.WebConnectionInfo;
+import io.cloudbeaver.model.WebTransactionLogInfo;
 import io.cloudbeaver.model.session.WebSession;
+import io.cloudbeaver.service.DBWService;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
+import org.jkiss.dbeaver.model.exec.trace.DBCTraceProperty;
 import org.jkiss.dbeaver.model.sql.registry.SQLGeneratorDescriptor;
 
 import java.util.List;
@@ -106,6 +108,17 @@ public interface DBWServiceSQL extends DBWService {
         @Nullable WebSQLDataFilter filter,
         @Nullable WebDataFormat dataFormat) throws DBWebException;
 
+    /**
+     * Reads dynamic trace from provided database results.
+     */
+    @NotNull
+    @WebAction
+    List<DBCTraceProperty> readDynamicTrace(
+        @NotNull WebSession webSession,
+        @NotNull WebSQLContextInfo contextInfo,
+        @NotNull String resultsId
+    ) throws DBException;
+
     @WebAction
     Boolean closeResult(@NotNull WebSQLContextInfo sqlContext, @NotNull String resultId) throws DBWebException;
 
@@ -119,10 +132,18 @@ public interface DBWServiceSQL extends DBWService {
 
     @WebAction
     String readLobValue(
-            @NotNull WebSQLContextInfo contextInfo,
-            @NotNull String resultsId,
-            @NotNull Integer lobColumnIndex,
-            @Nullable List<WebSQLResultsRow> row) throws DBWebException;
+        @NotNull WebSQLContextInfo contextInfo,
+        @NotNull String resultsId,
+        @NotNull Integer lobColumnIndex,
+        @NotNull WebSQLResultsRow row) throws DBWebException;
+
+    @NotNull
+    @WebAction
+    String getCellValue(
+        @NotNull WebSQLContextInfo contextInfo,
+        @NotNull String resultsId,
+        @NotNull Integer lobColumnIndex,
+        @NotNull WebSQLResultsRow row) throws DBWebException;
 
     @WebAction
     String updateResultsDataBatchScript(
@@ -157,4 +178,35 @@ public interface DBWServiceSQL extends DBWService {
                                 @NotNull List<String> columnsList,
                                 @Nullable List<String> functions,
                                 @Nullable Boolean showDuplicatesOnly) throws DBWebException;
+
+    @WebAction
+    WebAsyncTaskInfo getRowDataCount(@NotNull WebSession webSession, @NotNull WebSQLContextInfo contextInfo, @NotNull String resultsId) throws DBWebException;
+
+    @Nullable
+    @WebAction
+    Long getRowDataCountResult(@NotNull WebSession webSession, @NotNull String taskId) throws DBWebException;
+
+    @WebAction
+    WebAsyncTaskInfo asyncSqlSetAutoCommit(
+        @NotNull WebSession webSession,
+        @NotNull WebSQLContextInfo contextInfo,
+        boolean autoCommit
+    ) throws DBWebException;
+
+    @WebAction
+    WebAsyncTaskInfo asyncSqlRollbackTransaction(
+        @NotNull WebSession webSession,
+        @NotNull WebSQLContextInfo contextInfo
+    ) throws DBWebException;
+
+    @WebAction
+    WebAsyncTaskInfo asyncSqlCommitTransaction(
+        @NotNull WebSession webSession,
+        @NotNull WebSQLContextInfo sqlContext);
+
+    @WebAction
+    WebTransactionLogInfo getTransactionLogInfo(
+        @NotNull WebSession webSession,
+        @NotNull WebSQLContextInfo sqlContext
+    );
 }

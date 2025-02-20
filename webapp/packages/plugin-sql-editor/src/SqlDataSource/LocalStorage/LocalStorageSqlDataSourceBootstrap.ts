@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,13 +8,13 @@
 import { action, makeObservable, observable } from 'mobx';
 
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
-import { LocalStorageSaveService } from '@cloudbeaver/core-settings';
+import { StorageService } from '@cloudbeaver/core-storage';
 
-import { createSqlDataSourceHistoryInitialState } from '../SqlDataSourceHistory/createSqlDataSourceHistoryInitialState';
-import { validateSqlDataSourceHistoryState } from '../SqlDataSourceHistory/validateSqlDataSourceHistoryState';
-import { ISqlDataSourceOptions, SqlDataSourceService } from '../SqlDataSourceService';
-import type { ILocalStorageSqlDataSourceState } from './ILocalStorageSqlDataSourceState';
-import { LocalStorageSqlDataSource } from './LocalStorageSqlDataSource';
+import { createSqlDataSourceHistoryInitialState } from '../SqlDataSourceHistory/createSqlDataSourceHistoryInitialState.js';
+import { validateSqlDataSourceHistoryState } from '../SqlDataSourceHistory/validateSqlDataSourceHistoryState.js';
+import { type ISqlDataSourceOptions, SqlDataSourceService } from '../SqlDataSourceService.js';
+import type { ILocalStorageSqlDataSourceState } from './ILocalStorageSqlDataSourceState.js';
+import { LocalStorageSqlDataSource } from './LocalStorageSqlDataSource.js';
 
 const localStorageKey = 'local-storage-sql-data-source';
 
@@ -22,7 +22,10 @@ const localStorageKey = 'local-storage-sql-data-source';
 export class LocalStorageSqlDataSourceBootstrap extends Bootstrap {
   private readonly dataSourceStateState = new Map<string, ILocalStorageSqlDataSourceState>();
 
-  constructor(private readonly sqlDataSourceService: SqlDataSourceService, localStorageSaveService: LocalStorageSaveService) {
+  constructor(
+    private readonly sqlDataSourceService: SqlDataSourceService,
+    storageService: StorageService,
+  ) {
     super();
     this.dataSourceStateState = new Map();
 
@@ -31,7 +34,7 @@ export class LocalStorageSqlDataSourceBootstrap extends Bootstrap {
       dataSourceStateState: observable.deep,
     });
 
-    localStorageSaveService.withAutoSave(
+    storageService.registerSettings(
       localStorageKey,
       this.dataSourceStateState,
       () => new Map(),
@@ -62,15 +65,13 @@ export class LocalStorageSqlDataSourceBootstrap extends Bootstrap {
     );
   }
 
-  register(): void | Promise<void> {
+  override register(): void | Promise<void> {
     this.sqlDataSourceService.register({
       key: LocalStorageSqlDataSource.key,
       getDataSource: (editorId, options) => new LocalStorageSqlDataSource(this.createState(editorId, options)),
       onDestroy: (_, editorId) => this.deleteState(editorId),
     });
   }
-
-  load(): void | Promise<void> {}
 
   private createState(editorId: string, options?: ISqlDataSourceOptions): ILocalStorageSqlDataSourceState {
     let state = this.dataSourceStateState.get(editorId);

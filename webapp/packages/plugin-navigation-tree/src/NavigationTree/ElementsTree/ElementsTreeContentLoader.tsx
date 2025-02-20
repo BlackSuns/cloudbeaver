@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,7 +10,7 @@ import { observer } from 'mobx-react-lite';
 import { getComputed, Loader, Translate, TreeNodeNestedMessage } from '@cloudbeaver/core-blocks';
 import type { ILoadableState } from '@cloudbeaver/core-utils';
 
-import type { IElementsTreeContext } from './ElementsTreeContext';
+import type { IElementsTreeContext } from './ElementsTreeContext.js';
 
 interface Props {
   context: IElementsTreeContext;
@@ -26,7 +26,7 @@ export const ElementsTreeContentLoader = observer<React.PropsWithChildren<Props>
 }) {
   const hasChildren = getComputed(() => context.tree.getNodeChildren(context.tree.root).length > 0);
 
-  const loading = getComputed(() => (childrenState.isLoading() || context.tree.loading) && !context.tree.isLoaded());
+  const loading = getComputed(() => (childrenState.isLoading() || context.tree.isLoading()) && !context.tree.isLoaded());
 
   if (!hasChildren) {
     if (loading) {

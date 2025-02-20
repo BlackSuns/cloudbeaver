@@ -1,18 +1,18 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 
-import { ColoredContainer, Group, TextPlaceholder, useAutoLoad, useTranslate } from '@cloudbeaver/core-blocks';
+import { Container, Group, useAutoLoad, useTranslate } from '@cloudbeaver/core-blocks';
 import { type TabContainerPanelComponent, useTab } from '@cloudbeaver/core-ui';
 
-import type { UserFormProps } from '../AdministrationUserFormService';
-import { DATA_CONTEXT_USER_FORM_INFO_PART } from '../Info/DATA_CONTEXT_USER_FORM_INFO_PART';
-import { UserFormConnectionAccess } from './UserFormConnectionAccess';
+import type { UserFormProps } from '../AdministrationUserFormService.js';
+import { getUserFormInfoPart } from '../Info/getUserFormInfoPart.js';
+import { UserFormConnectionAccess } from './UserFormConnectionAccess.js';
 
 export const UserFormConnectionAccessPanel: TabContainerPanelComponent<UserFormProps> = observer(function UserFormConnectionAccessPanel({
   tabId,
@@ -21,7 +21,7 @@ export const UserFormConnectionAccessPanel: TabContainerPanelComponent<UserFormP
 }) {
   const tab = useTab(tabId);
   const translate = useTranslate();
-  const userFormInfoPart = formState.dataContext.get(DATA_CONTEXT_USER_FORM_INFO_PART);
+  const userFormInfoPart = getUserFormInfoPart(formState);
 
   useAutoLoad(UserFormConnectionAccessPanel, userFormInfoPart, tab.selected);
 
@@ -29,11 +29,9 @@ export const UserFormConnectionAccessPanel: TabContainerPanelComponent<UserFormP
 
   if (isAdmin) {
     return (
-      <ColoredContainer>
-        <Group large>
-          <TextPlaceholder>{translate('connections_connection_access_admin_info')}</TextPlaceholder>
-        </Group>
-      </ColoredContainer>
+      <Container>
+        <Group large>{translate('connections_connection_access_admin_info')}</Group>
+      </Container>
     );
   }
 

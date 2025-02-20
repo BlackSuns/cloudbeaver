@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,41 +8,46 @@
 import { action, computed, makeObservable, observable, runInAction } from 'mobx';
 
 import {
-  Connection,
+  type Connection,
   ConnectionInfoResource,
   ConnectionsManagerService,
   DBDriverResource,
-  IConnectionInfoParams,
-  IConnectionProvider,
-  IConnectionSetter,
-  IObjectCatalogProvider,
-  IObjectCatalogSetter,
-  IObjectSchemaProvider,
-  IObjectSchemaSetter,
+  type IConnectionInfoParams,
+  type IConnectionProvider,
+  type IConnectionSetter,
+  type IExecutionContextProvider,
+  type IObjectCatalogProvider,
+  type IObjectCatalogSetter,
+  type IObjectLoaderProvider,
+  type IObjectSchemaProvider,
+  type IObjectSchemaSetter,
   isConnectionProvider,
   isConnectionSetter,
+  isExecutionContextProvider,
   isObjectCatalogProvider,
   isObjectCatalogSetter,
+  isObjectLoaderProvider,
   isObjectSchemaProvider,
   isObjectSchemaSetter,
-  IStructContainers,
-  ObjectContainer,
+  type IStructContainers,
+  type ObjectContainer,
   serializeConnectionParam,
 } from '@cloudbeaver/core-connections';
 import { injectable } from '@cloudbeaver/core-di';
 import { NotificationService } from '@cloudbeaver/core-events';
-import { ExtensionUtils, IExtension } from '@cloudbeaver/core-extensions';
+import { ExtensionUtils, type IExtension } from '@cloudbeaver/core-extensions';
 import { type IDataContextActiveNode, type IObjectNavNodeProvider, isObjectNavNodeProvider } from '@cloudbeaver/core-navigation-tree';
 import {
-  IProjectProvider,
-  IProjectSetter,
-  IProjectSetterState,
+  type IProjectProvider,
+  type IProjectSetter,
+  type IProjectSetterState,
   isProjectProvider,
   isProjectSetter,
   isProjectSetterState,
 } from '@cloudbeaver/core-projects';
 import { CachedMapAllKey } from '@cloudbeaver/core-resource';
-import { ITab, NavigationTabsService } from '@cloudbeaver/plugin-navigation-tabs';
+import type { ILoadableState } from '@cloudbeaver/core-utils';
+import { type ITab, NavigationTabsService } from '@cloudbeaver/plugin-navigation-tabs';
 
 export interface IConnectionInfo {
   name?: string;
@@ -58,6 +63,8 @@ interface IActiveItem<T> {
   getCurrentConnectionId?: IConnectionProvider<T>;
   getCurrentSchemaId?: IObjectSchemaProvider<T>;
   getCurrentCatalogId?: IObjectCatalogProvider<T>;
+  getCurrentExecutionContext?: IExecutionContextProvider<T>;
+  getCurrentLoader?: IObjectLoaderProvider<T>;
   changeConnectionId?: IConnectionSetter<T>;
   changeProjectId?: IProjectSetter<T>;
   changeCatalogId?: IObjectCatalogSetter<T>;
@@ -119,6 +126,22 @@ export class ConnectionSchemaManagerService {
       return this.pendingCatalogId;
     }
     return this.activeObjectCatalogId;
+  }
+
+  get activeExecutionContext() {
+    if (!this.activeItem?.getCurrentExecutionContext) {
+      return;
+    }
+
+    return this.activeItem.getCurrentExecutionContext(this.activeItem.context);
+  }
+
+  get currentObjectLoaders(): ILoadableState[] {
+    if (!this.activeItem?.getCurrentLoader) {
+      return [];
+    }
+
+    return this.activeItem.getCurrentLoader(this.activeItem.context);
   }
 
   get currentObjectSchemaId(): string | undefined {
@@ -260,6 +283,7 @@ export class ConnectionSchemaManagerService {
       currentObjectCatalogId: computed,
       activeObjectCatalogId: computed,
       currentObjectSchemaId: computed,
+      currentObjectLoaders: computed,
       isConnectionChangeable: computed,
       isObjectCatalogChangeable: computed,
       isObjectSchemaChangeable: computed,
@@ -441,6 +465,12 @@ export class ConnectionSchemaManagerService {
       })
       .on(isObjectSchemaProvider, extension => {
         item.getCurrentSchemaId = extension;
+      })
+      .on(isExecutionContextProvider, extension => {
+        item.getCurrentExecutionContext = extension;
+      })
+      .on(isObjectLoaderProvider, extension => {
+        item.getCurrentLoader = extension;
       })
 
       .on(isProjectSetter, extension => {

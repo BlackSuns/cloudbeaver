@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,22 +10,19 @@ import { action, computed, makeObservable, observable, runInAction, toJS } from 
 import {
   ConnectionInfoResource,
   createConnectionParam,
-  IConnectionExecutionContextInfo,
+  type IConnectionExecutionContextInfo,
   NOT_INITIALIZED_CONTEXT_ID,
 } from '@cloudbeaver/core-connections';
 import { TaskScheduler } from '@cloudbeaver/core-executor';
-import type { ProjectInfoResource } from '@cloudbeaver/core-projects';
-import { isResourceAlias, ResourceKey, ResourceKeyUtils } from '@cloudbeaver/core-resource';
+import type { ProjectInfoResource, ProjectsService } from '@cloudbeaver/core-projects';
+import { isResourceAlias, type ResourceKey, ResourceKeyUtils } from '@cloudbeaver/core-resource';
 import { getRmResourceKey, ResourceManagerResource } from '@cloudbeaver/core-resource-manager';
+import type { NetworkStateService } from '@cloudbeaver/core-root';
 import { debounce, getPathName, isArraysEqual, isNotNullDefined, isObjectsEqual, isValuesEqual } from '@cloudbeaver/core-utils';
 import { SCRIPTS_TYPE_ID } from '@cloudbeaver/plugin-resource-manager-scripts';
 import { BaseSqlDataSource, ESqlDataSourceFeatures, SqlEditorService } from '@cloudbeaver/plugin-sql-editor';
 
-import type { IResourceSqlDataSourceState } from './IResourceSqlDataSourceState';
-
-interface IResourceInfo {
-  isReadonly?: (dataSource: ResourceSqlDataSource) => boolean;
-}
+import type { IResourceSqlDataSourceState } from './IResourceSqlDataSourceState.js';
 
 interface IResourceActions {
   rename(dataSource: ResourceSqlDataSource, key: string, name: string): Promise<string>;
@@ -40,9 +37,10 @@ interface IResourceActions {
 }
 
 const VALUE_SYNC_DELAY = 1 * 1000;
+const MESSAGE_DISPLAY_DELAY = 4 * 1000;
 
 export class ResourceSqlDataSource extends BaseSqlDataSource {
-  static key = 'resource';
+  static override key = 'resource';
 
   get name(): string | null {
     if (!this.resourceKey || !this.projectId) {
@@ -66,7 +64,7 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
     return this.state.baseExecutionContext;
   }
 
-  get projectId(): string | null {
+  override get projectId(): string | null {
     if (this.resourceKey === undefined) {
       return super.projectId;
     }
@@ -90,7 +88,7 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
     return this.lastAction;
   }
 
-  get features(): ESqlDataSourceFeatures[] {
+  override get features(): ESqlDataSourceFeatures[] {
     if (this.isReadonly()) {
       return [ESqlDataSourceFeatures.script, ESqlDataSourceFeatures.query, ESqlDataSourceFeatures.executable];
     }
@@ -98,12 +96,11 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
     return [ESqlDataSourceFeatures.script, ESqlDataSourceFeatures.query, ESqlDataSourceFeatures.executable, ESqlDataSourceFeatures.setName];
   }
 
-  get isAutoSaveEnabled(): boolean {
+  override get isAutoSaveEnabled(): boolean {
     return this.sqlEditorService.autoSave;
   }
 
   private actions?: IResourceActions;
-  private info?: IResourceInfo;
   private lastAction: (() => Promise<void>) | undefined;
   private state!: IResourceSqlDataSourceState;
 
@@ -112,10 +109,12 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
   private resourceUseKeyId: string | null;
 
   constructor(
+    private readonly networkStateService: NetworkStateService,
     private readonly projectInfoResource: ProjectInfoResource,
     private readonly connectionInfoResource: ConnectionInfoResource,
     private readonly resourceManagerResource: ResourceManagerResource,
     private readonly sqlEditorService: SqlEditorService,
+    private readonly projectsService: ProjectsService,
     state: IResourceSqlDataSourceState,
   ) {
     super();
@@ -143,19 +142,31 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
     });
   }
 
-  isReadonly(): boolean {
-    return !this.isLoaded() || this.info?.isReadonly?.(this) === true;
+  override isReadonly(): boolean {
+    if (!this.projectId || !this.networkStateService.state) {
+      return true;
+    }
+
+    const project = this.projectInfoResource.get(this.projectId);
+
+    return !this.isLoaded() || !project?.canEditResources;
   }
 
-  isOutdated(): boolean {
+  override isOutdated(): boolean {
+    if (this.projectId) {
+      if (this.projectInfoResource.isOutdated(this.projectId)) {
+        return true;
+      }
+    }
+
     return this.resourceKey !== undefined && super.isOutdated();
   }
 
-  isLoaded(): boolean {
+  override isLoaded(): boolean {
     return this.resourceKey === undefined || super.isLoaded() || this.loaded;
   }
 
-  isLoading(): boolean {
+  override isLoading(): boolean {
     return this.scheduler.executing;
   }
 
@@ -189,11 +200,7 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
     this.actions = actions;
   }
 
-  setInfo(info?: IResourceInfo): void {
-    this.info = info;
-  }
-
-  setName(name: string | null): void {
+  override setName(name: string | null): void {
     name = name?.trim() ?? null;
     if (!name || name === this.name) {
       return;
@@ -207,11 +214,11 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
     });
   }
 
-  setProject(projectId: string | null): void {
+  override setProject(projectId: string | null): void {
     super.setProject(projectId);
   }
 
-  setScript(script: string): void {
+  override setScript(script: string): void {
     const previous = this.state.script;
     if (previous === script) {
       return;
@@ -225,15 +232,9 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
     }
   }
 
-  setExecutionContext(executionContext: IConnectionExecutionContextInfo | undefined): void {
+  override setExecutionContext(executionContext: IConnectionExecutionContextInfo | undefined): void {
     if (executionContext) {
       executionContext = JSON.parse(JSON.stringify(toJS(executionContext) ?? {}));
-    }
-
-    const projectId = executionContext?.projectId;
-
-    if (this.resourceKey && isNotNullDefined(projectId) && getRmResourceKey(this.resourceKey).projectId !== projectId) {
-      throw new Error('Resource SQL Data Source and Execution context projects don\t match');
     }
 
     if (!isObjectsEqual(toJS(this.state.executionContext), executionContext)) {
@@ -263,14 +264,19 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
     }
   }
 
-  async load(): Promise<void> {
+  override async load(): Promise<void> {
     if (this.state.resourceKey && !this.resourceUseKeyId) {
       this.resourceUseKeyId = this.resourceManagerResource.useTracker.use(this.state.resourceKey);
     }
+
+    if (this.projectId) {
+      await this.projectInfoResource.load(this.projectId);
+    }
+
     await this.read();
   }
 
-  async save(): Promise<void> {
+  override async save(): Promise<void> {
     try {
       await this.write();
       await this.saveProperties();
@@ -280,7 +286,7 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
     }
   }
 
-  dispose(): void {
+  override dispose(): void {
     super.dispose();
     this.resourceManagerResource.onItemUpdate.removeHandler(this.syncResource);
     if (this.state.resourceKey && this.resourceUseKeyId) {
@@ -361,12 +367,26 @@ export class ResourceSqlDataSource extends BaseSqlDataSource {
       try {
         this.exception = null;
 
+        const projectId = this.executionContext?.projectId;
+        const resourceProjectId = getRmResourceKey(this.resourceKey).projectId;
+        const userProjectId = this.projectsService.userProject?.id;
+
+        if (isNotNullDefined(projectId) && resourceProjectId !== projectId && resourceProjectId !== userProjectId) {
+          this.message = 'plugin_sql_editor_navigation_tab_script_state_different_project';
+
+          await new Promise(resolve => setTimeout(resolve, MESSAGE_DISPLAY_DELAY));
+          return;
+        }
+
         if (!this.isReadonly()) {
           this.message = 'plugin_sql_editor_navigation_tab_script_state_updating';
           const executionContext = await this.actions.setProperties(this, this.resourceKey, this.executionContext);
 
           this.setExecutionContext(executionContext);
           this.setBaseExecutionContext(this.executionContext);
+        } else {
+          this.message = 'plugin_sql_editor_navigation_tab_script_state_readonly';
+          await new Promise(resolve => setTimeout(resolve, MESSAGE_DISPLAY_DELAY));
         }
       } finally {
         this.message = undefined;

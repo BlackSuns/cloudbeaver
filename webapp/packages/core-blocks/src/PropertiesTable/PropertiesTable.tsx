@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,18 +8,21 @@
 import { computed } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import { useCallback, useMemo, useState } from 'react';
-import styled from 'reshadow';
 
-import { Button } from '../Button';
-import ButtonStyles from '../Button.m.css';
-import { Filter } from '../FormControls/Filter';
-import { useTranslate } from '../localization/useTranslate';
-import { SContext, StyleRegistry } from '../SContext';
-import { useObjectRef } from '../useObjectRef';
-import type { IProperty } from './IProperty';
-import PropertiesTableAddButtonStyles from './PropertiesTableAddButtonStyles.m.css';
-import { PropertyItem } from './PropertyItem';
-import { PROPERTIES_FILTER_STYLES, PROPERTIES_TABLE_STYLES } from './styles';
+import { Button } from '../Button.js';
+import ButtonStyles from '../Button.module.css';
+import { Filter } from '../FormControls/Filter.js';
+import InputFieldStyles from '../FormControls/InputField/InputField.module.css';
+import { useTranslate } from '../localization/useTranslate.js';
+import { s } from '../s.js';
+import { SContext, type StyleRegistry } from '../SContext.js';
+import { useObjectRef } from '../useObjectRef.js';
+import { useS } from '../useS.js';
+import type { IProperty } from './IProperty.js';
+import styles from './PropertiesTable.module.css';
+import PropertiesTableAddButtonStyles from './PropertiesTableAddButtonStyles.module.css';
+import PropertiesTableInputStyles from './PropertiesTableInputStyles.module.css';
+import { PropertyItem } from './PropertyItem.js';
 
 type PropertiesState = Record<string, string | null>;
 
@@ -37,6 +40,13 @@ interface Props {
 
 const registry: StyleRegistry = [
   [
+    InputFieldStyles,
+    {
+      mode: 'append',
+      styles: [PropertiesTableInputStyles],
+    },
+  ],
+  [
     ButtonStyles,
     {
       mode: 'append',
@@ -49,6 +59,7 @@ export const PropertiesTable = observer<Props>(function PropertiesTable(props) {
   const { className, onAdd, readOnly, propertiesState } = props;
   const translate = useTranslate();
   const propsRef = useObjectRef({ ...props });
+  const style = useS(styles);
 
   const [filterValue, setFilterValue] = useState('');
 
@@ -75,7 +86,7 @@ export const PropertiesTable = observer<Props>(function PropertiesTable(props) {
       const isUnique = properties.filter(({ key }) => key === property.key).length === 1;
 
       if (propertiesState[property.key] !== undefined && isUnique) {
-        propertiesState[key] = propertiesState[property.key];
+        propertiesState[key] = propertiesState[property.key]!;
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete propertiesState[property.key];
       }
@@ -128,30 +139,25 @@ export const PropertiesTable = observer<Props>(function PropertiesTable(props) {
 
   const isKeyUnique = useCallback((key: string) => propsRef.properties.filter(property => property.key === key).length === 1, []);
 
-  return styled(PROPERTIES_TABLE_STYLES)(
-    <properties className={className}>
-      <properties-header>
-        <properties-header-name>
+  return (
+    <div className={s(style, { properties: true }, className)}>
+      <div className={s(style, { propertiesHeader: true })}>
+        <div className={s(style, { propertiesHeaderName: true })}>
           <div>{translate('core_block_properties_table_name')}</div>
           {props.filterable ? (
-            <Filter
-              value={filterValue}
-              placeholder={translate('core_block_properties_table_filter_name')}
-              style={PROPERTIES_FILTER_STYLES}
-              onFilter={setFilterValue}
-            />
+            <Filter value={filterValue} placeholder={translate('core_block_properties_table_filter_name')} smallSize onChange={setFilterValue} />
           ) : null}
-        </properties-header-name>
-        <properties-header-value>{translate('core_block_properties_table_value')}</properties-header-value>
-      </properties-header>
-      <properties-list>
+        </div>
+        <div className={s(style, { propertiesHeaderValue: true })}>{translate('core_block_properties_table_value')}</div>
+      </div>
+      <div className={s(style, { propertiesList: true })}>
         {onAdd && !readOnly && (
           <SContext registry={registry}>
-            <properties-header-add>
+            <div className={s(style, { propertiesHeaderAdd: true })}>
               <Button icon="add_sm" viewBox="0 0 18 18" type="button" onClick={() => onAdd()}>
                 {translate('core_block_properties_table_add')}
               </Button>
-            </properties-header-add>
+            </div>
           </SContext>
         )}
         {sortedProperties.get().map(property => (
@@ -166,8 +172,8 @@ export const PropertiesTable = observer<Props>(function PropertiesTable(props) {
             onRemove={removeProperty}
           />
         ))}
-        <properties-list-overflow />
-      </properties-list>
-    </properties>,
+        <div className={s(style, { propertiesListOverflow: true })} />
+      </div>
+    </div>
   );
 });

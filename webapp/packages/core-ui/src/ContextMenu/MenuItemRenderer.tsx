@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,20 +8,21 @@
 import { observer } from 'mobx-react-lite';
 import React, { useCallback } from 'react';
 
-import { Checkbox, MenuItem, MenuItemCheckbox, MenuItemElement, MenuSeparator } from '@cloudbeaver/core-blocks';
+import { Checkbox, MenuItem, MenuItemCheckbox, MenuItemElement, MenuItemRadio, MenuSeparator, Radio, useTranslate } from '@cloudbeaver/core-blocks';
 import {
-  IMenuData,
-  IMenuItem,
+  type IMenuData,
+  type IMenuItem,
+  isMenuCustomItem,
   MenuActionItem,
   MenuBaseItem,
   MenuCheckboxItem,
-  MenuCustomItem,
+  MenuRadioItem,
   MenuSeparatorItem,
   MenuSubMenuItem,
 } from '@cloudbeaver/core-view';
 
-import { MenuActionElement } from './MenuActionElement';
-import { SubMenuElement } from './SubMenuElement';
+import { MenuActionElement } from './MenuActionElement.js';
+import { SubMenuElement } from './SubMenuElement.js';
 
 export interface IMenuItemRendererProps extends React.ButtonHTMLAttributes<any> {
   item: IMenuItem;
@@ -32,6 +33,7 @@ export interface IMenuItemRendererProps extends React.ButtonHTMLAttributes<any> 
 }
 
 export const MenuItemRenderer = observer<IMenuItemRendererProps>(function MenuItemRenderer({ item, modal, rtl, menuData, onItemClose }) {
+  const translate = useTranslate();
   const onClick = useCallback(
     (keepMenuOpen = true) => {
       item.events?.onSelect?.();
@@ -43,10 +45,10 @@ export const MenuItemRenderer = observer<IMenuItemRendererProps>(function MenuIt
     [item, onItemClose],
   );
 
-  if (item instanceof MenuCustomItem) {
+  if (isMenuCustomItem(item)) {
     const CustomMenuItem = item.getComponent();
 
-    return <CustomMenuItem item={item} menuData={menuData} onClick={onClick} />;
+    return <CustomMenuItem item={item} context={menuData.context} onClick={onClick} />;
   }
 
   if (item instanceof MenuSubMenuItem) {
@@ -54,7 +56,7 @@ export const MenuItemRenderer = observer<IMenuItemRendererProps>(function MenuIt
       <MenuItem
         {...{ as: SubMenuElement }}
         id={item.id}
-        aria-label={item.menu.label}
+        aria-label={translate(item.menu.label)}
         hidden={item.hidden}
         itemRenderer={MenuItemRenderer}
         menuRtl={rtl}
@@ -80,7 +82,7 @@ export const MenuItemRenderer = observer<IMenuItemRendererProps>(function MenuIt
       <MenuItemCheckbox
         hidden={item.hidden}
         id={item.id}
-        aria-label={item.label}
+        aria-label={translate(item.label)}
         disabled={item.disabled}
         name={item.id}
         value={item.label}
@@ -96,12 +98,29 @@ export const MenuItemRenderer = observer<IMenuItemRendererProps>(function MenuIt
     );
   }
 
+  if (item instanceof MenuRadioItem) {
+    return (
+      <MenuItemRadio
+        hidden={item.hidden}
+        id={item.id}
+        aria-label={translate(item.label)}
+        disabled={item.disabled}
+        name={item.id}
+        value={item.label}
+        checked={item.checked}
+        onClick={() => onClick()}
+      >
+        <MenuItemElement label={item.label} icon={<Radio checked={item.checked} mod={['primary', 'menu']} ripple={false} />} tooltip={item.tooltip} />
+      </MenuItemRadio>
+    );
+  }
+
   if (item instanceof MenuBaseItem) {
     const IconComponent = item.iconComponent?.();
     const extraProps = item.getExtraProps?.();
 
     return (
-      <MenuItem id={item.id} aria-label={item.label} hidden={item.hidden} disabled={item.disabled} onClick={() => onClick()}>
+      <MenuItem id={item.id} aria-label={translate(item.label)} hidden={item.hidden} disabled={item.disabled} onClick={() => onClick()}>
         <MenuItemElement label={item.label} icon={IconComponent ? <IconComponent item={item} {...extraProps} /> : item.icon} tooltip={item.tooltip} />
       </MenuItem>
     );

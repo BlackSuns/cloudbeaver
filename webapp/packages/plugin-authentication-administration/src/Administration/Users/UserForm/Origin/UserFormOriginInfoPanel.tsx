@@ -1,168 +1,133 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
+import { observable } from 'mobx';
 import { observer } from 'mobx-react-lite';
+import { Fragment } from 'react';
 
-import { UsersResource } from '@cloudbeaver/core-authentication';
+import { type AdminUserOrigin, UsersOriginDetailsResource, UsersResource } from '@cloudbeaver/core-authentication';
 import {
-  ColoredContainer,
-  ExceptionMessage,
+  Button,
+  Combobox,
+  ConfirmationDialog,
+  Container,
   Group,
-  IAutoLoadable,
-  Loader,
+  GroupItem,
   ObjectPropertyInfoForm,
-  TextPlaceholder,
-  useAutoLoad,
-  useObjectRef,
+  useObservableRef,
   useResource,
   useTranslate,
 } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
-import type { AdminUserInfo, ObjectPropertyInfo } from '@cloudbeaver/core-sdk';
-import { FormMode, TabContainerPanelComponent, useTab, useTabState } from '@cloudbeaver/core-ui';
+import { CommonDialogService, DialogueStateResult } from '@cloudbeaver/core-dialogs';
+import { NotificationService } from '@cloudbeaver/core-events';
+import { FormMode, type TabContainerPanelComponent, useTab } from '@cloudbeaver/core-ui';
 
-import type { UserFormProps } from '../AdministrationUserFormService';
-import { getUserFormOriginTabId } from './getUserFormOriginTabId';
-
-interface IInnerState extends IAutoLoadable {
-  state: IState;
-  user: AdminUserInfo | undefined;
-}
+import type { UserFormProps } from '../AdministrationUserFormService.js';
 
 interface IState {
-  properties: ObjectPropertyInfo[];
-  state: Record<string, any>;
-  loading: boolean;
-  loaded: boolean;
-  exception: Error | null;
+  selectedOrigin: string;
 }
+
+const empty: any[] = [];
 
 export const UserFormOriginInfoPanel: TabContainerPanelComponent<UserFormProps> = observer(function UserFormOriginInfoPanel({
   tabId,
   formState: { mode, state },
 }) {
   const translate = useTranslate();
-  const usersResource = useService(UsersResource);
-  const localState = useTabState<IState>(() => ({
-    origin: null,
-    properties: [],
-    state: {},
-    loading: false,
-    loaded: false,
-    exception: null,
-  }));
   const editing = mode === FormMode.Edit;
-  const userInfo = useResource(UserFormOriginInfoPanel, UsersResource, state.userId, { active: editing });
-  let origin = userInfo.data?.origins.find(origin => getUserFormOriginTabId('origin', origin) === tabId);
-
-  if (!origin) {
-    origin = userInfo.data?.origins[0];
-  }
-
-  const loadableState = useObjectRef<IInnerState>(
+  const localState = useObservableRef<IState>(
     () => ({
-      get exception(): Error | null {
-        return this.state.exception;
-      },
-      isError(): boolean {
-        return !!this.state.exception;
-      },
-      isLoaded(): boolean {
-        return this.state.loaded;
-      },
-      isLoading(): boolean {
-        return this.state.loading;
-      },
-      async load(reload = false) {
-        if ((this.state.loaded && !reload) || this.state.loading || !this.user) {
-          return;
-        }
-
-        this.state.loading = true;
-        this.state.exception = null;
-
-        try {
-          usersResource.markOutdated(this.user.userId);
-          const userOrigin = await usersResource.load(this.user.userId, ['customIncludeOriginDetails']);
-
-          let origin = userOrigin.origins.find(origin => getUserFormOriginTabId('origin', origin) === tabId);
-
-          if (!origin) {
-            origin = this.user.origins[0];
-          }
-
-          const propertiesState = {} as Record<string, any>;
-
-          for (const property of origin.details!) {
-            propertiesState[property.id!] = property.value;
-          }
-          this.state.properties = origin.details!;
-          this.state.state = propertiesState;
-          this.state.loaded = true;
-        } catch (error: any) {
-          this.state.exception = error;
-        } finally {
-          this.state.loading = false;
-        }
-      },
-      async reload() {
-        await this.load();
-      },
+      selectedOrigin: '0',
     }),
     {
-      state: localState,
-      user: userInfo.data as AdminUserInfo | undefined,
+      selectedOrigin: observable.ref,
     },
-    ['reload', 'load', 'isLoaded', 'isLoading', 'isError'],
+    false,
   );
+  const userInfoLoader = useResource(UserFormOriginInfoPanel, UsersResource, state.userId, {
+    active: editing,
+  });
+  const commonDialogService = useService(CommonDialogService);
+  const notificationService = useService(NotificationService);
+  const origins = userInfoLoader.data?.origins ?? [];
+  const origin: AdminUserOrigin | undefined = origins[localState.selectedOrigin as any];
+  const usersOriginDetailsResource = useResource(UserFormOriginInfoPanel, UsersOriginDetailsResource, state.userId, {
+    active: editing,
+  });
+  const originDetails = usersOriginDetailsResource.data?.origins?.[localState.selectedOrigin as any]?.details ?? [];
 
   const { selected } = useTab(tabId);
-
-  useAutoLoad(UserFormOriginInfoPanel, loadableState, selected);
 
   if (!selected) {
     return null;
   }
 
-  if (localState.loading) {
-    return (
-      <ColoredContainer parent>
-        <Group large>
-          <Loader key="static" />
-        </Group>
-      </ColoredContainer>
-    );
+  if (!origin && origins.length > 0) {
+    localState.selectedOrigin = '0';
   }
 
-  if (localState.exception) {
-    return (
-      <ColoredContainer parent>
-        <Group large>
-          <ExceptionMessage exception={localState.exception} onRetry={() => loadableState.reload?.()} />
-        </Group>
-      </ColoredContainer>
-    );
-  }
+  async function deleteHandler() {
+    const result = await commonDialogService.open(ConfirmationDialog, {
+      title: 'ui_data_delete_confirmation',
+      message: translate('authentication_administration_user_delete_credentials_confirmation_message', undefined, {
+        originName: origin?.displayName,
+        userId: state.userId,
+      }),
+      confirmActionText: 'ui_delete',
+    });
 
-  if (!origin || (localState.loaded && localState.properties.length === 0)) {
-    return (
-      <ColoredContainer parent>
-        <Group large>
-          <TextPlaceholder>{translate('authentication_administration_user_origin_empty')}</TextPlaceholder>
-        </Group>
-      </ColoredContainer>
-    );
+    if (result !== DialogueStateResult.Rejected) {
+      try {
+        await userInfoLoader.resource.deleteCredentials(state.userId!, origin!.type!);
+        notificationService.logSuccess({ title: 'authentication_administration_user_delete_credentials_success' });
+      } catch (exception: any) {
+        notificationService.logException(exception, 'authentication_administration_user_delete_credentials_error');
+      }
+    }
   }
 
   return (
-    <ColoredContainer>
-      <Group gap large>
-        <ObjectPropertyInfoForm properties={localState.properties} state={localState.state} readOnly small autoHide />
+    <Container>
+      <Group gap medium overflow>
+        <Combobox
+          state={localState}
+          name="selectedOrigin"
+          items={origins}
+          keySelector={(o, i) => String(i)}
+          valueSelector={origin => origin.displayName}
+          disabled={origins.length === 0}
+          tiny
+        >
+          {translate('authentication_administration_user_auth_method')}
+        </Combobox>
+        {origins.length === 0 && <GroupItem>{translate('authentication_administration_user_auth_methods_empty')}</GroupItem>}
+        {origin && (
+          <Fragment>
+            <Container gap>
+              <Container gap keepSize>
+                <ObjectPropertyInfoForm
+                  properties={originDetails || empty}
+                  emptyPlaceholder="authentication_administration_user_auth_method_no_details"
+                  readOnly
+                  small
+                  autoHide
+                />
+              </Container>
+            </Container>
+            <GroupItem>
+              <Button type="button" mod={['outlined']} onClick={deleteHandler}>
+                {translate('ui_delete')}
+              </Button>
+            </GroupItem>
+          </Fragment>
+        )}
       </Group>
-    </ColoredContainer>
+    </Container>
   );
 });

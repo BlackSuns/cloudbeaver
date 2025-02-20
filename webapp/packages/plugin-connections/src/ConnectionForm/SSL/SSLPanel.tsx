@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,15 +10,14 @@ import { observer } from 'mobx-react-lite';
 import { useResource } from '@cloudbeaver/core-blocks';
 import { DBDriverResource, NetworkHandlerResource } from '@cloudbeaver/core-connections';
 import { CachedMapAllKey } from '@cloudbeaver/core-resource';
-import { TabContainerTabComponent, useTab } from '@cloudbeaver/core-ui';
+import type { TabContainerTabComponent } from '@cloudbeaver/core-ui';
 
-import type { IConnectionFormProps } from '../IConnectionFormProps';
-import { getSSLDefaultConfig } from './getSSLDefaultConfig';
-import { getSSLDriverHandler } from './getSSLDriverHandler';
-import { SSL } from './SSL';
+import type { IConnectionFormProps } from '../IConnectionFormProps.js';
+import { getSSLDefaultConfig } from './getSSLDefaultConfig.js';
+import { getSSLDriverHandler } from './getSSLDriverHandler.js';
+import { SSL } from './SSL.js';
 
 export const SSLPanel: TabContainerTabComponent<IConnectionFormProps> = observer(function SSLPanel(props) {
-  const tab = useTab(props.tabId);
   const networkHandlerResource = useResource(SSLPanel, NetworkHandlerResource, CachedMapAllKey);
   const dbDriverResource = useResource(SSLPanel, DBDriverResource, props.state.config.driverId ?? null);
 
@@ -30,7 +29,7 @@ export const SSLPanel: TabContainerTabComponent<IConnectionFormProps> = observer
 
   const handlerState = props.state.config.networkHandlersConfig?.find(h => h.id === handler?.id);
 
-  if (!handler || !handlerState || !tab.selected) {
+  if (!handler || !handlerState) {
     return null;
   }
 

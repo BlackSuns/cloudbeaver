@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ export class PriorityQueue<T = number> {
   }
 
   peek(): T {
-    return this._heap[top];
+    return this._heap[top]!;
   }
 
   push(...values: T[]) {
@@ -69,11 +69,11 @@ export class PriorityQueue<T = number> {
   }
 
   private greater(i: number, j: number) {
-    return this._comparator(this._heap[i], this._heap[j]);
+    return this._comparator(this._heap[i]!, this._heap[j]!);
   }
 
   private swap(i: number, j: number) {
-    [this._heap[i], this._heap[j]] = [this._heap[j], this._heap[i]];
+    [this._heap[i], this._heap[j]] = [this._heap[j]!, this._heap[i]!];
   }
 
   private siftUp() {

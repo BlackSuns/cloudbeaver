@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ import {
   ResourceKeyUtils,
 } from '@cloudbeaver/core-resource';
 import { SessionDataResource } from '@cloudbeaver/core-root';
-import { ConnectionFolderInfoFragment, GraphQLService } from '@cloudbeaver/core-sdk';
+import { type ConnectionFolderInfoFragment, GraphQLService } from '@cloudbeaver/core-sdk';
 
-import { createConnectionFolderParam } from './createConnectionFolderParam';
-import { getConnectionFolderIdFromNodeId } from './NavTree/getConnectionFolderIdFromNodeId';
+import { createConnectionFolderParam } from './createConnectionFolderParam.js';
+import { getConnectionFolderIdFromNodeId } from './NavTree/getConnectionFolderIdFromNodeId.js';
 
 export type ConnectionFolder = ConnectionFolderInfoFragment;
 
@@ -31,13 +31,17 @@ export interface IConnectionFolderParam {
   folderId: string;
 }
 
-export const CONNECTION_FOLDER_NAME_VALIDATION = /^(?!\.)[\p{L}\w\-$.\s()@]+$/u;
+export const CONNECTION_FOLDER_NAME_VALIDATION = /^(?!\.)[^\\/:\\"'<>|?*]+$/u;
 
 export const ConnectionFolderProjectKey = resourceKeyAliasFactory('@connection-folder/project', (projectId: string) => ({ projectId }));
 
 @injectable()
 export class ConnectionFolderResource extends CachedMapResource<IConnectionFolderParam, ConnectionFolder> {
-  constructor(private readonly graphQLService: GraphQLService, sessionDataResource: SessionDataResource, appAuthService: AppAuthService) {
+  constructor(
+    private readonly graphQLService: GraphQLService,
+    sessionDataResource: SessionDataResource,
+    appAuthService: AppAuthService,
+  ) {
     super();
 
     appAuthService.requireAuthentication(this);
@@ -70,6 +74,7 @@ export class ConnectionFolderResource extends CachedMapResource<IConnectionFolde
         folderPath: key.folderId,
       });
       this.delete(key);
+      this.onDataOutdated.execute(key);
     });
   }
 
@@ -126,7 +131,7 @@ export class ConnectionFolderResource extends CachedMapResource<IConnectionFolde
     return this.data;
   }
 
-  isKeyEqual(param: IConnectionFolderParam, second: IConnectionFolderParam): boolean {
+  override isKeyEqual(param: IConnectionFolderParam, second: IConnectionFolderParam): boolean {
     return param.projectId === second.projectId && param.folderId === second.folderId;
   }
 

@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -9,9 +9,9 @@ import { injectable } from '@cloudbeaver/core-di';
 import { ExecutorInterrupter } from '@cloudbeaver/core-executor';
 import { CachedDataResource } from '@cloudbeaver/core-resource';
 import { SessionResource } from '@cloudbeaver/core-root';
-import { GraphQLService, UserConnectionAuthPropertiesFragment } from '@cloudbeaver/core-sdk';
+import { GraphQLService, type UserConnectionAuthPropertiesFragment } from '@cloudbeaver/core-sdk';
 
-import { UserInfoResource } from './UserInfoResource';
+import { UserInfoResource } from './UserInfoResource.js';
 
 export type UserMetaParameter = UserConnectionAuthPropertiesFragment;
 export interface IUserMetaParameterOptions {
@@ -23,7 +23,11 @@ export interface IUserMetaParameterOptions {
 
 @injectable()
 export class UserMetaParametersResource extends CachedDataResource<UserMetaParameter[]> {
-  constructor(private readonly graphQLService: GraphQLService, sessionResource: SessionResource, userInfoResource: UserInfoResource) {
+  constructor(
+    private readonly graphQLService: GraphQLService,
+    sessionResource: SessionResource,
+    userInfoResource: UserInfoResource,
+  ) {
     super(() => []);
 
     this.sync(

@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -12,9 +12,9 @@ import { Translate, TreeNodeNestedMessage } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import { NavNodeInfoResource } from '@cloudbeaver/core-navigation-tree';
 
-import { ElementsTreeContext } from '../ElementsTreeContext';
-import type { NavTreeNodeComponent } from '../NavigationNodeComponent';
-import { NavigationNodeRendererLoader } from './NavigationNodeRendererLoader';
+import { ElementsTreeContext } from '../ElementsTreeContext.js';
+import type { NavTreeNodeComponent } from '../NavigationNodeComponent.js';
+import { NavigationNodeRendererLoader } from './NavigationNodeRendererLoader.js';
 
 export const NavigationNodeElement: NavTreeNodeComponent = observer(function NavigationNodeElement({ nodeId, path, expanded, dragging, className }) {
   const context = useContext(ElementsTreeContext);

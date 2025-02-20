@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,8 @@ import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDRowIdentifier;
-import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
-import org.jkiss.dbeaver.model.struct.DBSDataContainer;
-import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+import org.jkiss.dbeaver.model.exec.trace.DBCTrace;
+import org.jkiss.dbeaver.model.struct.*;
 
 import java.util.HashSet;
 import java.util.List;
@@ -40,6 +39,9 @@ public class WebSQLResultsInfo {
     @NotNull
     private final String id;
     private DBDAttributeBinding[] attributes;
+    // TODO: find a way to remove isSingleRow and use virtual keys for reading BLOB and string cell values.
+    private boolean isSingleRow;
+    private DBCTrace trace;
     private String queryText;
 
     public WebSQLResultsInfo(@NotNull DBSDataContainer dataContainer, @NotNull String id) {
@@ -126,4 +128,27 @@ public class WebSQLResultsInfo {
         return null;
     }
 
+    public boolean canRefreshResults() {
+        DBSEntity entity = getDefaultRowIdentifier().getEntity();
+        // FIXME: do not refresh documents for now. Can be solved by extracting document ID attributes
+        // FIXME: but it will require to provide dynamic document metadata.
+        return entity == null || entity.getDataSource() == null ||
+            (!(entity instanceof DBSDocumentContainer) && !entity.getDataSource().getInfo().isDynamicMetadata());
+    }
+
+    public DBCTrace getTrace() {
+        return trace;
+    }
+
+    public void setTrace(@NotNull DBCTrace trace) {
+        this.trace = trace;
+    }
+
+    public boolean isSingleRow() {
+        return isSingleRow;
+    }
+
+    public void setSingleRow(boolean singleRow) {
+        isSingleRow = singleRow;
+    }
 }

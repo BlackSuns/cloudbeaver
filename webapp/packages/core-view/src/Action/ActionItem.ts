@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,11 +8,11 @@
 import type { IDataContextProvider } from '@cloudbeaver/core-data-context';
 import { flat } from '@cloudbeaver/core-utils';
 
-import type { IAction } from './IAction';
-import type { IActionHandler } from './IActionHandler';
-import type { IActionInfo } from './IActionInfo';
-import type { IActionItem } from './IActionItem';
-import type { IKeyBindingHandler } from './KeyBinding/IKeyBindingHandler';
+import type { IAction } from './IAction.js';
+import type { IActionHandler } from './IActionHandler.js';
+import type { IActionInfo } from './IActionInfo.js';
+import type { IActionItem } from './IActionItem.js';
+import type { IKeyBindingHandler } from './KeyBinding/IKeyBindingHandler.js';
 
 export class ActionItem implements IActionItem {
   readonly action: IAction;

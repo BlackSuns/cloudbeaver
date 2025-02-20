@@ -1,13 +1,21 @@
 {
+  "extends": "@cloudbeaver/tsconfig/tsconfig.json",
   "compilerOptions": {
     "rootDir": "src",
-    "module": "CommonJS",
     "outDir": "dist",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "emitDeclarationOnly": false,
-    "skipLibCheck": true
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+    "composite": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules/**/*", "dist/**/*", "tests/**/*"]
+  "include": [
+    "__custom_mocks__/**/*",
+    "src/**/*",
+    "src/**/*.json",
+    "src/**/*.css",
+    "src/**/*.scss"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "lib/**/*",
+    "dist/**/*"
+  ]
 }

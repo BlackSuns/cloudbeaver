@@ -2,6 +2,7 @@ fragment NavNodeInfo on NavigatorNodeInfo {
   id
   name
   plainName
+  description
   hasChildren
   nodeType
   icon
@@ -14,6 +15,7 @@ fragment NavNodeInfo on NavigatorNodeInfo {
   object {
     features
   }
+  objectId
   nodeDetails @include(if: $withDetails) {
     ...NavNodeProperties
   }

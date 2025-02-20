@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,45 +8,40 @@
 import { observable } from 'mobx';
 
 import {
-  Connection,
+  type Connection,
   ConnectionExecutionContextProjectKey,
   ConnectionExecutionContextResource,
   ConnectionExecutionContextService,
   ConnectionInfoResource,
   ConnectionsManagerService,
   createConnectionParam,
-  IConnectionExecutionContext,
-  IConnectionExecutionContextInfo,
-  IConnectionInfoParams,
+  type IConnectionExecutionContext,
+  type IConnectionExecutionContextInfo,
+  type IConnectionInfoParams,
 } from '@cloudbeaver/core-connections';
 import { injectable } from '@cloudbeaver/core-di';
 import { NotificationService } from '@cloudbeaver/core-events';
-import { ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
 import { CachedMapAllKey } from '@cloudbeaver/core-resource';
 import { FEATURE_GIT_ID, ServerConfigResource } from '@cloudbeaver/core-root';
-import { GraphQLService, SqlCompletionProposal, SqlScriptInfoFragment } from '@cloudbeaver/core-sdk';
+import { GraphQLService, type SqlCompletionProposal, type SqlScriptInfoFragment } from '@cloudbeaver/core-sdk';
 
-import { getSqlEditorName } from './getSqlEditorName';
-import type { ISqlEditorTabState } from './ISqlEditorTabState';
-import { ESqlDataSourceFeatures } from './SqlDataSource/ESqlDataSourceFeatures';
-import { SqlDataSourceService } from './SqlDataSource/SqlDataSourceService';
-import { SqlEditorSettingsService } from './SqlEditorSettingsService';
+import { getSqlEditorName } from './getSqlEditorName.js';
+import type { ISqlEditorTabState } from './ISqlEditorTabState.js';
+import { ESqlDataSourceFeatures } from './SqlDataSource/ESqlDataSourceFeatures.js';
+import { SqlDataSourceService } from './SqlDataSource/SqlDataSourceService.js';
+import { SqlEditorSettingsService } from './SqlEditorSettingsService.js';
 
 export type SQLProposal = SqlCompletionProposal;
-
-export interface IQueryChangeData {
-  prevQuery: string;
-  query: string;
-  state: ISqlEditorTabState;
-}
 
 @injectable()
 export class SqlEditorService {
   get autoSave() {
-    return this.sqlEditorSettingsService.settings.getValue('autoSave') && !this.serverConfigResource.isFeatureEnabled(FEATURE_GIT_ID, true);
+    return this.sqlEditorSettingsService.autoSave && !this.serverConfigResource.isFeatureEnabled(FEATURE_GIT_ID, true);
   }
 
-  readonly onQueryChange: ISyncExecutor<IQueryChangeData>;
+  get insertTableAlias() {
+    return this.sqlEditorSettingsService.insertTableAlias;
+  }
 
   constructor(
     private readonly graphQLService: GraphQLService,
@@ -58,9 +53,7 @@ export class SqlEditorService {
     private readonly sqlDataSourceService: SqlDataSourceService,
     private readonly sqlEditorSettingsService: SqlEditorSettingsService,
     private readonly serverConfigResource: ServerConfigResource,
-  ) {
-    this.onQueryChange = new SyncExecutor();
-  }
+  ) {}
 
   getState(editorId: string, datasourceKey: string, order: number, source?: string): ISqlEditorTabState {
     return observable({
@@ -79,8 +72,9 @@ export class SqlEditorService {
     });
   }
 
-  async parseSQLScript(connectionId: string, script: string): Promise<SqlScriptInfoFragment> {
+  async parseSQLScript(projectId: string, connectionId: string, script: string): Promise<SqlScriptInfoFragment> {
     const result = await this.graphQLService.sdk.parseSQLScript({
+      projectId,
       connectionId,
       script,
     });
@@ -88,8 +82,9 @@ export class SqlEditorService {
     return result.scriptInfo;
   }
 
-  async parseSQLQuery(connectionId: string, script: string, position: number) {
+  async parseSQLQuery(projectId: string, connectionId: string, script: string, position: number) {
     const result = await this.graphQLService.sdk.parseSQLQuery({
+      projectId,
       connectionId,
       script,
       position,
@@ -99,6 +94,7 @@ export class SqlEditorService {
   }
 
   async getAutocomplete(
+    projectId: string,
     connectionId: string,
     contextId: string,
     query: string,
@@ -107,6 +103,7 @@ export class SqlEditorService {
     simple?: boolean,
   ): Promise<SQLProposal[]> {
     const { proposals } = await this.graphQLService.sdk.querySqlCompletionProposals({
+      projectId,
       connectionId,
       contextId,
       query,
@@ -138,15 +135,10 @@ export class SqlEditorService {
     }
   }
 
-  setQuery(query: string, state: ISqlEditorTabState) {
+  setScript(script: string, state: ISqlEditorTabState) {
     const dataSource = this.sqlDataSourceService.get(state.editorId);
 
-    if (dataSource) {
-      const prevQuery = dataSource.script;
-
-      dataSource.setScript(query);
-      this.onQueryChange.execute({ prevQuery, query, state });
-    }
+    dataSource!.setScript(script);
   }
 
   async resetExecutionContext(state: ISqlEditorTabState) {

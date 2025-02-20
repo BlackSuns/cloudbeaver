@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,15 +10,17 @@ import { useContext } from 'react';
 
 import { EventContext } from '@cloudbeaver/core-events';
 
-import { getComputed } from '../../getComputed';
-import { Icon } from '../../Icon';
-import { Loader } from '../../Loader/Loader';
-import { s } from '../../s';
-import { useS } from '../../useS';
-import { useStateDelay } from '../../useStateDelay';
-import { EventTreeNodeExpandFlag } from './EventTreeNodeExpandFlag';
-import { TreeNodeContext } from './TreeNodeContext';
-import style from './TreeNodeExpand.m.css';
+import { Clickable } from '../../Clickable.js';
+import { getComputed } from '../../getComputed.js';
+import { Icon } from '../../Icon.js';
+import { Loader } from '../../Loader/Loader.js';
+import { useTranslate } from '../../localization/useTranslate.js';
+import { s } from '../../s.js';
+import { useS } from '../../useS.js';
+import { useStateDelay } from '../../useStateDelay.js';
+import { EventTreeNodeExpandFlag } from './EventTreeNodeExpandFlag.js';
+import { TreeNodeContext } from './TreeNodeContext.js';
+import style from './TreeNodeExpand.module.css';
 
 interface Props {
   leaf?: boolean;
@@ -29,6 +31,7 @@ interface Props {
 }
 
 export const TreeNodeExpand = observer<Props>(function TreeNodeExpand({ leaf, big, filterActive, disabled, className }) {
+  const translate = useTranslate();
   const styles = useS(style);
   const context = useContext(TreeNodeContext);
 
@@ -85,14 +88,22 @@ export const TreeNodeExpand = observer<Props>(function TreeNodeExpand({ leaf, bi
     }
   }
 
+  const title = translate('ui_expand');
+
   return (
-    <div
+    <Clickable
+      as="div"
+      role="button"
+      title={title}
+      aria-label={title}
       className={s(styles, { treeNodeExpand: true, expanded: context.expanded, big }, className)}
+      focusable={expandable}
+      disabled={disabled || !expandable}
       onClick={handleExpand}
       onDoubleClick={handleDbClick}
     >
       {loading && <Loader small fullSize />}
       {expandable && <Icon name={iconName} className={s(styles, { icon: true })} viewBox={viewBox} />}
-    </div>
+    </Clickable>
   );
 });

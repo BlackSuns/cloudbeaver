@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,10 +10,10 @@ import { useCallback, useContext } from 'react';
 
 import { Checkbox, getComputed, s, useS } from '@cloudbeaver/core-blocks';
 import type { DBObject } from '@cloudbeaver/core-navigation-tree';
-import type { RenderCellProps } from '@cloudbeaver/plugin-react-data-grid';
+import type { RenderCellProps } from '@cloudbeaver/plugin-data-grid';
 
-import { TableContext } from '../../TableContext';
-import style from './SelectorFormatter.m.css';
+import { TableContext } from '../../TableContext.js';
+import style from './SelectorFormatter.module.css';
 
 export const SelectorFormatter = observer<RenderCellProps<DBObject>>(function SelectorFormatter(props) {
   const context = useContext(TableContext);

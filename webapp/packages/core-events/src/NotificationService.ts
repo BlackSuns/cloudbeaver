@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,21 +8,21 @@
 import { observable } from 'mobx';
 
 import { injectable } from '@cloudbeaver/core-di';
-import { Executor, IExecutor } from '@cloudbeaver/core-executor';
+import { Executor, type IExecutor } from '@cloudbeaver/core-executor';
 import { DetailsError, GQLError } from '@cloudbeaver/core-sdk';
 import { errorOf, OrderedMap } from '@cloudbeaver/core-utils';
 
-import { EventsSettingsService } from './EventsSettingsService';
+import { EventsSettingsService } from './EventsSettingsService.js';
 import {
   ENotificationType,
-  INotification,
-  INotificationExtraProps,
-  INotificationOptions,
-  INotificationProcessExtraProps,
-  IProcessNotificationContainer,
-  NotificationComponent,
-} from './INotification';
-import { ProcessNotificationController } from './ProcessNotificationController';
+  type INotification,
+  type INotificationExtraProps,
+  type INotificationOptions,
+  type INotificationProcessExtraProps,
+  type IProcessNotificationContainer,
+  type NotificationComponent,
+} from './INotification.js';
+import { ProcessNotificationController } from './ProcessNotificationController.js';
 
 export const DELAY_DELETING = 1000;
 const TIMESTAMP_DIFFERENCE_THRESHOLD = 100;
@@ -52,9 +52,7 @@ export class NotificationService {
     if (options.persistent) {
       const persistentNotifications = this.notificationList.values.filter(value => value.persistent);
 
-      const maxPersistentAllow = this.settings.settings.isValueDefault('maxPersistentAllow')
-        ? this.settings.deprecatedSettings.getValue('maxPersistentAllow')
-        : this.settings.settings.getValue('maxPersistentAllow');
+      const maxPersistentAllow = this.settings.maxPersistentAllow;
 
       if (persistentNotifications.length >= maxPersistentAllow) {
         throw new Error(`You cannot create more than ${maxPersistentAllow} persistent notification`);
@@ -82,41 +80,54 @@ export class NotificationService {
 
     const id = this.notificationNextId++;
 
-    const notification: INotification<TProps> = {
-      id,
-      uuid: options.uuid,
-      title: options.title,
-      message: options.message,
-      details: options.details,
-      isSilent: !!options.isSilent,
-      customComponent: options.customComponent,
-      extraProps: options.extraProps || ({} as TProps),
-      autoClose: options.autoClose,
-      persistent: options.persistent,
-      state: observable({ deleteDelay: 0 }),
-      timestamp: options.timestamp || Date.now(),
-      type,
-      close: delayDeleting => {
-        this.close(id, delayDeleting);
-        options.onClose?.(delayDeleting);
+    const notification: INotification<TProps> = observable(
+      {
+        id,
+        uuid: options.uuid,
+        title: options.title,
+        message: options.message,
+        details: options.details,
+        isSilent: !!options.isSilent,
+        customComponent: options.customComponent,
+        extraProps: options.extraProps || ({} as TProps),
+        autoClose: options.autoClose,
+        persistent: options.persistent,
+        state: observable({ deleteDelay: 0 }),
+        timestamp: options.timestamp || Date.now(),
+        type,
+        close: delayDeleting => {
+          this.close(id, delayDeleting);
+          options.onClose?.(delayDeleting);
+        },
+        showDetails: this.showDetails.bind(this, id),
       },
-      showDetails: this.showDetails.bind(this, id),
-    };
+      {
+        title: observable.ref,
+        message: observable.ref,
+        details: observable.ref,
+        persistent: observable.ref,
+        isSilent: observable.ref,
+        customComponent: observable.ref,
+        extraProps: observable.ref,
+        autoClose: observable.ref,
+        type: observable.ref,
+        timestamp: observable.ref,
+        showDetails: observable.ref,
+      },
+    );
 
     this.notificationList.addValue(notification);
 
     const filteredNotificationList = this.notificationList.values.filter(notification => !notification.persistent);
 
-    const notificationsPool = this.settings.settings.isValueDefault('notificationsPool')
-      ? this.settings.deprecatedSettings.getValue('notificationsPool')
-      : this.settings.settings.getValue('notificationsPool');
+    const notificationsPool = this.settings.notificationsPool;
 
     if (filteredNotificationList.length > notificationsPool) {
       let i = 0;
-      while (this.notificationList.get(this.notificationList.keys[i])?.persistent) {
+      while (this.notificationList.get(this.notificationList.keys[i]!)?.persistent) {
         i++;
       }
-      this.notificationList.remove(this.notificationList.keys[i]);
+      this.notificationList.remove(this.notificationList.keys[i]!);
     }
 
     return notification;
@@ -194,8 +205,6 @@ export class NotificationService {
         isSilent: silent,
       });
     }
-
-    console.error(exception);
   }
 
   throwSilently(exception: Error | GQLError | undefined | null): void {

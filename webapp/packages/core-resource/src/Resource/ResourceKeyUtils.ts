@@ -1,12 +1,12 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import type { ResourceKey } from './ResourceKey';
-import { isResourceKeyList, type ResourceKeyList, resourceKeyList } from './ResourceKeyList';
+import type { ResourceKey, ResourceKeySimple } from './ResourceKey.js';
+import { isResourceKeyList, type ResourceKeyList, resourceKeyList } from './ResourceKeyList.js';
 
 interface MapFnc {
   <TKey, TValue>(key: TKey | ResourceKeyList<TKey>, selector: (key: TKey, index: number) => TValue): TValue | TValue[];
@@ -30,19 +30,23 @@ export interface ResourceKeyUtils {
   ) => boolean;
   map: MapFnc;
   filter: <TKey>(key: TKey | ResourceKeyList<TKey>, filter: (key: TKey) => boolean) => TKey[];
-  mapKey: <TKey, TValue>(key: TKey | ResourceKeyList<TKey>, selector: (key: TKey, index: number) => TValue) => ResourceKey<TValue>;
+  mapKey: <TKey, TValue>(key: TKey | ResourceKeyList<TKey>, selector: (key: TKey, index: number) => TValue) => ResourceKeySimple<TValue>;
   mapArray: <TKey, TValue>(key: TKey | ResourceKeyList<TKey>, selector: (key: TKey, index: number) => TValue) => TValue[];
   isIntersect: <TKey>(
     first: TKey | ResourceKeyList<TKey>,
     second: TKey | ResourceKeyList<TKey>,
     isEqual?: (keyA: TKey, keyB: TKey) => boolean,
   ) => boolean;
+  isEqual: <TKey>(
+    first: TKey | ResourceKeyList<TKey>,
+    second: TKey | ResourceKeyList<TKey>,
+    isEqualFn?: (keyA: TKey, keyB: TKey) => boolean,
+  ) => boolean;
   join: <TKey>(...keys: Array<TKey | ResourceKeyList<TKey>>) => ResourceKeyList<TKey>;
   toArray: <TKey>(key: TKey | ResourceKeyList<TKey>) => TKey[];
   toList: <TKey>(key: TKey | ResourceKeyList<TKey>) => ResourceKeyList<TKey>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
 export const ResourceKeyUtils: ResourceKeyUtils = {
   forEach<TKey extends ResourceKey<unknown>>(
     key: TKey,
@@ -85,7 +89,7 @@ export const ResourceKeyUtils: ResourceKeyUtils = {
   filter<TKey>(key: TKey | ResourceKeyList<TKey>, filter: (key: TKey) => boolean): TKey[] {
     return this.toArray(key).filter(filter);
   },
-  mapKey<TKey, TValue>(key: TKey | ResourceKeyList<TKey>, selector: (key: TKey, index: number) => TValue): ResourceKey<TValue> {
+  mapKey<TKey, TValue>(key: TKey | ResourceKeyList<TKey>, selector: (key: TKey, index: number) => TValue): ResourceKeySimple<TValue> {
     if (isResourceKeyList(key)) {
       return resourceKeyList(key.map(selector));
     } else {
@@ -124,6 +128,25 @@ export const ResourceKeyUtils: ResourceKeyUtils = {
     }
 
     return isEqual(param, key);
+  },
+  isEqual<TKey>(
+    param: TKey | ResourceKeyList<TKey>,
+    key: TKey | ResourceKeyList<TKey>,
+    isEqualFn = (keyA: TKey, keyB: TKey) => keyA === keyB,
+  ): boolean {
+    if (param === key) {
+      return true;
+    }
+
+    if (isResourceKeyList(param) && isResourceKeyList(key)) {
+      return param.isEqual(key, isEqualFn);
+    }
+
+    if (isResourceKeyList(key) || isResourceKeyList(param)) {
+      return false;
+    }
+
+    return isEqualFn(param, key);
   },
   join<TKey>(...keys: Array<TKey | ResourceKeyList<TKey>>): ResourceKeyList<TKey> {
     const list: TKey[] = [];

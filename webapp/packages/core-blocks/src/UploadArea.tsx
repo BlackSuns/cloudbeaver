@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,10 +10,10 @@ import { forwardRef, useLayoutEffect } from 'react';
 
 import { uuid } from '@cloudbeaver/core-utils';
 
-import { s } from './s';
-import style from './UploadArea.m.css';
-import { useRefInherit } from './useRefInherit';
-import { useS } from './useS';
+import { s } from './s.js';
+import style from './UploadArea.module.css';
+import { useRefInherit } from './useRefInherit.js';
+import { useS } from './useS.js';
 
 interface Props extends Omit<React.DetailedHTMLProps<React.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>, 'value'> {
   value?: FileList | null;

@@ -1,45 +1,39 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useContext } from 'react';
-import { useHotkeys } from 'react-hotkeys-hook';
-import styled, { css } from 'reshadow';
 
-import { useFocus } from '@cloudbeaver/core-blocks';
+import { s, useFocus, useHotkeys, useS } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import { isObjectsEqual } from '@cloudbeaver/core-utils';
 
-import { ActionService } from '../Action/ActionService';
-import type { IActionItem } from '../Action/IActionItem';
-import { getCommonAndOSSpecificKeys } from '../Action/KeyBinding/getCommonAndOSSpecificKeys';
-import { CaptureViewContext } from './CaptureViewContext';
-import type { IView } from './IView';
-import { parseHotkey } from './parseHotkey';
-import { useActiveView } from './useActiveView';
-import { useViewContext } from './useViewContext';
+import { ActionService } from '../Action/ActionService.js';
+import type { IActionItem } from '../Action/IActionItem.js';
+import { getCommonAndOSSpecificKeys } from '../Action/KeyBinding/getCommonAndOSSpecificKeys.js';
+import styles from './CaptureView.module.css';
+import { CaptureViewContext } from './CaptureViewContext.js';
+import type { IView } from './IView.js';
+import { parseHotkey } from './parseHotkey.js';
+import { useActiveView } from './useActiveView.js';
+import { useViewContext } from './useViewContext.js';
 
-const styles = css`
-  div {
-    outline: none;
-  }
-`;
-
-interface Props {
+export interface ICaptureViewProps {
   view: IView<any>;
   className?: string;
 }
 
-export const CaptureView = observer<React.PropsWithChildren<Props>>(function CaptureView({ view, children, className }) {
+export const CaptureView = observer<React.PropsWithChildren<ICaptureViewProps>>(function CaptureView({ view, children, className }) {
   const parentContext = useContext(CaptureViewContext);
   const viewContext = useViewContext(view, parentContext);
   const actionService = useService(ActionService);
   const activeView = useActiveView(view);
   const [ref, state] = useFocus<HTMLDivElement>({ onFocus: activeView.focusView, onBlur: activeView.blurView });
+  const style = useS(styles);
 
   const actionItems = view.actions
     .map(action => actionService.getAction(viewContext, action))
@@ -85,11 +79,11 @@ export const CaptureView = observer<React.PropsWithChildren<Props>>(function Cap
     },
   );
 
-  return styled(styles)(
+  return (
     <CaptureViewContext.Provider value={viewContext}>
-      <div ref={ref} className={className} tabIndex={0}>
+      <div ref={ref} className={s(style, { container: true }, className)} tabIndex={0}>
         {children}
       </div>
-    </CaptureViewContext.Provider>,
+    </CaptureViewContext.Provider>
   );
 });

@@ -1,54 +1,31 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useCallback, useState } from 'react';
-import styled, { css } from 'reshadow';
 
-import { IScrollState, Link, useControlledScroll, useStyles, useTable, useTranslate } from '@cloudbeaver/core-blocks';
-import type { DBObject } from '@cloudbeaver/core-navigation-tree';
+import { type IScrollState, Link, s, useControlledScroll, useExecutor, useS, useTable, useTranslate } from '@cloudbeaver/core-blocks';
+import { useService } from '@cloudbeaver/core-di';
+import { type DBObject, NavTreeResource } from '@cloudbeaver/core-navigation-tree';
 import type { ObjectPropertyInfo } from '@cloudbeaver/core-sdk';
 import { useTabLocalState } from '@cloudbeaver/core-ui';
 import { isDefined, TextTools } from '@cloudbeaver/core-utils';
-import DataGrid from '@cloudbeaver/plugin-react-data-grid';
-import '@cloudbeaver/plugin-react-data-grid/react-data-grid-dist/lib/styles.css';
+import { DataGrid } from '@cloudbeaver/plugin-data-grid';
 
-import { getValue } from '../../helpers';
-import { ObjectPropertyTableFooter } from '../ObjectPropertyTableFooter';
-import { CellFormatter } from './CellFormatter';
-import type { IDataColumn } from './Column';
-import { ColumnIcon } from './Columns/ColumnIcon/ColumnIcon';
-import { ColumnSelect } from './Columns/ColumnSelect/ColumnSelect';
-import { HeaderRenderer } from './HeaderRenderer';
-import baseStyles from './styles/base.scss';
-import { tableStyles } from './styles/styles';
-import { TableContext } from './TableContext';
-import { useTableData } from './useTableData';
-
-const style = css`
-  wrapper {
-    composes: theme-typography--body2 from global;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  DataGrid {
-    width: 100%;
-    height: 100%;
-  }
-  data-info {
-    padding: 4px 12px;
-  }
-  ObjectPropertyTableFooter {
-    composes: theme-background-secondary theme-text-on-secondary theme-border-color-background from global;
-    border-top: 1px solid;
-  }
-`;
+import { getValue } from '../../helpers.js';
+import { ObjectPropertyTableFooter } from '../ObjectPropertyTableFooter.js';
+import { CellFormatter } from './CellFormatter.js';
+import type { IDataColumn } from './Column.js';
+import { ColumnIcon } from './Columns/ColumnIcon/ColumnIcon.js';
+import { ColumnSelect } from './Columns/ColumnSelect/ColumnSelect.js';
+import { HeaderRenderer } from './HeaderRenderer.js';
+import classes from './Table.module.css';
+import { TableContext } from './TableContext.js';
+import { useTableData } from './useTableData.js';
 
 const CELL_FONT = '400 12px Roboto';
 const COLUMN_FONT = '700 12px Roboto';
@@ -68,9 +45,9 @@ function getMeasuredCells(columns: ObjectPropertyInfo[], rows: DBObject[]) {
   for (const row of rows.slice(0, 100)) {
     if (row.object?.properties) {
       for (let i = 0; i < row.object.properties.length; i++) {
-        const value = getValue(row.object.properties[i].value);
+        const value = getValue(row.object.properties[i]!.value);
 
-        if (value.length > rowStrings[i].length) {
+        if (value.length > rowStrings[i]!.length) {
           rowStrings[i] = value;
         }
       }
@@ -87,7 +64,7 @@ function getMeasuredCells(columns: ObjectPropertyInfo[], rows: DBObject[]) {
     text: rowStrings,
   }).map(width => width + CELL_PADDING + CELL_BORDER);
 
-  const widthData = columnNames.map((_, i) => Math.max(columnsWidth[i], cellsWidth[i] ?? 0));
+  const widthData = columnNames.map((_, i) => Math.max(columnsWidth[i]!, cellsWidth[i] ?? 0));
 
   return widthData;
 }
@@ -95,9 +72,12 @@ function getMeasuredCells(columns: ObjectPropertyInfo[], rows: DBObject[]) {
 const CUSTOM_COLUMNS = [ColumnSelect, ColumnIcon];
 
 export const Table = observer<TableProps>(function Table({ objects, hasNextPage, loadMore }) {
+  const styles = useS(classes);
+  const navTreeResource = useService(NavTreeResource);
+
   const [tableContainer, setTableContainerRef] = useState<HTMLDivElement | null>(null);
   const translate = useTranslate();
-  const styles = useStyles(style, baseStyles, tableStyles);
+
   const tableState = useTable();
   const tabLocalState = useTabLocalState<IScrollState>(() => ({ scrollTop: 0, scrollLeft: 0 }));
 
@@ -106,7 +86,6 @@ export const Table = observer<TableProps>(function Table({ objects, hasNextPage,
 
   const baseObject = objects.slice().sort((a, b) => (b.object?.properties?.length || 0) - (a.object?.properties?.length || 0));
 
-  const nodeIds = objects.map(object => object.id);
   const properties = baseObject[0]?.object?.properties ?? [];
   const measuredCells = getMeasuredCells(properties, objects);
 
@@ -115,7 +94,7 @@ export const Table = observer<TableProps>(function Table({ objects, hasNextPage,
     name: property.displayName ?? '',
     description: property.description,
     columnDataIndex: null,
-    width: Math.min(300, measuredCells[index]),
+    width: Math.min(300, measuredCells[index]!),
     minWidth: 40,
     resizable: true,
     renderCell: props => <CellFormatter {...props} />,
@@ -133,31 +112,41 @@ export const Table = observer<TableProps>(function Table({ objects, hasNextPage,
     [loadMore],
   );
 
+  useExecutor({
+    executor: navTreeResource.onItemDelete,
+    handlers: [
+      function handleNodeDelete(nodeId) {
+        tableState.unselect(nodeId);
+      },
+    ],
+  });
+
   if (objects.length === 0) {
     return null;
   }
 
-  return styled(styles)(
+  return (
     <TableContext.Provider value={{ tableData, tableState }}>
-      <wrapper ref={setTableContainerRef} className="metadata-grid-container">
+      <div ref={setTableContainerRef} className={s(styles, { container: true })}>
         <DataGrid
-          className="cb-metadata-grid-theme"
+          className={s(styles, { dataGrid: true })}
           rows={objects}
+          // @ts-ignore
           rowKeyGetter={row => row.id}
           columns={tableData.columns}
           rowHeight={40}
           onScroll={handleScroll}
         />
         {hasNextPage && (
-          <data-info>
+          <div className={s(styles, { info: true })}>
             <Link title={translate('app_navigationTree_limited')} onClick={loadMore}>
               {translate('ui_load_more')}
             </Link>
-          </data-info>
+          </div>
         )}
-        <ObjectPropertyTableFooter nodeIds={nodeIds} tableState={tableState} />
-      </wrapper>
-    </TableContext.Provider>,
+        <ObjectPropertyTableFooter className={s(styles, { objectPropertyTableFooter: true })} state={tableState} />
+      </div>
+    </TableContext.Provider>
   );
 });
 

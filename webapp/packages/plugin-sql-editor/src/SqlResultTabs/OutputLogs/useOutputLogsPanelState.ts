@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,8 +10,8 @@ import { action, computed, observable } from 'mobx';
 import { useObservableRef } from '@cloudbeaver/core-blocks';
 import type { WsOutputLogInfo } from '@cloudbeaver/core-sdk';
 
-import type { ISqlEditorTabState } from '../../ISqlEditorTabState';
-import type { IOutputLog } from './OutputLogsResource';
+import type { ISqlEditorTabState } from '../../ISqlEditorTabState.js';
+import type { IOutputLog } from './OutputLogsResource.js';
 
 export interface SqlOutputLogsPanelState {
   searchValue: string;
@@ -35,17 +35,33 @@ export const useOutputLogsPanelState = (outputLogs: IOutputLog[], sqlEditorTabSt
         }
 
         return outputLogs.filter(log => {
-          if (!selectedLogTypes.includes(log.severity)) {
+          if (log.severity && !selectedLogTypes.includes(log.severity)) {
             return false;
           }
-          if (this.searchValue.length > 0 && !log.message?.includes(this.searchValue)) {
+
+          if (log.message && this.searchValue.length > 0 && !log.message.toLowerCase().includes(this.searchValue.toLowerCase())) {
             return false;
           }
+
           return true;
         });
       },
       get resultValue() {
-        return this.filteredLogs.map(log => `[${log.severity}] ${log.message}`).join('\n');
+        return this.filteredLogs
+          .map(log => {
+            let result = '';
+
+            if (log.severity) {
+              result += `[${log.severity}] `;
+            }
+
+            if (log.message) {
+              result += log.message;
+            }
+
+            return result;
+          })
+          .join('\n');
       },
     }),
     {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,14 @@
 
 package io.cloudbeaver.model.session;
 
-import io.cloudbeaver.DBWConstants;
 import io.cloudbeaver.DBWUserIdentity;
 import io.cloudbeaver.DBWebException;
 import io.cloudbeaver.auth.SMAuthProviderExternal;
-import io.cloudbeaver.model.app.WebAuthConfiguration;
+import io.cloudbeaver.model.app.ServletAuthConfiguration;
 import io.cloudbeaver.model.user.WebUser;
 import io.cloudbeaver.registry.WebAuthProviderDescriptor;
 import io.cloudbeaver.registry.WebAuthProviderRegistry;
-import io.cloudbeaver.utils.WebAppUtils;
+import io.cloudbeaver.utils.ServletAppUtils;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
@@ -38,7 +37,6 @@ import org.jkiss.utils.CommonUtils;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -84,7 +82,7 @@ public class WebSessionAuthProcessor {
 
     @SuppressWarnings("unchecked")
     private List<WebAuthInfo> finishWebSessionAuthorization(SMAuthInfo authInfo) throws DBException {
-        boolean configMode = WebAppUtils.getWebApplication().isConfigurationMode();
+        boolean configMode = ServletAppUtils.getServletApplication().isConfigurationMode();
         boolean alreadyLoggedIn = webSession.getUser() != null;
         boolean resetUserStateOnError = !alreadyLoggedIn;
 
@@ -114,15 +112,6 @@ public class WebSessionAuthProcessor {
                 SMAuthProviderExternal<?> authProviderExternal = authProviderInstance instanceof SMAuthProviderExternal<?> ?
                     (SMAuthProviderExternal<?>) authProviderInstance : null;
 
-                boolean providerDisabled = !isProviderEnabled(providerId);
-                if (configMode || webSession.hasPermission(DBWConstants.PERMISSION_ADMIN)) {
-                    // 1. Admin can authorize in any providers
-                    // 2. When it authorizes in non-local provider for the first time we force linkUser flag
-                    if (providerDisabled && webSession.getUser() != null) {
-                        linkWithActiveUser = true;
-                    }
-                }
-
                 SMSession authSession;
 
                 if (authProviderExternal != null && !configMode && !alreadyLoggedIn) {
@@ -138,7 +127,7 @@ public class WebSessionAuthProcessor {
 
                 DBWUserIdentity userIdentity = null;
                 var providerConfigId = authConfiguration.getAuthProviderConfigurationId();
-                var providerConfig = WebAppUtils.getWebAuthApplication()
+                var providerConfig = ServletAppUtils.getAuthApplication()
                     .getAuthConfiguration()
                     .getAuthProviderConfiguration(providerConfigId);
                 if (authProviderExternal != null) {
@@ -175,6 +164,7 @@ public class WebSessionAuthProcessor {
                     authProviderDescriptor,
                     userIdentity,
                     authSession,
+                    authInfo,
                     OffsetDateTime.now()
                 );
                 webAuthInfo.setAuthProviderConfigurationId(authConfiguration.getAuthProviderConfigurationId());
@@ -204,7 +194,8 @@ public class WebSessionAuthProcessor {
     }
 
     private boolean isProviderEnabled(@NotNull String providerId) {
-        WebAuthConfiguration appConfiguration = (WebAuthConfiguration) WebAppUtils.getWebApplication().getAppConfiguration();
+        ServletAuthConfiguration appConfiguration = (ServletAuthConfiguration) ServletAppUtils.getServletApplication()
+            .getAppConfiguration();
         return appConfiguration.isAuthProviderEnabled(providerId);
     }
 }

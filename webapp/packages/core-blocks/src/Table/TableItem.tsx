@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,16 +10,16 @@ import { Children, useCallback, useContext, useMemo } from 'react';
 
 import { EventContext } from '@cloudbeaver/core-events';
 
-import { getComputed } from '../getComputed';
-import { Loader } from '../Loader/Loader';
-import { s } from '../s';
-import { useObjectRef } from '../useObjectRef';
-import { useS } from '../useS';
-import { EventTableItemSelectionFlag } from './EventTableItemSelectionFlag';
-import cellStyles from './TableColumnValue.m.css';
-import { TableContext } from './TableContext';
-import rowStyles from './TableItem.m.css';
-import { ITableItemContext, TableItemContext } from './TableItemContext';
+import { getComputed } from '../getComputed.js';
+import { Loader } from '../Loader/Loader.js';
+import { s } from '../s.js';
+import { useObjectRef } from '../useObjectRef.js';
+import { useS } from '../useS.js';
+import { EventTableItemSelectionFlag } from './EventTableItemSelectionFlag.js';
+import cellStyles from './TableColumnValue.module.css';
+import { TableContext } from './TableContext.js';
+import rowStyles from './TableItem.module.css';
+import { type ITableItemContext, TableItemContext } from './TableItemContext.js';
 
 export interface TableItemExpandProps<T> {
   item: T;

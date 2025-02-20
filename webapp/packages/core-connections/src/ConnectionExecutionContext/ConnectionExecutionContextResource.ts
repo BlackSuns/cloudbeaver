@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ import {
   type ResourceKeySimple,
   ResourceKeyUtils,
 } from '@cloudbeaver/core-resource';
-import { GraphQLService, SqlContextInfo } from '@cloudbeaver/core-sdk';
+import { GraphQLService, type SqlContextInfo } from '@cloudbeaver/core-sdk';
 import { flat } from '@cloudbeaver/core-utils';
 
-import { ConnectionInfoActiveProjectKey, ConnectionInfoResource } from '../ConnectionInfoResource';
-import type { IConnectionInfoParams } from '../IConnectionsResource';
+import type { IConnectionInfoParams } from '../CONNECTION_INFO_PARAM_SCHEMA.js';
+import { ConnectionInfoActiveProjectKey, ConnectionInfoResource } from '../ConnectionInfoResource.js';
 
 export const ConnectionExecutionContextProjectKey = resourceKeyAliasFactory('@connection-folder/project', (projectId: string) => ({ projectId }));
 
@@ -51,7 +51,7 @@ export class ConnectionExecutionContextResource extends CachedMapResource<string
     this.aliases.add(ConnectionExecutionContextProjectKey, param =>
       resourceKeyList(
         Array.from(this.data.entries())
-          .filter(([key, context]) => context.projectId === param.options.projectId)
+          .filter(([, context]) => context.projectId === param.options.projectId)
           .map(([key]) => key),
       ),
     );
@@ -71,7 +71,8 @@ export class ConnectionExecutionContextResource extends CachedMapResource<string
   }
 
   async create(key: IConnectionInfoParams, defaultCatalog?: string, defaultSchema?: string): Promise<IConnectionExecutionContextInfo> {
-    return await this.performUpdate(getContextBaseId(key, ''), [], async () => {
+    const contextKey = getContextBaseId(key, '');
+    return await this.performUpdate(contextKey, [], async () => {
       const { context } = await this.graphQLService.sdk.executionContextCreate({
         ...key,
         defaultCatalog,
@@ -85,7 +86,10 @@ export class ConnectionExecutionContextResource extends CachedMapResource<string
         this.markOutdated(); // TODO: should be removed, currently multiple contexts for same connection may change catalog/schema for all contexts of connection
       });
 
-      return this.get(baseContext.id)!;
+      const result = this.get(baseContext.id)!;
+      this.onDataOutdated.execute(contextKey);
+
+      return result;
     });
   }
 
@@ -107,6 +111,7 @@ export class ConnectionExecutionContextResource extends CachedMapResource<string
 
       context.defaultCatalog = defaultCatalog;
       context.defaultSchema = defaultSchema;
+      this.onDataOutdated.execute(contextId);
     });
 
     this.markOutdated();
@@ -114,23 +119,23 @@ export class ConnectionExecutionContextResource extends CachedMapResource<string
   }
 
   async destroy(contextId: string): Promise<void> {
-    const context = this.get(contextId);
-
-    if (!context) {
-      return;
-    }
-
     await this.performUpdate(contextId, [], async () => {
+      const context = this.get(contextId);
+
+      if (!context) {
+        return;
+      }
+
       await this.graphQLService.sdk.executionContextDestroy({
         contextId: context.id,
         connectionId: context.connectionId,
         projectId: context.projectId,
       });
+      this.delete(contextId);
     });
 
     runInAction(() => {
       this.markOutdated(); // TODO: should be removed, currently multiple contexts for same connection may change catalog/schema for all contexts of connection
-      this.delete(contextId);
     });
   }
 
@@ -181,10 +186,10 @@ export class ConnectionExecutionContextResource extends CachedMapResource<string
       resourceKeyList(
         flat(
           ResourceKeyUtils.map(key, key =>
-            this.values.filter(context => {
-              const connection = this.connectionInfoResource.get(key);
-              return context.connectionId === key.connectionId && context.projectId === key.projectId && !connection?.connected;
-            }),
+            this.values.filter(
+              context =>
+                context.connectionId === key.connectionId && context.projectId === key.projectId && !this.connectionInfoResource.isConnected(key),
+            ),
           ),
         ).map(context => context.id),
       ),
@@ -203,7 +208,7 @@ export class ConnectionExecutionContextResource extends CachedMapResource<string
     );
   }
 
-  protected dataSet(key: string, value: IConnectionExecutionContextInfo): void {
+  protected override dataSet(key: string, value: IConnectionExecutionContextInfo): void {
     const oldContext = this.dataGet(key);
     super.dataSet(key, { ...oldContext, ...value });
   }

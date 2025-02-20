@@ -1,54 +1,41 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import React from 'react';
 
-import { Group, GroupTitle, useTranslate } from '@cloudbeaver/core-blocks';
-import { useService } from '@cloudbeaver/core-di';
-import { PluginManagerService } from '@cloudbeaver/core-plugin';
-import { SettingsGroupType, SettingsManagerService, SettingsScopeType } from '@cloudbeaver/core-settings';
+import { getComputed, Group, GroupTitle, useTranslate } from '@cloudbeaver/core-blocks';
+import type { ISettingDescription, ISettingsSource, SettingsGroup as SettingsGroupType } from '@cloudbeaver/core-settings';
+import { isArraysEqual } from '@cloudbeaver/core-utils';
+import type { ITreeFilter } from '@cloudbeaver/plugin-navigation-tree';
 
-import { SettingsInfoForm } from './SettingsInfoForm';
+import { getSettingGroupId } from './getSettingGroupId.js';
+import { Setting } from './Setting.js';
+import { settingsFilter } from './settingsFilter.js';
+import { SettingsGroupTitle } from './SettingsGroupTitle.js';
 
 interface Props {
   group: SettingsGroupType;
+  source: ISettingsSource;
+  settings: Map<SettingsGroupType, ISettingDescription<any>[]>;
+  treeFilter: ITreeFilter;
 }
 
-export const SettingsGroup = observer<Props>(function SettingsGroup({ group }) {
-  const settingsManagerService = useService(SettingsManagerService);
-  const pluginManagerService = useService(PluginManagerService);
+export const SettingsGroup = observer<Props>(function SettingsGroup({ group, source, settings, treeFilter }) {
   const translate = useTranslate();
-
-  function getValue(scope: string, scopeType: SettingsScopeType, key: string) {
-    const settings = pluginManagerService.getSettings(scope, scopeType);
-    return settings?.getValue(key);
-  }
-
-  const settings = settingsManagerService.settings
-    .filter(settingsItem => settingsItem.groupId === group.id)
-    .map(settingsItem => ({
-      ...settingsItem,
-      value: getValue(settingsItem.scope, settingsItem.scopeType, settingsItem.key),
-      name: translate(settingsItem.name),
-      description: translate(settingsItem.description),
-      options: settingsItem.options?.map(option => ({ ...option, name: translate(option.name) })),
-    }));
-
-  if (settings.length === 0) {
-    return null;
-  }
+  const groupSettings = getComputed(() => settings.get(group)?.filter(settingsFilter(translate, treeFilter.filter)) || [], isArraysEqual);
 
   return (
-    <Group gap vertical>
-      <GroupTitle keepSize large>
-        {translate(group.name)}
+    <Group id={getSettingGroupId(group.id)} hidden={groupSettings.length === 0} vertical gap>
+      <GroupTitle sticky>
+        <SettingsGroupTitle group={group} />
       </GroupTitle>
-      <SettingsInfoForm fields={settings} readOnly />
+      {groupSettings.map((setting, i) => (
+        <Setting key={i} source={source} setting={setting} />
+      ))}
     </Group>
   );
 });

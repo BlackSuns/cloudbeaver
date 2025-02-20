@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,7 +8,7 @@
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching, foldGutter, indentOnInput, syntaxHighlighting } from '@codemirror/language';
 import { highlightSelectionMatches } from '@codemirror/search';
-import { Compartment, Extension } from '@codemirror/state';
+import { Compartment, type Extension } from '@codemirror/state';
 import {
   crosshairCursor,
   dropCursor,

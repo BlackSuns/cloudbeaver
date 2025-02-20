@@ -1,14 +1,14 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { GlobalConstants, isValidUrl } from '@cloudbeaver/core-utils';
 
-import { useS } from '../useS';
-import style from './ConnectionImageWithMaskSvg.m.css';
+import { useS } from '../useS.js';
+import style from './ConnectionImageWithMaskSvg.module.css';
 
 interface Props {
   icon?: string;
@@ -52,7 +52,7 @@ export const ConnectionImageWithMaskSvg: React.FC<Props> = ({ icon, connected, m
           mask={`url(#${maskId})`}
         />
       </mask>
-      <rect className={styles.background} x="0" y="0" width={size} height={size} mask={connected ? `url(#${maskId})` : undefined} />
+      <rect className={styles['background']} x="0" y="0" width={size} height={size} mask={connected ? `url(#${maskId})` : undefined} />
       <image xlinkHref={url} width={size} height={size} mask={connected ? `url(#${maskId})` : undefined} />
     </svg>
   );

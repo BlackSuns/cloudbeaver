@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import graphql.execution.instrumentation.SimplePerformantInstrumentation;
 import graphql.language.SourceLocation;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.GraphQLSchema;
+import graphql.schema.PropertyDataFetcherHelper;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
@@ -30,43 +31,43 @@ import io.cloudbeaver.DBWebException;
 import io.cloudbeaver.WebServiceUtils;
 import io.cloudbeaver.model.session.WebSession;
 import io.cloudbeaver.registry.WebServiceRegistry;
-import io.cloudbeaver.server.CBApplication;
+import io.cloudbeaver.server.HttpConstants;
+import io.cloudbeaver.service.DBWBindingContext;
 import io.cloudbeaver.service.DBWServiceBindingGraphQL;
 import io.cloudbeaver.service.WebServiceBindingBase;
+import io.cloudbeaver.utils.ServletAppUtils;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.data.json.JSONUtils;
+import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.IOUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class GraphQLEndpoint extends HttpServlet {
 
     private static final Log log = Log.getLog(GraphQLEndpoint.class);
 
+    private static final boolean DEBUG = true;
+
     private static final String HEADER_ACCESS_CONTROL_ALLOW_ORIGIN = "Access-Control-Allow-Origin";
     private static final String HEADER_ACCESS_CONTROL_ALLOW_HEADERS = "Access-Control-Allow-Headers";
     private static final String HEADER_ACCESS_CONTROL_ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials";
 
     private static final String CORE_SCHEMA_FILE_NAME = "schema/schema.graphqls";
-
-    private static final String SESSION_TEMP_COOKIE = "cb-session";
-
     private final GraphQL graphQL;
 
-    private static Gson gson = new GsonBuilder()
+    private static final Gson gson = new GsonBuilder()
         .serializeNulls()
         .setPrettyPrinting()
         .create();
@@ -75,6 +76,7 @@ public class GraphQLEndpoint extends HttpServlet {
     public GraphQLEndpoint() {
         GraphQLSchema schema = buildSchema();
 
+        PropertyDataFetcherHelper.setUseLambdaFactory(false);
         graphQL = GraphQL
             .newGraphQL(schema)
             .instrumentation(new SimplePerformantInstrumentation())
@@ -115,12 +117,12 @@ public class GraphQLEndpoint extends HttpServlet {
     }
 
     @Override
-    protected void doOptions(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    protected void doOptions(HttpServletRequest request, HttpServletResponse response) {
         setDevelHeaders(request, response);
     }
 
     private void setDevelHeaders(HttpServletRequest request, HttpServletResponse response) {
-        if (CBApplication.getInstance().isDevelMode()) {
+        if (ServletAppUtils.getServletApplication().getServerConfiguration().isDevelMode()) {
             // response.setHeader(HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
             // response.setHeader(HEADER_ACCESS_CONTROL_ALLOW_HEADERS, "*");
             // response.setHeader(HEADER_ACCESS_CONTROL_ALLOW_CREDENTIALS, "*");
@@ -152,14 +154,21 @@ public class GraphQLEndpoint extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String contentType = request.getContentType();
+        if (CommonUtils.isEmpty(contentType) || !contentType.startsWith(HttpConstants.TYPE_JSON)) {
+            String error = "Bad request," + (CommonUtils.isEmpty(contentType)
+                ? " content type is missing"
+                : " incorrect content type:" + contentType);
+            response.sendError(400, error);
+            return;
+        }
         String postBody = IOUtils.readToString(request.getReader());
         JsonElement json = gson.fromJson(postBody, JsonElement.class);
-        if (json instanceof JsonArray) {
+        if (json instanceof JsonArray array) {
             setDevelHeaders(request, response);
             response.setContentType(GraphQLConstants.CONTENT_TYPE_JSON_UTF8);
             response.getWriter().print("[\n");
 
-            JsonArray array = (JsonArray)json;
             int reqCount = 0;
             for (int i = 0; i < array.size(); i++) {
                 if (reqCount > 0) {
@@ -173,8 +182,7 @@ public class GraphQLEndpoint extends HttpServlet {
             }
 
             response.getWriter().print("\n]");
-        } else if (json instanceof JsonObject) {
-            JsonObject reqObject = (JsonObject) json;
+        } else if (json instanceof JsonObject reqObject) {
             executeSingleQuery(request, response, reqObject);
         } else {
             response.sendError(400, "Bad JSON request");
@@ -188,7 +196,7 @@ public class GraphQLEndpoint extends HttpServlet {
             return;
         }
         JsonElement varJSON = reqObject.get("variables");
-        Map<String, Object> variables = varJSON == null ? null : gson.fromJson(varJSON, Map.class);
+        Map<String, Object> variables = varJSON == null ? null : gson.fromJson(varJSON, JSONUtils.MAP_TYPE_TOKEN);
 
         JsonElement operNameJSON = reqObject.get("operationName");
 
@@ -196,12 +204,12 @@ public class GraphQLEndpoint extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String path = request.getPathInfo();
         if (path == null) {
             path = request.getServletPath();
         }
-        boolean develMode = CBApplication.getInstance().isDevelMode();
+        boolean develMode = ServletAppUtils.getServletApplication().getServerConfiguration().isDevelMode();
 
         if (path.contentEquals("/schema.json") && develMode) {
             executeQuery(request, response, GraphQLConstants.SCHEMA_READ_QUERY, null, null);
@@ -220,13 +228,13 @@ public class GraphQLEndpoint extends HttpServlet {
     }
 
     private void executeQuery(HttpServletRequest request, HttpServletResponse response, String query, Map<String, Object> variables, String operationName) throws IOException {
-        GraphQLContext context = new GraphQLContext.Builder()
-            .of("request", request)
-            .of("response", response)
-            .of("bindingContext", bindingContext)
-            .build();
+        Map<String, Object> mapOfContext =
+            Map.of(
+                "request", request,
+                "response", response,
+                "bindingContext", bindingContext);
         ExecutionInput.Builder contextBuilder = ExecutionInput.newExecutionInput()
-            .context(context)
+            .graphQLContext(mapOfContext)
             .query(query);
         if (variables != null) {
             contextBuilder.variables(variables);
@@ -241,8 +249,13 @@ public class GraphQLEndpoint extends HttpServlet {
 //                    apiCall += " (" + variables + ")";
 //                }
 //            }
+            String sessionId = GraphQLLoggerUtil.getSessionId(request);
+            String userId = GraphQLLoggerUtil.getUserId(request);
+            String loggerMessage = GraphQLLoggerUtil.buildLoggerMessage(sessionId, userId, variables);
             if (apiCall != null) {
-                log.debug("API > " + apiCall);
+                log.debug("API > " + apiCall + loggerMessage);
+            } else if (DEBUG) {
+                log.debug("API > " + query + loggerMessage);
             }
         }
         ExecutionInput executionInput = contextBuilder.build();
@@ -255,14 +268,14 @@ public class GraphQLEndpoint extends HttpServlet {
         response.getWriter().print(resString);
     }
 
-    private class WebExecutionStrategy extends AsyncExecutionStrategy {
+    private static class WebExecutionStrategy extends AsyncExecutionStrategy {
 
         public WebExecutionStrategy() {
             super(new WebDataFetcherExceptionHandler());
         }
     }
 
-    private class WebDataFetcherExceptionHandler implements DataFetcherExceptionHandler {
+    private static class WebDataFetcherExceptionHandler implements DataFetcherExceptionHandler {
         @Override
         public CompletableFuture<DataFetcherExceptionHandlerResult> handleException(DataFetcherExceptionHandlerParameters handlerParameters) {
             Throwable exception = handlerParameters.getException();
@@ -298,7 +311,7 @@ public class GraphQLEndpoint extends HttpServlet {
 
 
     public static HttpServletRequest getServletRequest(DataFetchingEnvironment env) {
-        GraphQLContext context = env.getContext();
+        GraphQLContext context = env.getGraphQlContext();
         HttpServletRequest request = context.get("request");
         if (request == null) {
             throw new IllegalStateException("Null request");
@@ -307,7 +320,7 @@ public class GraphQLEndpoint extends HttpServlet {
     }
 
     public static HttpServletResponse getServletResponse(DataFetchingEnvironment env) {
-        GraphQLContext context = env.getContext();
+        GraphQLContext context = env.getGraphQlContext();
         HttpServletResponse response = context.get("response");
         if (response == null) {
             throw new IllegalStateException("Null response");
@@ -315,8 +328,8 @@ public class GraphQLEndpoint extends HttpServlet {
         return response;
     }
 
-    public static GraphQLBindingContext getBindingContext(DataFetchingEnvironment env) {
-        GraphQLContext context = env.getContext();
+    public static DBWBindingContext getBindingContext(DataFetchingEnvironment env) {
+        GraphQLContext context = env.getGraphQlContext();
         return context.get("bindingContext");
     }
 

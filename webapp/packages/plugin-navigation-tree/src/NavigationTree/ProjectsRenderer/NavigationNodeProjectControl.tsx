@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,21 +8,21 @@
 import { observer } from 'mobx-react-lite';
 import React, { forwardRef, useContext } from 'react';
 
-import { getComputed, s, TreeNodeContext, TreeNodeControl, TreeNodeName, useMouseContextMenu, useS } from '@cloudbeaver/core-blocks';
+import { getComputed, s, TreeNodeContext, TreeNodeControl, TreeNodeName, useContextMenuPosition, useS } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import { EventContext, EventStopPropagationFlag } from '@cloudbeaver/core-events';
 import { NavNodeInfoResource } from '@cloudbeaver/core-navigation-tree';
 
-import { ElementsTreeContext } from '../ElementsTree/ElementsTreeContext';
-import type { NavTreeControlComponent, NavTreeControlProps } from '../ElementsTree/NavigationNodeComponent';
-import { isDraggingInsideProject } from '../ElementsTree/NavigationTreeNode/isDraggingInsideProject';
-import { TreeNodeMenuLoader } from '../ElementsTree/NavigationTreeNode/TreeNodeMenu/TreeNodeMenuLoader';
-import style from './NavigationNodeProjectControl.m.css';
+import { ElementsTreeContext } from '../ElementsTree/ElementsTreeContext.js';
+import type { NavTreeControlComponent, NavTreeControlProps } from '../ElementsTree/NavigationNodeComponent.js';
+import { isDraggingInsideProject } from '../ElementsTree/NavigationTreeNode/isDraggingInsideProject.js';
+import { TreeNodeMenuLoader } from '../ElementsTree/NavigationTreeNode/TreeNodeMenu/TreeNodeMenuLoader.js';
+import style from './NavigationNodeProjectControl.module.css';
 
 export const NavigationNodeProjectControl: NavTreeControlComponent = observer<NavTreeControlProps, HTMLDivElement>(
   forwardRef(function NavigationNodeProjectControl({ node, dndElement, dndPlaceholder, className }, ref) {
     const styles = useS(style);
-    const mouseContextMenu = useMouseContextMenu();
+    const contextMenuPosition = useContextMenuPosition();
     const treeNodeContext = useContext(TreeNodeContext);
     const elementsTreeContext = useContext(ElementsTreeContext);
     const navNodeInfoResource = useService(NavNodeInfoResource);
@@ -43,7 +43,7 @@ export const NavigationNodeProjectControl: NavTreeControlComponent = observer<Na
     }
 
     function handleContextMenuOpen(event: React.MouseEvent<HTMLDivElement>) {
-      mouseContextMenu.handleContextMenuOpen(event);
+      contextMenuPosition.handleContextMenuOpen(event);
       treeNodeContext.select();
     }
 
@@ -62,20 +62,22 @@ export const NavigationNodeProjectControl: NavTreeControlComponent = observer<Na
     return (
       <TreeNodeControl
         ref={ref}
+        className={s(styles, { treeNodeControl: true, outdated, dragging: isDragging }, className)}
         onClick={handleClick}
         onDoubleClick={handleDbClick}
         onContextMenu={handleContextMenuOpen}
-        className={s(styles, { treeNodeControl: true, outdated, dragging: isDragging }, className)}
       >
         <TreeNodeName className={s(styles, { treeNodeName: true })} title={node.name}>
           <div className={s(styles, { nameBox: true })}>{node.name}</div>
         </TreeNodeName>
         {!dndPlaceholder && (
           <div className={s(styles, { portal: true })} onClick={handlePortalClick}>
-            <TreeNodeMenuLoader mouseContextMenu={mouseContextMenu} node={node} selected={selected} />
+            <TreeNodeMenuLoader contextMenuPosition={contextMenuPosition} node={node} selected={selected} />
           </div>
         )}
       </TreeNodeControl>
     );
   }),
 );
+
+NavigationNodeProjectControl.displayName = 'NavigationNodeProjectControl';

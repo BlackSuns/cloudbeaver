@@ -1,15 +1,16 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { toJS } from 'mobx';
 
-import { CachedMapResource } from './CachedMapResource';
-import type { ResourceKey } from './ResourceKey';
-import { resourceKeyList } from './ResourceKeyList';
+import { CachedMapResource } from './CachedMapResource.js';
+import type { ResourceKey } from './ResourceKey.js';
+import { resourceKeyList } from './ResourceKeyList.js';
 
 interface IEntityData {
   id: string;

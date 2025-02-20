@@ -1,18 +1,23 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 
-import { FieldCheckbox, InputField } from '@cloudbeaver/core-blocks';
+import { FieldCheckbox, type ILayoutSizeProps, InputField } from '@cloudbeaver/core-blocks';
+import type { ObjectPropertyInfo } from '@cloudbeaver/core-sdk';
 
-import type { ObjectPropertyProps } from '../../formControls';
-import { additionalProps, filterProperty, getValue, matchType } from '../../helpers';
+import { additionalProps, filterProperty, getValue, matchType } from '../../helpers.js';
 
-export const ObjectProperty = observer<ObjectPropertyProps>(function ObjectProperty({ objectProperty, className }) {
+interface Props extends ILayoutSizeProps {
+  objectProperty?: ObjectPropertyInfo;
+  className?: string;
+}
+
+export const ObjectProperty = observer<Props>(function ObjectProperty({ objectProperty, className }) {
   if (!objectProperty || !filterProperty(objectProperty)) {
     return null;
   }

@@ -1,14 +1,14 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { ISplitState, SplitContext, SplitterMode } from 'go-split';
+import { type ISplitState, SplitContext, type SplitterMode } from 'go-split';
 import { useContext } from 'react';
 
-import { useObjectRef } from '../useObjectRef';
+import { useObjectRef } from '../useObjectRef.js';
 
 interface ISplit {
   state: ISplitState;

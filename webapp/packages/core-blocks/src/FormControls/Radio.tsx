@@ -1,111 +1,25 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useCallback, useContext } from 'react';
-import styled, { css, use } from 'reshadow';
 
-import { filterLayoutFakeProps, getLayoutProps } from '../Containers/filterLayoutFakeProps';
-import type { ILayoutSizeProps } from '../Containers/ILayoutSizeProps';
-import elementsSizeStyles from '../Containers/shared/ElementsSize.m.css';
-import { s } from '../s';
-import { useS } from '../useS';
-import { useStyles } from '../useStyles';
-import { baseFormControlStyles } from './baseFormControlStyles';
-import { FormContext } from './FormContext';
-import { RadioGroupContext } from './RadioGroupContext';
-
-const radioStyles = css`
-  radio {
-    composes: theme-radio from global;
-  }
-  radio-background {
-    composes: theme-radio_background from global;
-  }
-  input {
-    composes: theme-radio_native-control from global;
-  }
-  radio-outer-circle {
-    composes: theme-radio_outer-circle from global;
-  }
-  radio-inner-circle {
-    composes: theme-radio_inner-circle from global;
-  }
-  radio-ripple {
-    composes: theme-radio_ripple from global;
-  }
-  field {
-    display: inline-flex;
-    align-items: center;
-    font-weight: 500;
-    padding: 7px 12px;
-    vertical-align: middle;
-  }
-  label {
-    cursor: pointer;
-    &[|disabled] {
-      cursor: auto;
-    }
-  }
-`;
-
-const radioMod = {
-  primary: css`
-    radio {
-      composes: theme-radio_primary from global;
-    }
-  `,
-  small: css`
-    radio {
-      composes: theme-radio_small from global;
-    }
-  `,
-  menu: css`
-    radio {
-      composes: theme-radio_small from global;
-    }
-    field {
-      padding: 0;
-
-      & radio {
-        width: 14px;
-        height: 14px;
-      }
-      & radio-background {
-        width: 14px;
-        height: 14px;
-      }
-      & radio-inner-circle {
-        border-width: 7px;
-      }
-    }
-  `,
-};
-
-const noRippleStyles = css`
-  radio {
-    composes: theme-radio_no-ripple from global;
-  }
-`;
-
-const radioState = {
-  disabled: css`
-    radio {
-      composes: theme-radio--disabled from global;
-    }
-    input {
-      opacity: 0 !important;
-    }
-  `,
-};
+import { filterLayoutFakeProps, getLayoutProps } from '../Containers/filterLayoutFakeProps.js';
+import type { ILayoutSizeProps } from '../Containers/ILayoutSizeProps.js';
+import { s } from '../s.js';
+import { useS } from '../useS.js';
+import { Field } from './Field.js';
+import { FormContext } from './FormContext.js';
+import style from './Radio.module.css';
+import { RadioGroupContext } from './RadioGroupContext.js';
 
 type BaseProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value' | 'checked'> &
   ILayoutSizeProps & {
-    mod?: Array<keyof typeof radioMod>;
+    mod?: Array<'primary' | 'small' | 'menu'>;
     ripple?: boolean;
   };
 
@@ -125,8 +39,8 @@ type ObjectProps<TKey extends keyof TState, TState> = BaseProps & {
 };
 
 interface RadioType {
-  (props: ControlledProps): JSX.Element;
-  <TKey extends keyof TState, TState>(props: ObjectProps<TKey, TState>): JSX.Element;
+  (props: ControlledProps): React.JSX.Element;
+  <TKey extends keyof TState, TState>(props: ObjectProps<TKey, TState>): React.JSX.Element;
 }
 
 export const Radio: RadioType = observer(function Radio({
@@ -142,9 +56,10 @@ export const Radio: RadioType = observer(function Radio({
   children,
   ...rest
 }: ControlledProps | ObjectProps<any, any>) {
+  const styles = useS(style);
+
   const layoutProps = getLayoutProps(rest);
   rest = filterLayoutFakeProps(rest);
-  const sizeStyles = useS(elementsSizeStyles);
   const formContext = useContext(FormContext);
   const context = useContext(RadioGroupContext);
 
@@ -184,27 +99,36 @@ export const Radio: RadioType = observer(function Radio({
     checked = state[name] === value;
   }
 
-  return styled(
-    useStyles(
-      baseFormControlStyles,
-      radioStyles,
-      ...(mod || []).map(mod => radioMod[mod]),
-      !ripple && noRippleStyles,
-      rest.disabled && radioState.disabled,
-    ),
-  )(
-    <field className={s(sizeStyles, { ...layoutProps }, className)}>
-      <radio>
-        <input {...rest} type="radio" id={id} name={name} value={value ?? ''} checked={checked} onChange={handleChange} />
-        <radio-background>
-          <radio-outer-circle />
-          <radio-inner-circle />
-        </radio-background>
-        {ripple && <radio-ripple />}
-      </radio>
-      <label {...use({ disabled: rest.disabled })} htmlFor={id}>
+  return (
+    <Field {...layoutProps} className={s(styles, { field: true, menu: mod?.includes('menu') }, className)}>
+      <div
+        className={s(styles, {
+          radio: true,
+          primary: mod?.includes('primary'),
+          small: mod?.includes('small') || mod?.includes('menu'),
+          disabledRadio: rest.disabled,
+          radioNoRipple: !ripple,
+        })}
+      >
+        <input
+          {...rest}
+          className={s(styles, { input: true, disabledInput: rest.disabled })}
+          type="radio"
+          id={id}
+          name={name}
+          value={value ?? ''}
+          checked={checked}
+          onChange={handleChange}
+        />
+        <div className={s(styles, { radioBackground: true })}>
+          <div className={s(styles, { radioOuterCircle: true })} />
+          <div className={s(styles, { radioInnerCircle: true })} />
+        </div>
+        {ripple && <div className={s(styles, { radioRipple: true })} />}
+      </div>
+      <label className={s(styles, { label: true, disabled: rest.disabled })} htmlFor={id}>
         {children}
       </label>
-    </field>,
+    </Field>
   );
 });

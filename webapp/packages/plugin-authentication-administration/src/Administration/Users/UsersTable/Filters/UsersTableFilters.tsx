@@ -1,59 +1,18 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useState } from 'react';
-import styled, { css, use } from 'reshadow';
 
-import { AuthRolesResource } from '@cloudbeaver/core-authentication';
-import { Combobox, Filter, Group, IconOrImage, useResource, useStyles, useTranslate } from '@cloudbeaver/core-blocks';
+import { Filter, Group, IconOrImage, Loader, s, useS, useTranslate } from '@cloudbeaver/core-blocks';
 
-import { IUserFilters, USER_ROLE_ALL, USER_STATUSES } from './useUsersTableFilters';
-
-const styles = css`
-  filter-container {
-    display: flex;
-    gap: 12px;
-  }
-
-  Filter {
-    flex: 1;
-  }
-
-  actions {
-    composes: theme-form-element-radius theme-background-surface theme-text-on-surface theme theme-border-color-background from global;
-    box-sizing: border-box;
-    border: 2px solid;
-    height: 32px;
-  }
-
-  button {
-    position: relative;
-    box-sizing: border-box;
-    background: inherit;
-    cursor: pointer;
-    width: 28px;
-    height: 100%;
-    padding: 4px;
-
-    &:hover {
-      opacity: 0.8;
-    }
-
-    &[|active] {
-      background: var(--theme-secondary);
-    }
-  }
-
-  IconOrImage {
-    width: 100%;
-    height: 100%;
-  }
-`;
+import styles from './UsersTableFilters.module.css';
+import { UsersTableFiltersDetails } from './UsersTableFiltersDetails.js';
+import { type IUserFilters } from './useUsersTableFilters.js';
 
 interface Props {
   filters: IUserFilters;
@@ -61,46 +20,31 @@ interface Props {
 
 export const UsersTableFilters = observer<Props>(function UsersTableFilters({ filters }) {
   const translate = useTranslate();
-  const style = useStyles(styles);
-  const authRolesResource = useResource(UsersTableFilters, AuthRolesResource, undefined);
+  const style = useS(styles);
 
   const [open, setOpen] = useState(false);
 
-  return styled(style)(
+  return (
     <Group parent compact gap>
-      <filter-container>
+      <div className={s(style, { filterContainer: true })}>
         <Filter
+          className={s(style, { filter: true })}
           placeholder={translate('authentication_administration_users_filters_search_placeholder')}
           value={filters.search}
-          max
-          onFilter={filters.setSearch}
+          onChange={filters.setSearch}
         />
-        <actions>
-          <button {...use({ active: open })} onClick={() => setOpen(!open)}>
-            <IconOrImage icon="filter" />
-          </button>
-        </actions>
-      </filter-container>
+        <div className={s(style, { actions: true })}>
+          <div className={s(style, { button: true, buttonActive: open })} onClick={() => setOpen(!open)}>
+            <IconOrImage className={s(style, { iconOrImage: true })} icon="filter" />
+          </div>
+        </div>
+      </div>
 
       {open && (
-        <Group box gap>
-          <Combobox
-            value={filters.status}
-            items={USER_STATUSES}
-            valueSelector={value => translate(value.label)}
-            keySelector={value => value.value}
-            keepSize
-            onSelect={filters.setStatus}
-          >
-            {translate('authentication_user_status')}
-          </Combobox>
-          {!!authRolesResource.data.length && (
-            <Combobox items={[...authRolesResource.data, USER_ROLE_ALL]} value={filters.role} keepSize onSelect={filters.setRole}>
-              {translate('authentication_user_role')}
-            </Combobox>
-          )}
-        </Group>
+        <Loader suspense inline>
+          <UsersTableFiltersDetails filters={filters} />
+        </Loader>
       )}
-    </Group>,
+    </Group>
   );
 });

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,16 @@ import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import io.cloudbeaver.*;
 import io.cloudbeaver.model.WebConnectionInfo;
+import io.cloudbeaver.model.app.ServletApplication;
 import io.cloudbeaver.model.session.WebSession;
 import io.cloudbeaver.model.session.WebSessionProvider;
-import io.cloudbeaver.server.CBApplication;
-import io.cloudbeaver.server.CBPlatform;
+import io.cloudbeaver.server.WebAppUtils;
 import io.cloudbeaver.server.graphql.GraphQLEndpoint;
 import io.cloudbeaver.service.security.SMUtils;
+import io.cloudbeaver.utils.ServletAppUtils;
+import io.cloudbeaver.utils.WebDataSourceUtils;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -39,8 +43,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.*;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 /**
  * Web service implementation
@@ -64,19 +66,19 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
     }
 
     @Override
-    public TypeDefinitionRegistry getTypeDefinition() throws DBWebException {
+    public TypeDefinitionRegistry getTypeDefinition() {
         return loadSchemaDefinition(getClass(), schemaFileName);
     }
 
     /**
      * Creates proxy for permission checks and other general API calls validation/logging.
      */
-    protected  API_TYPE getService(DataFetchingEnvironment env) {
+    protected API_TYPE getService(DataFetchingEnvironment env) {
         Object proxyImpl = Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{apiInterface}, new ServiceInvocationHandler(serviceImpl, env));
         return apiInterface.cast(proxyImpl);
     }
 
-    public static TypeDefinitionRegistry loadSchemaDefinition(Class<?> theClass, String schemaPath) throws DBWebException {
+    public static TypeDefinitionRegistry loadSchemaDefinition(Class<?> theClass, String schemaPath) {
         try (InputStream schemaStream = theClass.getClassLoader().getResourceAsStream(schemaPath)) {
             if (schemaStream == null) {
                 throw new IOException("Schema file '" + schemaPath + "' not found");
@@ -102,12 +104,12 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
     }
 
     protected static WebSession getWebSession(DataFetchingEnvironment env) throws DBWebException {
-        return CBPlatform.getInstance().getSessionManager().getWebSession(
+        return WebAppUtils.getWebApplication().getSessionManager().getWebSession(
             getServletRequest(env), getServletResponse(env));
     }
 
     protected static WebSession getWebSession(DataFetchingEnvironment env, boolean errorOnNotFound) throws DBWebException {
-        return CBPlatform.getInstance().getSessionManager().getWebSession(
+        return WebAppUtils.getWebApplication().getSessionManager().getWebSession(
             getServletRequest(env), getServletResponse(env), errorOnNotFound);
     }
 
@@ -125,18 +127,18 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
      */
     @Nullable
     public static WebSession findWebSession(DataFetchingEnvironment env) {
-        return CBPlatform.getInstance().getSessionManager().findWebSession(
+        return WebAppUtils.getWebApplication().getSessionManager().findWebSession(
             getServletRequest(env));
     }
 
     public static WebSession findWebSession(DataFetchingEnvironment env, boolean errorOnNotFound) throws DBWebException {
-        return CBPlatform.getInstance().getSessionManager().findWebSession(
+        return WebAppUtils.getWebApplication().getSessionManager().findWebSession(
             getServletRequest(env), errorOnNotFound);
     }
 
     @NotNull
     public static WebConnectionInfo getWebConnection(WebSession session, String projectId, String connectionId) throws DBWebException {
-        return session.getWebConnectionInfo(projectId, connectionId);
+        return WebDataSourceUtils.getWebConnectionInfo(session, projectId, connectionId);
     }
 
     private class ServiceInvocationHandler implements InvocationHandler {
@@ -161,7 +163,7 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
                         checkActionPermissions(method, webAction);
                     }
                     WebProjectAction projectAction = method.getAnnotation(WebProjectAction.class);
-                    if(projectAction != null) {
+                    if (projectAction != null) {
                         checkObjectActionPermissions(method, projectAction, args);
                     }
                     beforeWebActionCall(webAction, method, args);
@@ -175,7 +177,7 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
                 }
             } catch (Throwable ex) {
                 log.error("Unexpected error during gql request", ex);
-                if (SMUtils.isTokenExpiredExceptionWasHandled(ex)) {
+                if (SMUtils.isRefreshTokenExpiredExceptionWasHandled(ex)) {
                     WebSession webSession = findWebSession(env);
                     if (webSession != null) {
                         webSession.resetUserState();
@@ -198,7 +200,7 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
 
         private void checkObjectActionPermissions(Method method, WebProjectAction objectAction, Object[] args) throws DBException {
             WebSession webSession = findWebSession(env);
-            if (webSession.hasPermission(DBWConstants.PERMISSION_ADMIN)) {
+            if (webSession != null && webSession.hasPermission(DBWConstants.PERMISSION_ADMIN)) {
                 return;
             }
             String[] requireProjectPermissions = objectAction.requireProjectPermissions();
@@ -218,13 +220,18 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
                 if (objectIdArgumentIndex < 0) {
                     throw new DBWebExceptionAccessDenied("Project id argument not found");
                 }
+                if (webSession == null) {
+                    throw new DBException("Web session not instantiated");
+                }
 
                 String projectId = args[objectIdArgumentIndex] == null ? null : String.valueOf(args[objectIdArgumentIndex]);
+                // we should always get the project from the session, even if projectId is null - the active project
+                // will be returned
                 WebProjectImpl project = webSession.getProjectById(projectId);
-                if(project == null) {
+                if (project == null) {
                     throw new DBException("Project not found:" + projectId);
                 }
-                RMProject rmProject = project.getRmProject();
+                RMProject rmProject = project.getRMProject();
 
                 for (String reqProjectPermission : requireProjectPermissions) {
                     if (!rmProject.hasProjectPermission(reqProjectPermission)) {
@@ -236,17 +243,22 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
 
         private void checkServicePermissions(Method method, WebActionSet actionSet) throws DBWebException {
             String[] features = actionSet.requireFeatures();
-            if (features.length > 0) {
-                for (String feature : features) {
-                    if (!CBApplication.getInstance().isConfigurationMode() &&
-                        !CBApplication.getInstance().getAppConfiguration().isFeatureEnabled(feature)) {
-                        throw new DBWebException("Feature " + feature + " is disabled");
-                    }
+            ServletApplication servletApplication = ServletAppUtils.getServletApplication();
+            for (String feature : features) {
+                if (!servletApplication.isConfigurationMode() &&
+                    !servletApplication.getAppConfiguration().isFeatureEnabled(feature)) {
+                    throw new DBWebException("Feature " + feature + " is disabled");
                 }
             }
         }
 
         private void checkActionPermissions(@NotNull Method method, @NotNull WebAction webAction) throws DBWebException {
+            var application = WebAppUtils.getWebPlatform().getApplication();
+            if (application.isInitializationMode() && webAction.initializationRequired()) {
+                String message = "Server initialization in progress: "
+                    + String.join(",", application.getInitActions().values()) + ".\nDo not restart the server.";
+                throw new DBWebExceptionServerNotInitialized(message);
+            }
             String[] reqPermissions = webAction.requirePermissions();
             if (reqPermissions.length == 0 && !webAction.authRequired()) {
                 return;
@@ -255,7 +267,6 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
             if (session == null) {
                 throw new DBWebExceptionAccessDenied("No open session - anonymous access restricted");
             }
-            CBApplication application = CBApplication.getInstance();
             if (!application.isConfigurationMode()) {
                 if (webAction.authRequired() && !session.isAuthorizedInSecurityManager()) {
                     log.debug("Anonymous access to " + method.getName() + " restricted");
@@ -265,8 +276,13 @@ public abstract class WebServiceBindingBase<API_TYPE extends DBWService> impleme
                 // Check license
                 if (application.isLicenseRequired() && !application.isLicenseValid()) {
                     if (!ArrayUtils.contains(reqPermissions, DBWConstants.PERMISSION_ADMIN)) {
+                        String errorMessage = "Invalid server license";
+                        String licenseStatus = application.getLicenseStatus();
+                        if (licenseStatus != null) {
+                            errorMessage = errorMessage + ": " + licenseStatus;
+                        }
                         // Only admin permissions are allowed
-                        throw new DBWebExceptionLicenseRequired("Invalid server license");
+                        throw new DBWebExceptionLicenseRequired(errorMessage);
                     }
                 }
                 // Check permissions

@@ -1,27 +1,29 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { useEffect, useState } from 'react';
 
-import type { ILoadableState } from '@cloudbeaver/core-utils';
+import { type ILoadableState, isContainsException } from '@cloudbeaver/core-utils';
 
-import { getComputed } from '../getComputed';
+import { getComputed } from '../getComputed.js';
 
-export interface IAutoLoadable extends ILoadableState {
-  load: () => void;
-}
-
-export function useAutoLoad(component: { name: string }, state: IAutoLoadable | IAutoLoadable[], enabled = true, lazy = false) {
+export function useAutoLoad(
+  component: { name: string },
+  state: ILoadableState | ReadonlyArray<ILoadableState>,
+  enabled = true,
+  lazy = false,
+  throwExceptions = false,
+) {
   const [loadFunctionName] = useState(`${component.name}.useAutoLoad(...)` as const);
   if (!Array.isArray(state)) {
-    state = [state];
+    state = [state] as ReadonlyArray<ILoadableState>;
   }
 
-  for (const loader of state as IAutoLoadable[]) {
+  for (const loader of state as ReadonlyArray<ILoadableState>) {
     getComputed(
       // activate mobx subscriptions
       () => (!loader.isLoaded() || loader.isOutdated?.() === true) && !loader.isError(),
@@ -29,18 +31,20 @@ export function useAutoLoad(component: { name: string }, state: IAutoLoadable | 
   }
 
   const obj = {
-    [loadFunctionName]: () => {
+    [loadFunctionName]: async () => {
       if (!enabled) {
         return;
       }
 
-      for (const loader of state as IAutoLoadable[]) {
+      for (const loader of state as ReadonlyArray<ILoadableState>) {
         if (loader.isError() || (loader.lazy === true && !lazy)) {
           continue;
         }
 
         if (!loader.isLoaded() || loader.isOutdated?.() === true) {
-          loader.load();
+          try {
+            await loader.load();
+          } catch {}
         }
       }
     },
@@ -52,7 +56,18 @@ export function useAutoLoad(component: { name: string }, state: IAutoLoadable | 
     throw Promise.all(promises);
   }
 
+  if (throwExceptions) {
+    const exceptions = state
+      .map(loader => loader.exception)
+      .filter(isContainsException)
+      .flat();
+
+    if (exceptions.length > 0) {
+      throw exceptions[0];
+    }
+  }
+
   useEffect(() => {
-    obj[loadFunctionName]();
+    obj[loadFunctionName]!();
   });
 }

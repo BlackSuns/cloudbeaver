@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -11,11 +11,12 @@ import { ConnectionExecutionContextService } from '@cloudbeaver/core-connections
 import { injectable } from '@cloudbeaver/core-di';
 import { NotificationService } from '@cloudbeaver/core-events';
 import type { ITask } from '@cloudbeaver/core-executor';
-import { AsyncTaskInfoService, GraphQLService, SqlExecutionPlan } from '@cloudbeaver/core-sdk';
+import { AsyncTaskInfoService } from '@cloudbeaver/core-root';
+import { GraphQLService, type SqlExecutionPlan } from '@cloudbeaver/core-sdk';
 import { uuid } from '@cloudbeaver/core-utils';
 
-import type { ISqlEditorTabState } from '../../ISqlEditorTabState';
-import { SqlDataSourceService } from '../../SqlDataSource/SqlDataSourceService';
+import type { ISqlEditorTabState } from '../../ISqlEditorTabState.js';
+import { SqlDataSourceService } from '../../SqlDataSource/SqlDataSourceService.js';
 
 interface IExecutionPlanData {
   task: ITask<SqlExecutionPlan>;
@@ -56,6 +57,7 @@ export class SqlExecutionPlanService {
 
     const asyncTask = this.asyncTaskInfoService.create(async () => {
       const { taskInfo } = await this.graphQLService.sdk.asyncSqlExplainExecutionPlan({
+        projectId: contextInfo.projectId,
         connectionId: contextInfo.connectionId,
         contextId: contextInfo.id,
         query,
@@ -115,7 +117,7 @@ export class SqlExecutionPlanService {
     this.removeExecutionPlanTab(state, tabId);
 
     if (state.tabs.length > 0) {
-      state.currentTabId = state.tabs[0].id;
+      state.currentTabId = state.tabs[0]!.id;
     } else {
       state.currentTabId = '';
     }

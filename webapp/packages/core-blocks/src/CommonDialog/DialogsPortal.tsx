@@ -1,24 +1,24 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useLayoutEffect, useMemo, useRef } from 'react';
-import { DialogBackdrop } from 'reakit/Dialog';
+import { DialogBackdrop } from 'reakit';
 
 import { useService } from '@cloudbeaver/core-di';
-import { CommonDialogService, DialogInternal } from '@cloudbeaver/core-dialogs';
+import { CommonDialogService, type DialogInternal } from '@cloudbeaver/core-dialogs';
 
-import { ErrorBoundary } from '../ErrorBoundary';
-import { Loader } from '../Loader/Loader';
-import { s } from '../s';
-import { useObjectRef } from '../useObjectRef';
-import { useS } from '../useS';
-import { DialogContext, IDialogContext } from './DialogContext';
-import style from './DialogsPortal.m.css';
+import { ErrorBoundary } from '../ErrorBoundary.js';
+import { Loader } from '../Loader/Loader.js';
+import { s } from '../s.js';
+import { useObjectRef } from '../useObjectRef.js';
+import { useS } from '../useS.js';
+import { DialogContext, type IDialogContext } from './DialogContext.js';
+import style from './DialogsPortal.module.css';
 
 export const DialogsPortal = observer(function DialogsPortal() {
   const styles = useS(style);
@@ -84,23 +84,15 @@ export const DialogsPortal = observer(function DialogsPortal() {
   }, [activeDialog]);
 
   return (
-    <Loader className={s(styles, { loader: true })} suspense overlay>
-      <DialogBackdrop className={s(styles, { backdrop: true })} visible={!!activeDialog} onMouseDown={state.backdropClick}>
+    <DialogBackdrop className={s(styles, { backdrop: true })} visible={!!activeDialog} onMouseDown={state.backdropClick}>
+      <Loader className={s(styles, { loader: true })} suspense>
         <div className={s(styles, { innerBox: true })}>
           {commonDialogService.dialogs.map((dialog, i, arr) => (
-            <ErrorBoundary key={dialog.id} className={s(styles, { error: true })} remount onClose={state.reject}>
-              <NestedDialog
-                key={dialog.id}
-                visible={i === arr.length - 1}
-                dialog={dialog}
-                resolveDialog={state.resolve}
-                rejectDialog={state.reject}
-              />
-            </ErrorBoundary>
+            <NestedDialog key={dialog.id} visible={i === arr.length - 1} dialog={dialog} resolveDialog={state.resolve} rejectDialog={state.reject} />
           ))}
         </div>
-      </DialogBackdrop>
-    </Loader>
+      </Loader>
+    </DialogBackdrop>
   );
 });
 
@@ -112,6 +104,7 @@ interface NestedDialogType {
 }
 
 const NestedDialog: React.FC<NestedDialogType> = function NestedDialog({ dialog, resolveDialog, rejectDialog, visible }) {
+  const styles = useS(style);
   const DialogComponent = dialog.component;
 
   const context = useMemo<IDialogContext>(
@@ -125,13 +118,15 @@ const NestedDialog: React.FC<NestedDialogType> = function NestedDialog({ dialog,
 
   return (
     <DialogContext.Provider value={context}>
-      <DialogComponent
-        visible={visible}
-        payload={dialog.payload}
-        options={dialog.options}
-        resolveDialog={resolveDialog}
-        rejectDialog={rejectDialog}
-      />
+      <ErrorBoundary className={s(styles, { error: true })} remount onClose={rejectDialog}>
+        <DialogComponent
+          visible={visible}
+          payload={dialog.payload}
+          options={dialog.options}
+          resolveDialog={resolveDialog}
+          rejectDialog={rejectDialog}
+        />
+      </ErrorBoundary>
     </DialogContext.Provider>
   );
 };

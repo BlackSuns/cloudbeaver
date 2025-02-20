@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,11 +10,11 @@ import { computed, makeObservable } from 'mobx';
 import { injectable } from '@cloudbeaver/core-di';
 import { NotificationService } from '@cloudbeaver/core-events';
 
-import { AdministrationItemService, filterHiddenAdministrationItem } from '../../AdministrationItem/AdministrationItemService';
-import { filterConfigurationWizard } from '../../AdministrationItem/filterConfigurationWizard';
-import type { IAdministrationItem } from '../../AdministrationItem/IAdministrationItem';
-import { orderAdministrationItems } from '../../AdministrationItem/orderAdministrationItems';
-import { AdministrationScreenService } from '../AdministrationScreenService';
+import { AdministrationItemService, filterHiddenAdministrationItem } from '../../AdministrationItem/AdministrationItemService.js';
+import { filterConfigurationWizard } from '../../AdministrationItem/filterConfigurationWizard.js';
+import type { IAdministrationItem } from '../../AdministrationItem/IAdministrationItem.js';
+import { orderAdministrationItems } from '../../AdministrationItem/orderAdministrationItems.js';
+import { AdministrationScreenService } from '../AdministrationScreenService.js';
 
 @injectable()
 export class ConfigurationWizardService {
@@ -86,10 +86,6 @@ export class ConfigurationWizardService {
   }
 
   isStepAvailable(name: string): boolean {
-    if (this.currentStep?.name === name) {
-      return true;
-    }
-
     for (const step of this.steps) {
       if (step.name === name) {
         return true;
@@ -151,7 +147,7 @@ export class ConfigurationWizardService {
     }
 
     if (this.currentStepIndex - 1 >= 0) {
-      const step = this.steps[this.currentStepIndex - 1];
+      const step = this.steps[this.currentStepIndex - 1]!;
       this.administrationScreenService.navigateTo(step.name, step.configurationWizardOptions?.defaultRoute);
     }
   }

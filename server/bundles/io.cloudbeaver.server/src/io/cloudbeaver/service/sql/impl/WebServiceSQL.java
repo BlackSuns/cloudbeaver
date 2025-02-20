@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package io.cloudbeaver.service.sql.impl;
 import io.cloudbeaver.DBWebException;
 import io.cloudbeaver.model.WebAsyncTaskInfo;
 import io.cloudbeaver.model.WebConnectionInfo;
+import io.cloudbeaver.model.WebTransactionLogInfo;
 import io.cloudbeaver.model.session.WebAsyncTaskProcessor;
 import io.cloudbeaver.model.session.WebSession;
 import io.cloudbeaver.service.WebServiceBindingBase;
@@ -31,11 +32,16 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
 import org.jkiss.dbeaver.model.exec.DBExecUtils;
+import org.jkiss.dbeaver.model.exec.trace.DBCTrace;
+import org.jkiss.dbeaver.model.exec.trace.DBCTraceDynamic;
+import org.jkiss.dbeaver.model.exec.trace.DBCTraceProperty;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
+import org.jkiss.dbeaver.model.navigator.DBNModel;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.*;
@@ -80,10 +86,10 @@ public class WebServiceSQL implements DBWServiceSQL {
             WebConnectionInfo webConnection = WebServiceBindingBase.getWebConnection(session, projectId, connectionId);
             conToRead.add(webConnection);
         } else {
-            conToRead.addAll(session.getConnections());
+            conToRead.addAll(session.getAccessibleProjects().stream().flatMap(p -> p.getConnections().stream()).toList());
         }
 
-        List<WebSQLContextInfo> contexts  = new ArrayList<>();
+        List<WebSQLContextInfo> contexts = new ArrayList<>();
         for (WebConnectionInfo con : conToRead) {
             WebSQLProcessor sqlProcessor = WebServiceBindingSQL.getSQLProcessor(con, false);
             if (sqlProcessor != null) {
@@ -237,8 +243,9 @@ public class WebServiceSQL implements DBWServiceSQL {
     private List<DBSObject> getObjectListFromNodeIds(@NotNull WebSession session, @NotNull List<String> nodePathList) throws DBWebException {
         try {
             List<DBSObject> objectList = new ArrayList<>(nodePathList.size());
+            DBNModel navigatorModel = session.getNavigatorModelOrThrow();
             for (String nodePath : nodePathList) {
-                DBNNode node = session.getNavigatorModel().getNodeByPath(session.getProgressMonitor(), nodePath);
+                DBNNode node = navigatorModel.getNodeByPath(session.getProgressMonitor(), nodePath);
                 if (node == null) {
                     throw new DBException("Node '" + nodePath + "' not found");
                 }
@@ -318,31 +325,62 @@ public class WebServiceSQL implements DBWServiceSQL {
         }
     }
 
+    @FunctionalInterface
+    private interface ThrowableFunction<T, R> {
+        R apply(T obj) throws Exception;
+    }
+
     @Override
     public String readLobValue(
             @NotNull WebSQLContextInfo contextInfo,
             @NotNull String resultsId,
             @NotNull Integer lobColumnIndex,
-            @Nullable List<WebSQLResultsRow> row) throws DBWebException
+            @NotNull WebSQLResultsRow row) throws DBWebException
     {
+        ThrowableFunction<DBRProgressMonitor, String> function = monitor -> contextInfo.getProcessor().readLobValue(
+            monitor, contextInfo, resultsId, lobColumnIndex, row);
+        return readValue(function, contextInfo.getProcessor());
+    }
+
+    @NotNull
+    @Override
+    public String getCellValue(
+        @NotNull WebSQLContextInfo contextInfo,
+        @NotNull String resultsId,
+        @NotNull Integer lobColumnIndex,
+        @NotNull WebSQLResultsRow row
+    ) throws DBWebException {
+        if (row == null) {
+            throw new DBWebException("Results row is not found");
+        }
+        WebSQLProcessor processor = contextInfo.getProcessor();
+        ThrowableFunction<DBRProgressMonitor, String> function = monitor -> processor.readStringValue(
+            monitor, contextInfo, resultsId, lobColumnIndex, row);
+        return readValue(function, processor);
+    }
+
+    @NotNull
+    private String readValue(
+        @NotNull ThrowableFunction<DBRProgressMonitor, String> function,
+        @NotNull WebSQLProcessor processor
+    ) throws DBWebException {
         try {
             var result = new StringBuilder();
 
             DBExecUtils.tryExecuteRecover(
-                    contextInfo.getProcessor().getWebSession().getProgressMonitor(),
-                    contextInfo.getProcessor().getConnection().getDataSource(),
-                    monitor -> {
-                        try {
-                            result.append(contextInfo.getProcessor().readLobValue(
-                                    monitor, contextInfo, resultsId, lobColumnIndex, row.get(0)));
-                        } catch (Exception e) {
-                            throw new InvocationTargetException(e);
-                        }
+                processor.getWebSession().getProgressMonitor(),
+                processor.getConnection().getDataSource(),
+                monitor -> {
+                    try {
+                        result.append(function.apply(monitor));
+                    } catch (Exception e) {
+                        throw new InvocationTargetException(e);
                     }
+                }
             );
             return result.toString();
         } catch (DBException e) {
-            throw new DBWebException("Error reading LOB value ", e);
+            throw new DBWebException("Error reading value ", e);
         }
     }
 
@@ -404,7 +442,7 @@ public class WebServiceSQL implements DBWServiceSQL {
                     DBSDataContainer dataContainer = contextInfo.getProcessor().getDataContainerByNodePath(
                         monitor, nodePath, DBSDataContainer.class);
 
-                    WebSQLExecuteInfo executeResults =  contextInfo.getProcessor().readDataFromContainer(
+                    WebSQLExecuteInfo executeResults = contextInfo.getProcessor().readDataFromContainer(
                         contextInfo,
                         monitor,
                         dataContainer,
@@ -421,6 +459,21 @@ public class WebServiceSQL implements DBWServiceSQL {
             }
         };
         return contextInfo.getProcessor().getWebSession().createAndRunAsyncTask("Read data from container " + nodePath, runnable);
+    }
+
+    @NotNull
+    @Override
+    public List<DBCTraceProperty> readDynamicTrace(
+        @NotNull WebSession webSession,
+        @NotNull WebSQLContextInfo contextInfo,
+        @NotNull String resultsId
+    ) throws DBException {
+        WebSQLResultsInfo resultsInfo = contextInfo.getResults(resultsId);
+        DBCTrace trace = resultsInfo.getTrace();
+        if (trace instanceof DBCTraceDynamic traceDynamic) {
+            return traceDynamic.getTraceProperties(webSession.getProgressMonitor());
+        }
+        throw new DBWebException("Dynamic trace is not found in provided results info");
     }
 
     @Override
@@ -502,18 +555,74 @@ public class WebServiceSQL implements DBWServiceSQL {
         try {
 
             WebSQLResultsInfo resultsInfo = contextInfo.getResults(resultsId);
+            List<SQLGroupingAttribute> groupingAttributes = Arrays.stream(resultsInfo.getAttributes())
+                .filter(attr -> columnsList.contains(WebSQLUtils.getColumnName(attr)))
+                .map(SQLGroupingAttribute::makeBound)
+                .toList();
+
             var dataSource = contextInfo.getProcessor().getConnection().getDataSource();
             var groupingQueryGenerator = new SQLGroupingQueryGenerator(
                 dataSource,
                 resultsInfo.getDataContainer(),
                 getSqlDialectFromConnection(dataSource.getContainer()),
                 contextInfo.getProcessor().getSyntaxManager(),
-                columnsList,
+                groupingAttributes,
                 functions == null ? List.of(SQLGroupingQueryGenerator.DEFAULT_FUNCTION) : functions, // backward compatibility
                 CommonUtils.getBoolean(showDuplicatesOnly, false));
             return groupingQueryGenerator.generateGroupingQuery(resultsInfo.getQueryText());
         } catch (DBException e) {
             throw new DBWebException("Error on generating GROUP BY query", e);
         }
+    }
+
+    @Override
+    public WebAsyncTaskInfo getRowDataCount(@NotNull WebSession webSession, @NotNull WebSQLContextInfo contextInfo, @NotNull String resultsId) throws DBWebException {
+        WebAsyncTaskProcessor<String> runnable = new WebAsyncTaskProcessor<String>() {
+            @Override
+            public void run(DBRProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+                try {
+                    monitor.beginTask("Get row data count", 1);
+                    WebSQLResultsInfo results = contextInfo.getResults(resultsId);
+                    long rowCount = DBUtils.readRowCount(monitor, contextInfo.getProcessor().getExecutionContext(), results.getDataContainer(), null, this);
+                    this.result = "Row data count completed";
+                    this.extendedResults = rowCount;
+                } catch (Throwable e) {
+                    throw new InvocationTargetException(e);
+                } finally {
+                    monitor.done();
+                }
+            }
+        };
+        return contextInfo.getProcessor().getWebSession().createAndRunAsyncTask("SQL result set count rows", runnable);
+    }
+
+    @Override
+    @Nullable
+    public Long getRowDataCountResult(@NotNull WebSession webSession, @NotNull String taskId) throws DBWebException {
+        WebAsyncTaskInfo taskStatus = webSession.asyncTaskStatus(taskId, false);
+        if (taskStatus != null) {
+            return (Long) taskStatus.getExtendedResult();
+        }
+        return null;
+    }
+
+    @Override
+    public WebAsyncTaskInfo asyncSqlSetAutoCommit(@NotNull WebSession webSession, @NotNull WebSQLContextInfo contextInfo, boolean autoCommit) throws DBWebException {
+        return contextInfo.setAutoCommit(autoCommit);
+    }
+
+    @Override
+    public WebAsyncTaskInfo asyncSqlRollbackTransaction(@NotNull WebSession webSession, @NotNull WebSQLContextInfo contextInfo) throws DBWebException {
+        return contextInfo.rollbackTransaction();
+    }
+
+    @Override
+    public WebAsyncTaskInfo asyncSqlCommitTransaction(@NotNull WebSession webSession, @NotNull WebSQLContextInfo contextInfo) {
+        return contextInfo.commitTransaction();
+    }
+
+    @Override
+    public WebTransactionLogInfo getTransactionLogInfo(@NotNull WebSession webSession, @NotNull WebSQLContextInfo sqlContext) {
+        return sqlContext.getTransactionLogInfo();
     }
 }

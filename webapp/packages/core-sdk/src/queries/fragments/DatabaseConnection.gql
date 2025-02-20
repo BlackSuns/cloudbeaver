@@ -4,6 +4,8 @@ fragment DatabaseConnection on ConnectionInfo {
   name
   description
   driverId
+  keepAliveInterval
+  autocommit
 
   template
   connected
@@ -15,6 +17,8 @@ fragment DatabaseConnection on ConnectionInfo {
 
   folder
   nodePath
+
+  mainPropertyValues
 
   configurationType @include(if: $customIncludeOptions)
   useUrl @include(if: $customIncludeOptions)
@@ -31,10 +35,6 @@ fragment DatabaseConnection on ConnectionInfo {
 
   features
   supportedDataFormats
-
-  origin @include(if: $includeOrigin) {
-    ...ObjectOriginInfo
-  }
 
   authNeeded @include(if: $includeAuthNeeded)
   authModel

@@ -1,20 +1,21 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observable } from 'mobx';
 
-import { DefaultValueGetter, isNotNullDefined, isPrimitive, MetadataMap } from '@cloudbeaver/core-utils';
+import { type DefaultValueGetter, isPrimitive, MetadataMap } from '@cloudbeaver/core-utils';
 
-import type { ICachedResourceMetadata } from './ICachedResourceMetadata';
-import { isResourceAlias } from './ResourceAlias';
-import type { ResourceAliases } from './ResourceAliases';
-import type { ResourceKey, ResourceKeyFlat } from './ResourceKey';
-import { isResourceKeyList, ResourceKeyList } from './ResourceKeyList';
-import { ResourceKeyUtils } from './ResourceKeyUtils';
+import { CachedResourceOffsetPageKey, CachedResourceOffsetPageListKey } from './CachedResourceOffsetPageKeys.js';
+import type { ICachedResourceMetadata } from './ICachedResourceMetadata.js';
+import { isResourceAlias, ResourceAlias } from './ResourceAlias.js';
+import type { ResourceAliases } from './ResourceAliases.js';
+import type { ResourceKey, ResourceKeyFlat } from './ResourceKey.js';
+import { isResourceKeyList, ResourceKeyList } from './ResourceKeyList.js';
+import { ResourceKeyUtils } from './ResourceKeyUtils.js';
 
 type MetadataCallback<TMetadata, TValue = void> = (metadata: TMetadata) => TValue;
 
@@ -50,16 +51,31 @@ export class ResourceMetadata<TKey, TMetadata extends ICachedResourceMetadata> {
     return this.metadata.has(this.getMetadataKeyRef(key));
   }
 
-  every(param: ResourceKey<TKey>, predicate: (metadata: TMetadata) => boolean): boolean {
+  every(predicate: (metadata: TMetadata) => boolean): boolean;
+  every(param: ResourceKey<TKey>, predicate: (metadata: TMetadata) => boolean): boolean;
+  every(param: ResourceKey<TKey> | ((metadata: TMetadata) => boolean), predicate?: (metadata: TMetadata) => boolean): boolean {
+    if (!predicate) {
+      predicate = param as (metadata: TMetadata) => boolean;
+      for (const metadata of this.values()) {
+        if (!predicate(metadata)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    param = param as ResourceKey<TKey>;
+    predicate = predicate as MetadataCallback<TMetadata, boolean>;
+
     if (!this.has(param)) {
       return false;
     }
 
-    return !this.some(param, key => !predicate(key));
+    return !this.some(param, key => !predicate!(key));
   }
+
   some(predicate: MetadataCallback<TMetadata, boolean>): boolean;
   some(param: ResourceKey<TKey>, predicate: MetadataCallback<TMetadata, boolean>): boolean;
-
   some(param: ResourceKey<TKey> | MetadataCallback<TMetadata, boolean>, predicate?: MetadataCallback<TMetadata, boolean>): boolean {
     if (!predicate) {
       predicate = param as (metadata: TMetadata) => boolean;
@@ -95,6 +111,8 @@ export class ResourceMetadata<TKey, TMetadata extends ICachedResourceMetadata> {
         if (this.some(param, predicate)) {
           result = true;
         }
+      } else if (predicate(this.get(param))) {
+        result = true;
       }
     }
 
@@ -178,11 +196,11 @@ export class ResourceMetadata<TKey, TMetadata extends ICachedResourceMetadata> {
     if (isResourceAlias(key)) {
       key = this.aliases.transformToAlias(key);
 
-      if (isNotNullDefined(key.target)) {
-        return this.getMetadataKeyRef(key.target);
+      if (isResourceAlias(key, CachedResourceOffsetPageKey) || isResourceAlias(key, CachedResourceOffsetPageListKey)) {
+        return this.getMetadataKeyRef(key.parent as any);
       }
 
-      return key.toString() as TKey;
+      return (key as ResourceAlias<TKey, any>).toString() as TKey;
     }
 
     if (isPrimitive(key)) {

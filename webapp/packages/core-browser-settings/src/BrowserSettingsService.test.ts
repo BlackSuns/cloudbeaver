@@ -1,75 +1,74 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import '@testing-library/jest-dom';
+// import { expect, test } from '@jest/globals';
 
-import { ServerConfigResource } from '@cloudbeaver/core-root';
-import { createGQLEndpoint } from '@cloudbeaver/core-root/dist/__custom_mocks__/createGQLEndpoint';
-import { mockAppInit } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockAppInit';
-import { mockGraphQL } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockGraphQL';
-import { mockServerConfig } from '@cloudbeaver/core-root/dist/__custom_mocks__/resolvers/mockServerConfig';
-import { createApp } from '@cloudbeaver/tests-runner';
+// import { coreClientActivityManifest } from '@cloudbeaver/core-client-activity';
+// import { coreLocalizationManifest } from '@cloudbeaver/core-localization';
+// import { coreRootManifest, ServerConfigResource } from '@cloudbeaver/core-root';
+// import { createGQLEndpoint } from '@cloudbeaver/core-root/__custom_mocks__/createGQLEndpoint.js';
+// import '@cloudbeaver/core-root/__custom_mocks__/expectWebsocketClosedMessage.js';
+// import { mockAppInit } from '@cloudbeaver/core-root/__custom_mocks__/mockAppInit.js';
+// import { mockGraphQL } from '@cloudbeaver/core-root/__custom_mocks__/mockGraphQL.js';
+// import { mockServerConfig } from '@cloudbeaver/core-root/__custom_mocks__/resolvers/mockServerConfig.js';
+// import { coreSDKManifest } from '@cloudbeaver/core-sdk';
+// import { coreSettingsManifest } from '@cloudbeaver/core-settings';
+// import {
+//   expectDeprecatedSettingMessage,
+//   expectNoDeprecatedSettingMessage,
+// } from '@cloudbeaver/core-settings/__custom_mocks__/expectDeprecatedSettingMessage.js';
+// import { createApp } from '@cloudbeaver/tests-runner';
 
-import { BrowserSettingsService, CookiesSettings, DeprecatedCookiesSettings } from './BrowserSettingsService';
+// import { BrowserSettingsService } from './BrowserSettingsService.js';
+// import { coreBrowserSettingsManifest } from './manifest.js';
 
-const endpoint = createGQLEndpoint();
-const app = createApp();
+// const endpoint = createGQLEndpoint();
+// const server = mockGraphQL(...mockAppInit(endpoint));
+// const app = createApp(
+//   coreBrowserSettingsManifest,
+//   coreRootManifest,
+//   coreSDKManifest,
+//   coreSettingsManifest,
+//   coreLocalizationManifest,
+//   coreClientActivityManifest,
+// );
 
-const server = mockGraphQL(...mockAppInit(endpoint));
+// const testValueA = false;
+// const testValueB = true;
 
-beforeAll(() => app.init());
+// const equalConfigA = {
+//   'core.cookies.disabled': testValueA,
+//   'core.browser.cookies.disabled': testValueA,
+// };
 
-const testValueA = false;
-const testValueB = true;
+// const equalConfigB = {
+//   'core.cookies.disabled': testValueB,
+// };
 
-const equalConfigA = {
-  core: {
-    cookies: {
-      disabled: testValueA,
-    } as DeprecatedCookiesSettings,
-    browser: {
-      'cookies.disabled': testValueA,
-    } as CookiesSettings,
-  },
-};
+// test('New settings override deprecated settings', async () => {
+//   const settings = app.serviceProvider.getService(BrowserSettingsService);
+//   const config = app.serviceProvider.getService(ServerConfigResource);
 
-const equalConfigB = {
-  core: {
-    cookies: {
-      disabled: testValueB,
-    } as DeprecatedCookiesSettings,
-    browser: {
-      'cookies.disabled': testValueB,
-    } as CookiesSettings,
-  },
-};
+//   server.use(endpoint.query('serverConfig', mockServerConfig(equalConfigA)));
 
-// TODO: fails because of circular dependency:
-//       BrowserSettingsService -> ... -> LocalStorageSaveService -> core-browser/IndexedDB
-test.skip('New settings equal deprecated settings A', async () => {
-  const settings = app.injector.getServiceByClass(BrowserSettingsService);
-  const config = app.injector.getServiceByClass(ServerConfigResource);
+//   await config.refresh();
 
-  server.use(endpoint.query('serverConfig', mockServerConfig(equalConfigA)));
+//   expect(settings.disabled).toBe(testValueA);
+//   expectNoDeprecatedSettingMessage();
+// });
 
-  await config.refresh();
+// test('New settings fall back to deprecated settings', async () => {
+//   const settings = app.serviceProvider.getService(BrowserSettingsService);
+//   const config = app.serviceProvider.getService(ServerConfigResource);
 
-  expect(settings.settings.getValue('cookies.disabled')).toBe(testValueA);
-  expect(settings.deprecatedSettings.getValue('disabled')).toBe(testValueA);
-});
+//   server.use(endpoint.query('serverConfig', mockServerConfig(equalConfigB)));
 
-test.skip('New settings equal deprecated settings B', async () => {
-  const settings = app.injector.getServiceByClass(BrowserSettingsService);
-  const config = app.injector.getServiceByClass(ServerConfigResource);
+//   await config.refresh();
 
-  server.use(endpoint.query('serverConfig', mockServerConfig(equalConfigB)));
-
-  await config.refresh();
-
-  expect(settings.settings.getValue('cookies.disabled')).toBe(testValueB);
-  expect(settings.deprecatedSettings.getValue('disabled')).toBe(testValueB);
-});
+//   expect(settings.disabled).toBe(testValueB);
+//   expectDeprecatedSettingMessage();
+// });

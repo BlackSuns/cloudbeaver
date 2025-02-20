@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,15 +8,15 @@
 import { computed, makeObservable } from 'mobx';
 
 import { UserDataService } from '@cloudbeaver/core-authentication';
-import { IConnectionExecutionContextInfo, NOT_INITIALIZED_CONTEXT_ID } from '@cloudbeaver/core-connections';
+import { type IConnectionExecutionContextInfo, NOT_INITIALIZED_CONTEXT_ID } from '@cloudbeaver/core-connections';
 import { injectable } from '@cloudbeaver/core-di';
 import type { ProjectInfo } from '@cloudbeaver/core-projects';
 import { getRmResourceKey, ResourceManagerResource } from '@cloudbeaver/core-resource-manager';
 import { ServerConfigResource } from '@cloudbeaver/core-root';
 import { ResourceManagerService } from '@cloudbeaver/plugin-resource-manager';
 
-import { ResourceManagerScriptsSettingsService } from './ResourceManagerScriptsSettingsService';
-import { SCRIPTS_TYPE_ID } from './SCRIPTS_TYPE_ID';
+import { ResourceManagerScriptsSettingsService } from './ResourceManagerScriptsSettingsService.js';
+import { SCRIPTS_TYPE_ID } from './SCRIPTS_TYPE_ID.js';
 
 const queryResourceManagerScriptsSettingsKey = 'resource-manager-scripts';
 
@@ -25,6 +25,7 @@ interface ISettings {
 }
 
 interface IResourceProperties {
+  'default-projectId'?: string;
   'default-datasource'?: string;
   'default-catalog'?: string;
   'default-schema'?: string;
@@ -41,7 +42,7 @@ export class ResourceManagerScriptsService {
   }
 
   get enabled() {
-    return this.resourceManagerService.enabled && !this.resourceManagerScriptsSettingsService.settings.getValue('disabled');
+    return this.resourceManagerService.enabled && !this.resourceManagerScriptsSettingsService.disabled;
   }
 
   constructor(
@@ -86,6 +87,7 @@ export class ResourceManagerScriptsService {
     const resourceKey = getRmResourceKey(path);
 
     const properties: IResourceProperties = await this.resourceManagerResource.setProperties(path, {
+      'default-projectId': executionContext?.projectId,
       'default-datasource': executionContext?.connectionId,
       'default-catalog': executionContext?.defaultCatalog,
       'default-schema': executionContext?.defaultSchema,
@@ -97,7 +99,7 @@ export class ResourceManagerScriptsService {
 
     return {
       id: NOT_INITIALIZED_CONTEXT_ID,
-      projectId: resourceKey.projectId,
+      projectId: properties['default-projectId'] ?? resourceKey.projectId,
       connectionId: properties['default-datasource'],
       defaultCatalog: properties['default-catalog'],
       defaultSchema: properties['default-schema'],
@@ -115,7 +117,7 @@ export class ResourceManagerScriptsService {
 
     return {
       id: NOT_INITIALIZED_CONTEXT_ID,
-      projectId: resourceKey.projectId,
+      projectId: properties['default-projectId'] ?? resourceKey.projectId,
       connectionId: properties['default-datasource'],
       defaultCatalog: properties['default-catalog'],
       defaultSchema: properties['default-schema'],

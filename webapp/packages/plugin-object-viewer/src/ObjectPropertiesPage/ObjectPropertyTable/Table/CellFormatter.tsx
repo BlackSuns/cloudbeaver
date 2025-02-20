@@ -1,48 +1,26 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useContext, useState } from 'react';
-import styled, { css, use } from 'reshadow';
 
-import { getComputed, Icon, useMouse, useStateDelay } from '@cloudbeaver/core-blocks';
+import { getComputed, Icon, s, useContextMenuPosition, useMouse, useS, useStateDelay } from '@cloudbeaver/core-blocks';
 import { ConnectionInfoResource, DATA_CONTEXT_CONNECTION } from '@cloudbeaver/core-connections';
+import { useDataContextLink } from '@cloudbeaver/core-data-context';
 import { useService } from '@cloudbeaver/core-di';
 import { DATA_CONTEXT_NAV_NODE, type DBObject, type NavNode, NavNodeManagerService } from '@cloudbeaver/core-navigation-tree';
 import { ContextMenu } from '@cloudbeaver/core-ui';
 import { useMenu } from '@cloudbeaver/core-view';
+import type { RenderCellProps } from '@cloudbeaver/plugin-data-grid';
 import { MENU_NAV_TREE, useNode } from '@cloudbeaver/plugin-navigation-tree';
-import type { RenderCellProps } from '@cloudbeaver/plugin-react-data-grid';
 
-import { getValue } from '../../helpers';
-import { TableContext } from './TableContext';
-
-const menuStyles = css`
-  menu-container {
-    cursor: pointer;
-    width: 100%;
-  }
-  menu-container:not([|menuEmpty]) value {
-    padding-right: 8px;
-  }
-  menu-box {
-    display: flex;
-    height: 100%;
-    align-items: center;
-
-    & Icon {
-      width: 16px;
-    }
-  }
-  value {
-    flex-grow: 1;
-    flex-shrink: 1;
-  }
-`;
+import { getValue } from '../../helpers.js';
+import classes from './CellFormatter.module.css';
+import { TableContext } from './TableContext.js';
 
 interface Props {
   value: string;
@@ -50,19 +28,22 @@ interface Props {
 }
 
 export const Menu = observer<Props>(function Menu({ value, node }) {
+  const styles = useS(classes);
   const navNodeManagerService = useService(NavNodeManagerService);
   const connectionsInfoResource = useService(ConnectionInfoResource);
   const menu = useMenu({ menu: MENU_NAV_TREE });
   const mouse = useMouse<HTMLDivElement>();
   const [menuOpened, switchState] = useState(false);
-
-  menu.context.set(DATA_CONTEXT_NAV_NODE, node);
-
   const connection = connectionsInfoResource.getConnectionForNode(node.id);
+  const contextMenuPosition = useContextMenuPosition();
 
-  if (connection) {
-    menu.context.set(DATA_CONTEXT_CONNECTION, connection);
-  }
+  useDataContextLink(menu.context, (context, id) => {
+    context.set(DATA_CONTEXT_NAV_NODE, node, id);
+
+    if (connection) {
+      context.set(DATA_CONTEXT_CONNECTION, connection, id);
+    }
+  });
 
   function openNode() {
     navNodeManagerService.navToNode(node.id, node.parentId);
@@ -80,21 +61,25 @@ export const Menu = observer<Props>(function Menu({ value, node }) {
       return !menu.available;
     });
 
-  return styled(menuStyles)(
-    <menu-container ref={mouse.reference} onDoubleClick={openNode} {...use({ menuEmpty, menuOpened })}>
-      <menu-box>
-        <value className="cell-formatter__value" title={value}>
-          {value}
-        </value>
-        {!menuEmpty && (
-          <ContextMenu menu={menu} modal disclosure onVisibleSwitch={switchState}>
-            <menu-icon>
-              <Icon name="snack" viewBox="0 0 16 10" />
-            </menu-icon>
-          </ContextMenu>
-        )}
-      </menu-box>
-    </menu-container>,
+  function contextMenuOpenHandler(event: React.MouseEvent<HTMLDivElement>) {
+    contextMenuPosition.handleContextMenuOpen(event);
+  }
+
+  function valueFieldClickHandler(event: React.MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+  }
+
+  return (
+    <ContextMenu contextMenuPosition={contextMenuPosition} menu={menu} placement="auto-end" modal disclosure onVisibleSwitch={switchState}>
+      <div className={s(styles, { container: true, empty: menuEmpty })} onDoubleClick={openNode}>
+        <div ref={mouse.reference} className={classes['box']} onContextMenu={contextMenuOpenHandler}>
+          <div className={s(styles, { value: true, cellValue: true })} title={value} onClick={valueFieldClickHandler}>
+            {value}
+          </div>
+          {!menuEmpty && <Icon className={classes['icon']} name="snack" viewBox="0 0 16 10" />}
+        </div>
+      </div>
+    </ContextMenu>
   );
 });
 
@@ -112,8 +97,8 @@ export const CellFormatter = observer<RenderCellProps<DBObject>>(function CellFo
   const value = property ? getValue(property.value) : '';
 
   return (
-    <div className="cell-formatter" title={value}>
-      {columnIdx === 0 && !!node ? <Menu node={node} value={value} /> : <span className="cell-formatter__value">{value}</span>}
+    <div className={classes['cell']} title={value}>
+      {columnIdx === 0 && !!node ? <Menu node={node} value={value} /> : <span className={classes['cellValue']}>{value}</span>}
     </div>
   );
 });

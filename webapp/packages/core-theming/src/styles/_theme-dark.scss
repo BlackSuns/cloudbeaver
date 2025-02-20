@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -34,16 +34,16 @@ $input-color-readonly: darken($input-color, 5%);
 $input-border: #585958;
 $input-border-disabled: darken($input-border, 10%);
 $input-border-readonly: darken($input-border, 5%);
-$input-background: $mdc-theme-secondary;
-$input-background-disabled: $input-background;
-$input-background-readonly: $input-background;
+$input-background: $mdc-theme-surface;
+$input-background-disabled: #3e3e3e;
+$input-background-readonly: #3e3e3e;
 
 $mdc-theme-text-colors: (
   dark: (
     primary: white,
     secondary: rgba(white, 0.7),
     sub-secondary: rgba(white, 0.7),
-    hint: rgba(white, 0.45),
+    hint: rgba(white, 0.55),
     disabled: rgba(white, 0.45),
     icon: rgba(white, 0.45),
     negative: $color-negative,
@@ -52,7 +52,7 @@ $mdc-theme-text-colors: (
     primary: rgba(black, 0.87),
     secondary: rgba(black, 0.45),
     sub-secondary: rgba(white, 0.7),
-    hint: rgba(black, 0.45),
+    hint: rgba(black, 0.55),
     disabled: rgba(black, 0.2),
     icon: rgba(black, 0.38),
     negative: $color-negative,
@@ -75,6 +75,6 @@ $mdc-ripple-light-ink-opacities: (
   activated: 0.1,
 ) !default;
 
-$theme-name: "dark";
+$theme-name: 'dark';
 
-@import "mixins";
+@import './mixins';

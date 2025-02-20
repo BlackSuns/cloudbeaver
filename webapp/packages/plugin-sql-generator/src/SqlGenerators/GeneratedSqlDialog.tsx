@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -27,13 +27,13 @@ import {
 import { ConnectionInfoResource, createConnectionParam } from '@cloudbeaver/core-connections';
 import { useService } from '@cloudbeaver/core-di';
 import type { DialogComponentProps } from '@cloudbeaver/core-dialogs';
-import { GQLErrorCatcher, SqlDialectInfo } from '@cloudbeaver/core-sdk';
+import { GQLErrorCatcher, type SqlDialectInfo } from '@cloudbeaver/core-sdk';
 import { useCodemirrorExtensions } from '@cloudbeaver/plugin-codemirror6';
 import { SqlDialectInfoService } from '@cloudbeaver/plugin-sql-editor';
 import { SQLCodeEditorLoader, useSqlDialectExtension } from '@cloudbeaver/plugin-sql-editor-new';
 
-import style from './GeneratedSqlDialog.m.css';
-import { SqlGeneratorsResource } from './SqlGeneratorsResource';
+import style from './GeneratedSqlDialog.module.css';
+import { SqlGeneratorsResource } from './SqlGeneratorsResource.js';
 
 interface Payload {
   generatorId: string;

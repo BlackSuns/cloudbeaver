@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,18 @@ import type { IExecutionContextProvider } from '@cloudbeaver/core-executor';
 import { isObjectPropertyInfoStateEqual } from '@cloudbeaver/core-sdk';
 import { formStateContext } from '@cloudbeaver/core-ui';
 
-import { connectionFormConfigureContext } from '../connectionFormConfigureContext';
-import { ConnectionFormService } from '../ConnectionFormService';
-import { connectionConfigContext } from '../Contexts/connectionConfigContext';
-import type { IConnectionFormFillConfigData, IConnectionFormState, IConnectionFormSubmitData } from '../IConnectionFormProps';
-import { DriverPropertiesLoader } from './DriverPropertiesLoader';
+import { connectionFormConfigureContext } from '../connectionFormConfigureContext.js';
+import { ConnectionFormService } from '../ConnectionFormService.js';
+import { connectionConfigContext } from '../Contexts/connectionConfigContext.js';
+import type { IConnectionFormFillConfigData, IConnectionFormState, IConnectionFormSubmitData } from '../IConnectionFormProps.js';
+import { DriverPropertiesLoader } from './DriverPropertiesLoader.js';
 
 @injectable()
 export class ConnectionDriverPropertiesTabService extends Bootstrap {
-  constructor(private readonly connectionFormService: ConnectionFormService, private readonly dbDriverResource: DBDriverResource) {
+  constructor(
+    private readonly connectionFormService: ConnectionFormService,
+    private readonly dbDriverResource: DBDriverResource,
+  ) {
     super();
 
     makeObservable<this, 'fillConfig'>(this, {
@@ -29,11 +32,11 @@ export class ConnectionDriverPropertiesTabService extends Bootstrap {
     });
   }
 
-  register(): void {
+  override register(): void {
     this.connectionFormService.tabsContainer.add({
       key: 'driver_properties',
-      name: 'customConnection_properties',
-      title: 'customConnection_properties',
+      name: 'plugin_connections_connection_form_part_properties',
+      title: 'plugin_connections_connection_form_part_properties',
       order: 2,
       panel: () => DriverPropertiesLoader,
       isDisabled: (tabId, props) => {
@@ -52,8 +55,6 @@ export class ConnectionDriverPropertiesTabService extends Bootstrap {
 
     this.connectionFormService.configureTask.addHandler(this.configure.bind(this));
   }
-
-  load(): void {}
 
   private configure(data: IConnectionFormState, contexts: IExecutionContextProvider<IConnectionFormState>) {
     const configuration = contexts.getContext(connectionFormConfigureContext);
@@ -80,6 +81,24 @@ export class ConnectionDriverPropertiesTabService extends Bootstrap {
     const config = contexts.getContext(connectionConfigContext);
 
     config.properties = { ...state.config.properties };
+
+    if (config.driverId) {
+      const driver = this.dbDriverResource.get(config.driverId);
+      const trimmedProperties: typeof config.properties = {};
+
+      const defaultDriverProperties = new Set(driver?.driverProperties?.map(property => property.id) ?? []);
+
+      for (let key of Object.keys(config.properties)) {
+        const value = config.properties[key];
+        if (!defaultDriverProperties?.has(key)) {
+          key = key.trim();
+        }
+
+        trimmedProperties[key] = typeof value === 'string' ? value.trim() : value;
+      }
+
+      config.properties = trimmedProperties;
+    }
   }
 
   private formState(data: IConnectionFormState, contexts: IExecutionContextProvider<IConnectionFormState>) {

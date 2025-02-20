@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ export const SSHKeyUploader = observer<Props>(function SSHKeyUploader({ state, s
         disabled={disabled}
         readOnly={readonly}
         description={saved ? translate('ui_processing_saved') : undefined}
-        required={state.savePassword}
+        required={state.savePassword && !saved}
         medium
       >
         {translate('connections_network_handler_ssh_tunnel_private_key')}

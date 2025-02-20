@@ -1,207 +1,167 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observable } from 'mobx';
 import { observer } from 'mobx-react-lite';
-import { useMemo } from 'react';
-import styled, { css } from 'reshadow';
 
-import { Button, useObservableRef, useStyles, useTranslate } from '@cloudbeaver/core-blocks';
+import { ActionIconButton, Container, Group, Loader, s, SContext, type StyleRegistry, useS, useTranslate } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import { NotificationService } from '@cloudbeaver/core-events';
-import { QuotasService } from '@cloudbeaver/core-root';
-import { BASE_TAB_STYLES, TabContainerPanelComponent, TabList, TabsState, UNDERLINE_TAB_STYLES } from '@cloudbeaver/core-ui';
-import { bytesToSize } from '@cloudbeaver/core-utils';
-import { EditorLoader, useCodemirrorExtensions } from '@cloudbeaver/plugin-codemirror6';
+import { type TabContainerPanelComponent, TabList, TabsState, TabStyles, useTabLocalState } from '@cloudbeaver/core-ui';
 
-import type { IResultSetElementKey } from '../../DatabaseDataModel/Actions/ResultSet/IResultSetDataKey';
-import { isResultSetContentValue } from '../../DatabaseDataModel/Actions/ResultSet/isResultSetContentValue';
-import { ResultSetDataContentAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetDataContentAction';
-import { ResultSetEditAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetEditAction';
-import { ResultSetFormatAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetFormatAction';
-import { ResultSetSelectAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetSelectAction';
-import { ResultSetViewAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetViewAction';
-import type { IDatabaseResultSet } from '../../DatabaseDataModel/IDatabaseResultSet';
-import type { IDataValuePanelProps } from '../../TableViewer/ValuePanel/DataValuePanelService';
-import { QuotaPlaceholder } from '../QuotaPlaceholder';
-import { VALUE_PANEL_TOOLS_STYLES } from '../ValuePanelTools/VALUE_PANEL_TOOLS_STYLES';
-import { getTypeExtension } from './getTypeExtension';
-import { TextValuePresentationService } from './TextValuePresentationService';
-import { useAutoFormat } from './useAutoFormat';
+import { ResultSetDataContentAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetDataContentAction.js';
+import { ResultSetEditAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetEditAction.js';
+import { ResultSetFormatAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetFormatAction.js';
+import { ResultSetSelectAction } from '../../DatabaseDataModel/Actions/ResultSet/ResultSetSelectAction.js';
+import { DataViewerService } from '../../DataViewerService.js';
+import { isResultSetDataModel } from '../../ResultSet/isResultSetDataModel.js';
+import type { IDataValuePanelProps } from '../../TableViewer/ValuePanel/DataValuePanelService.js';
+import { getDefaultLineWrapping } from './getDefaultLineWrapping.js';
+import { isTextValueReadonly } from './isTextValueReadonly.js';
+import styles from './shared/TextValuePresentation.module.css';
+import TextValuePresentationTab from './shared/TextValuePresentationTab.module.css';
+import { TextValueEditor } from './TextValueEditor.js';
+import { TextValuePresentationService } from './TextValuePresentationService.js';
+import { TextValueTruncatedMessage } from './TextValueTruncatedMessage.js';
+import { useAutoContentType } from './useAutoContentType.js';
+import { useTextValueGetter } from './useTextValueGetter.js';
 
-const styles = css`
-  Tab {
-    composes: theme-ripple theme-background-surface theme-text-text-primary-on-light from global;
+const tabRegistry: StyleRegistry = [[TabStyles, { mode: 'append', styles: [TextValuePresentationTab] }]];
+
+export const TextValuePresentation: TabContainerPanelComponent<IDataValuePanelProps> = observer(function TextValuePresentation({
+  model: unknownModel,
+  resultIndex,
+  dataFormat,
+}) {
+  const model = unknownModel as any;
+  if (!isResultSetDataModel(model)) {
+    throw new Error('TextValuePresentation can be used only with ResultSetDataSource');
   }
-  container {
-    display: flex;
-    gap: 8px;
-    flex-direction: column;
-    overflow: auto;
-    flex: 1;
-  }
-  actions {
-    display: flex;
-    justify-content: center;
-    flex: 0;
-  }
-  EditorLoader {
-    border-radius: var(--theme-group-element-radius);
-  }
-  EditorLoader {
-    flex: 1;
-    overflow: auto;
-  }
-  TabList {
-    composes: theme-border-color-background theme-background-background from global;
-    overflow: auto;
-    border-radius: var(--theme-group-element-radius);
+  const translate = useTranslate();
+  const notificationService = useService(NotificationService);
+  const textValuePresentationService = useService(TextValuePresentationService);
+  const dataViewerService = useService(DataViewerService);
+  const style = useS(styles, TextValuePresentationTab);
+  const selectAction = model.source.getAction(resultIndex, ResultSetSelectAction);
+  const formatAction = model.source.getAction(resultIndex, ResultSetFormatAction);
+  const activeElements = selectAction.getActiveElements();
+  const firstSelectedCell = activeElements.length ? activeElements[0] : undefined;
+  const contentAction = model.source.getAction(resultIndex, ResultSetDataContentAction);
+  const editAction = model.source.getAction(resultIndex, ResultSetEditAction);
 
-    & Tab {
-      border-bottom: 0;
+  const state = useTabLocalState(() =>
+    observable({
+      lineWrapping: null as boolean | null,
+      currentContentType: null as string | null,
 
-      &:global([aria-selected='false']) {
-        border-bottom: 0 !important;
-      }
-    }
-  }
-`;
-
-export const TextValuePresentation: TabContainerPanelComponent<IDataValuePanelProps<any, IDatabaseResultSet>> = observer(
-  function TextValuePresentation({ model, resultIndex }) {
-    const translate = useTranslate();
-    const notificationService = useService(NotificationService);
-    const quotasService = useService(QuotasService);
-    const textValuePresentationService = useService(TextValuePresentationService);
-    const style = useStyles(styles, UNDERLINE_TAB_STYLES, VALUE_PANEL_TOOLS_STYLES);
-
-    const state = useObservableRef(
-      () => ({
-        currentContentType: 'text/plain',
-        lastContentType: 'text/plain',
-
-        setContentType(type: string) {
-          this.currentContentType = type;
-        },
-        setDefaultContentType(type: string) {
-          this.currentContentType = type;
-          this.lastContentType = type;
-        },
-      }),
-      {
-        currentContentType: observable.ref,
-        lastContentType: observable.ref,
+      setContentType(contentType: string | null) {
+        this.currentContentType = contentType;
       },
-      false,
-      ['setContentType', 'setDefaultContentType'],
-    );
+      setLineWrapping(lineWrapping: boolean | null) {
+        this.lineWrapping = lineWrapping;
+      },
+    }),
+  );
+  const contentType = useAutoContentType({
+    dataFormat,
+    model,
+    resultIndex,
+    currentContentType: state.currentContentType,
+    elementKey: firstSelectedCell,
+    formatAction,
+  });
+  const textValueGetter = useTextValueGetter({
+    contentAction,
+    editAction,
+    formatAction,
+    dataFormat,
+    contentType,
+    elementKey: firstSelectedCell,
+  });
+  const autoLineWrapping = getDefaultLineWrapping(contentType);
+  const lineWrapping = state.lineWrapping ?? autoLineWrapping;
+  const isReadonly = isTextValueReadonly({ model, resultIndex, contentAction, cell: firstSelectedCell, formatAction });
+  const canSave = firstSelectedCell && contentAction.isDownloadable(firstSelectedCell) && dataViewerService.canExportData;
 
-    const selection = model.source.getAction(resultIndex, ResultSetSelectAction);
-    const editor = model.source.getAction(resultIndex, ResultSetEditAction);
-    const content = model.source.getAction(resultIndex, ResultSetDataContentAction);
+  function valueChangeHandler(newValue: string) {
+    if (firstSelectedCell && !isReadonly) {
+      editAction.set(firstSelectedCell, newValue);
+    }
+  }
 
-    const focusCell = selection.getFocusedElement();
-
-    let stringValue = '';
-    let contentType = 'text/plain';
-    let firstSelectedCell: IResultSetElementKey | undefined;
-    let readonly = true;
-    let valueTruncated = false;
-    let limit: string | undefined;
-    let valueSize: string | undefined;
-
-    if (selection.elements.length > 0 || focusCell) {
-      const view = model.source.getAction(resultIndex, ResultSetViewAction);
-      const format = model.source.getAction(resultIndex, ResultSetFormatAction);
-
-      firstSelectedCell = selection.elements[0] || focusCell;
-
-      const value = view.getCellValue(firstSelectedCell) ?? '';
-
-      stringValue = format.getText(value) ?? '';
-      readonly = format.isReadOnly(firstSelectedCell);
-
-      if (isResultSetContentValue(value)) {
-        valueTruncated = content.isContentTruncated(value);
-
-        if (valueTruncated) {
-          limit = bytesToSize(quotasService.getQuota('sqlBinaryPreviewMaxLength'));
-          valueSize = bytesToSize(value.contentLength ?? 0);
-        }
-
-        if (value.contentType) {
-          contentType = value.contentType;
-
-          if (contentType === 'text/json') {
-            contentType = 'application/json';
-          }
-
-          if (!textValuePresentationService.tabs.has(contentType)) {
-            contentType = 'text/plain';
-          }
-        }
-      }
+  async function saveHandler() {
+    if (!firstSelectedCell) {
+      return;
     }
 
-    readonly = model.isReadonly(resultIndex) || model.isDisabled(resultIndex) || readonly;
-
-    if (contentType !== state.lastContentType) {
-      state.setDefaultContentType(contentType);
+    try {
+      await contentAction.downloadFileData(firstSelectedCell);
+    } catch (exception) {
+      notificationService.logException(exception as any, 'data_viewer_presentation_value_content_download_error');
     }
+  }
 
-    const formatter = useAutoFormat();
-
-    function handleChange(newValue: string) {
-      if (firstSelectedCell && !readonly) {
-        editor.set(firstSelectedCell, newValue);
-      }
+  async function selectTabHandler(tabId: string) {
+    // currentContentType may be selected automatically we don't want to change state in this case
+    if (tabId !== contentType) {
+      state.setContentType(tabId);
     }
+  }
 
-    async function save() {
-      if (!firstSelectedCell) {
-        return;
-      }
+  function toggleLineWrappingHandler() {
+    state.setLineWrapping(!lineWrapping);
+  }
 
-      try {
-        await content.downloadFileData(firstSelectedCell);
-      } catch (exception) {
-        notificationService.logException(exception as any, 'data_viewer_presentation_value_content_download_error');
-      }
-    }
-
-    const autoFormat = !!firstSelectedCell && !editor.isElementEdited(firstSelectedCell);
-    const canSave = !!firstSelectedCell && content.isDownloadable(firstSelectedCell);
-    const typeExtension = useMemo(() => getTypeExtension(state.currentContentType) ?? [], [state.currentContentType]);
-    const extensions = useCodemirrorExtensions(undefined, typeExtension);
-
-    const value = autoFormat ? formatter.format(state.currentContentType, stringValue) : stringValue;
-
-    return styled(style)(
-      <container>
-        <actions>
+  return (
+    <Container vertical gap dense overflow>
+      <Container keepSize center overflow>
+        <Container keepSize>
           <TabsState
+            dataFormat={dataFormat}
+            resultIndex={resultIndex}
             container={textValuePresentationService.tabs}
-            currentTabId={state.currentContentType}
+            currentTabId={contentType}
+            model={model}
             lazy
-            onChange={tab => state.setContentType(tab.tabId)}
+            onChange={tab => selectTabHandler(tab.tabId)}
           >
-            <TabList style={[BASE_TAB_STYLES, styles, UNDERLINE_TAB_STYLES]} />
+            <SContext registry={tabRegistry}>
+              <TabList className={s(style, { tabList: true, textValuePresentationTab: true, underline: true })} underline />
+            </SContext>
           </TabsState>
-        </actions>
-        <EditorLoader key={readonly ? '1' : '0'} value={value} readonly={readonly} extensions={extensions} onChange={value => handleChange(value)} />
-        {valueTruncated && <QuotaPlaceholder limit={limit} size={valueSize} />}
-        {canSave && (
-          <tools-container>
-            <Button disabled={model.isLoading()} onClick={save}>
-              {translate('ui_download')}
-            </Button>
-          </tools-container>
-        )}
-      </container>,
-    );
-  },
-);
+        </Container>
+      </Container>
+      <Loader suspense>
+        <Group overflow maximum box>
+          <TextValueEditor
+            contentType={contentType}
+            lineWrapping={lineWrapping}
+            readonly={isReadonly}
+            valueGetter={textValueGetter}
+            onChange={valueChangeHandler}
+          />
+        </Group>
+      </Loader>
+      {firstSelectedCell && <TextValueTruncatedMessage model={model} resultIndex={resultIndex} elementKey={firstSelectedCell} />}
+      <Container keepSize overflow>
+        <Container keepSize noWrap>
+          {canSave && (
+            <ActionIconButton title={translate('ui_download')} name="/icons/export.svg" disabled={model.isLoading()} img onClick={saveHandler} />
+          )}
+          <ActionIconButton
+            title={translate(
+              lineWrapping ? 'data_viewer_presentation_value_text_line_wrapping_no_wrap' : 'data_viewer_presentation_value_text_line_wrapping_wrap',
+            )}
+            name={`/icons/plugin_data_viewer_${lineWrapping ? 'no_wrap' : 'wrap'}_lines.svg`}
+            img
+            onClick={toggleLineWrappingHandler}
+          />
+        </Container>
+      </Container>
+    </Container>
+  );
+});

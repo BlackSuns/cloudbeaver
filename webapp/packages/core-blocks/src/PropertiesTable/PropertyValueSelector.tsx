@@ -1,26 +1,18 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useCallback, useEffect, useRef } from 'react';
-import { Menu, MenuButton, MenuItem, useMenuState } from 'reakit/Menu';
-import styled, { css } from 'reshadow';
+import { Menu, MenuButton, MenuItem, useMenuState } from 'reakit';
 
-import { BASE_DROPDOWN_STYLES } from '../FormControls/BASE_DROPDOWN_STYLES';
-
-const styles = css`
-  MenuButton {
-    composes: theme-ripple from global;
-    background: transparent;
-    outline: none;
-    padding: 4px;
-    cursor: pointer;
-  }
-`;
+import { BaseDropdownStyles } from '../index.js';
+import { s } from '../s.js';
+import { useS } from '../useS.js';
+import classes from './PropertyValueSelector.module.css';
 
 interface Props {
   propertyName?: string;
@@ -40,6 +32,7 @@ export const PropertyValueSelector = observer<React.PropsWithChildren<Props>>(fu
   onSelect,
   onSwitch,
 }) {
+  const styles = useS(classes, BaseDropdownStyles);
   const menuRef = useRef<HTMLDivElement>(null);
   const menu = useMenuState({
     placement: 'bottom-end',
@@ -76,22 +69,19 @@ export const PropertyValueSelector = observer<React.PropsWithChildren<Props>>(fu
 
   const visible = menu.visible;
 
-  return styled(
-    BASE_DROPDOWN_STYLES,
-    styles,
-  )(
+  return (
     <>
-      <MenuButton {...menu} className={className} visible={visible}>
+      <MenuButton {...menu} className={s(styles, { menuButton: true }, className)} visible={visible}>
         {children}
       </MenuButton>
-      <Menu {...menu} ref={menuRef} visible={visible} aria-label={propertyName} modal>
+      <Menu className={s(styles, { menu: true })} {...menu} ref={menuRef} visible={visible} aria-label={propertyName} modal>
         {visible &&
           values.map(value => (
-            <MenuItem key={value} id={value} type="button" {...menu} onClick={handleMenuSelect}>
+            <MenuItem key={value} className={s(styles, { menuItem: true })} id={value} type="button" {...menu} onClick={handleMenuSelect}>
               {value}
             </MenuItem>
           ))}
       </Menu>
-    </>,
+    </>
   );
 });

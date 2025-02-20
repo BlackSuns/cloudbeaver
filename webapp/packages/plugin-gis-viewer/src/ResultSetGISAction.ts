@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -11,26 +11,19 @@ import {
   DatabaseDataAction,
   type IDatabaseDataSource,
   type IDatabaseResultSet,
-  IResultSetElementKey,
+  type IResultSetElementKey,
+  type IResultSetGeometryValue,
+  isResultSetGeometryValue,
   ResultSetViewAction,
 } from '@cloudbeaver/plugin-data-viewer';
 
-import type { IDatabaseDataGISAction } from './IDatabaseDataGISAction';
+import type { IDatabaseDataGISAction } from './IDatabaseDataGISAction.js';
 
-export interface IGISType {
-  $type: string;
-  srid: number;
-  text: string;
-  mapText: string | null;
-  properties: Record<string, any> | null;
-}
 @databaseDataAction()
 export class ResultSetGISAction
   extends DatabaseDataAction<any, IDatabaseResultSet>
   implements IDatabaseDataGISAction<IResultSetElementKey, IDatabaseResultSet>
 {
-  private readonly GISValueType = 'geometry';
-
   static dataFormat = [ResultDataFormat.Resultset];
 
   private readonly view: ResultSetViewAction;
@@ -43,22 +36,20 @@ export class ResultSetGISAction
   isGISFormat(cell: IResultSetElementKey): boolean {
     const value = this.view.getCellValue(cell);
 
-    if (value !== null && typeof value === 'object' && '$type' in value) {
-      return value.$type === this.GISValueType;
-    }
-
-    return false;
+    return isResultSetGeometryValue(value);
   }
 
   getGISDataFor(cells: IResultSetElementKey[]): IResultSetElementKey[] {
     return cells.filter(cell => this.isGISFormat(cell));
   }
 
-  getCellValue(cell: IResultSetElementKey): IGISType | undefined {
-    if (!this.isGISFormat(cell)) {
+  getCellValue(cell: IResultSetElementKey): IResultSetGeometryValue | undefined {
+    const value = this.view.getCellValue(cell);
+
+    if (!isResultSetGeometryValue(value)) {
       return undefined;
     }
 
-    return this.view.getCellValue(cell) as any as IGISType;
+    return value;
   }
 }

@@ -1,25 +1,36 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { ResultDataFormat } from '@cloudbeaver/core-sdk';
-import { removeLineBreak } from '@cloudbeaver/core-utils';
 
-import { DatabaseDataAction } from '../../DatabaseDataAction';
-import type { IDatabaseDataSource } from '../../IDatabaseDataSource';
-import type { IDatabaseResultSet } from '../../IDatabaseResultSet';
-import { databaseDataAction } from '../DatabaseDataActionDecorator';
-import { DatabaseEditChangeType } from '../IDatabaseDataEditAction';
-import type { IDatabaseDataFormatAction } from '../IDatabaseDataFormatAction';
-import type { IResultSetElementKey, IResultSetPartialKey } from './IResultSetDataKey';
-import { isResultSetContentValue } from './isResultSetContentValue';
-import { ResultSetEditAction } from './ResultSetEditAction';
-import { ResultSetViewAction } from './ResultSetViewAction';
+import { DatabaseDataAction } from '../../DatabaseDataAction.js';
+import type { IDatabaseDataSource } from '../../IDatabaseDataSource.js';
+import type { IDatabaseResultSet } from '../../IDatabaseResultSet.js';
+import { databaseDataAction } from '../DatabaseDataActionDecorator.js';
+import { DatabaseEditChangeType } from '../IDatabaseDataEditAction.js';
+import type { IDatabaseDataFormatAction } from '../IDatabaseDataFormatAction.js';
+import type { IResultSetComplexValue } from './IResultSetComplexValue.js';
+import type { IResultSetColumnKey, IResultSetElementKey, IResultSetPartialKey } from './IResultSetDataKey.js';
+import { isResultSetComplexValue } from './isResultSetComplexValue.js';
+import { isResultSetContentValue } from './isResultSetContentValue.js';
+import { isResultSetFileValue } from './isResultSetFileValue.js';
+import { isResultSetGeometryValue } from './isResultSetGeometryValue.js';
+import { ResultSetEditAction } from './ResultSetEditAction.js';
+import { ResultSetViewAction } from './ResultSetViewAction.js';
 
-export type IResultSetValue = string | number | boolean | Record<string, string | number | Record<string, any> | null> | null;
+export type IResultSetValue =
+  | string
+  | number
+  | boolean
+  | Record<string, string | number | Record<string, any> | null>
+  | IResultSetComplexValue
+  | null;
+
+const DISPLAY_STRING_LENGTH = 200;
 
 @databaseDataAction()
 export class ResultSetFormatAction
@@ -37,29 +48,6 @@ export class ResultSetFormatAction
     this.edit = edit;
   }
 
-  getHeaders(): string[] {
-    return this.view.columns.map(column => column.name!).filter(name => name !== undefined);
-  }
-
-  getLongestCells(offset = 0, count?: number): string[] {
-    const rows = this.view.rows.slice(offset, count);
-    const cells: string[] = [];
-
-    for (const row of rows) {
-      for (let i = 0; i < row.length; i++) {
-        const value = this.toDisplayString(row[i]);
-        const columnIndex = this.view.columnIndex({ index: i });
-        const current = cells[columnIndex] ?? '';
-
-        if (value.length > current.length) {
-          cells[columnIndex] = value;
-        }
-      }
-    }
-
-    return cells;
-  }
-
   isReadOnly(key: IResultSetPartialKey): boolean {
     let readonly = false;
 
@@ -71,40 +59,141 @@ export class ResultSetFormatAction
       if (!readonly) {
         readonly = this.edit.getElementState(key as IResultSetElementKey) === DatabaseEditChangeType.delete;
       }
-
-      if (!readonly) {
-        const value = this.view.getCellValue(key as IResultSetElementKey);
-
-        if (isResultSetContentValue(value)) {
-          readonly = value.binary !== undefined || value.contentLength !== value.text?.length;
-        } else if (value !== null && typeof value === 'object') {
-          readonly = true;
-        }
-      }
     }
 
     return readonly;
   }
-
-  isNull(value: IResultSetValue): boolean {
-    return this.get(value) === null;
+  isNull(key: IResultSetElementKey): boolean {
+    return this.get(key) === null;
   }
 
-  get(value: IResultSetValue): IResultSetValue {
-    if (value !== null && typeof value === 'object') {
-      if ('text' in value) {
-        return value.text;
-      } else if ('value' in value) {
-        return value.value;
-      }
-      return value;
+  isBinary(key: IResultSetPartialKey): boolean {
+    if (!key.column) {
+      return false;
     }
 
-    return value;
+    const column = this.view.getColumn(key.column);
+    if (column?.dataKind?.toLocaleLowerCase() === 'binary') {
+      return true;
+    }
+
+    if (key.row) {
+      const value = this.get(key as IResultSetElementKey);
+
+      if (isResultSetFileValue(value)) {
+        return true;
+      }
+
+      if (isResultSetContentValue(value)) {
+        return value.binary !== undefined;
+      }
+    }
+
+    return false;
   }
 
-  getText(value: IResultSetValue): string | null {
-    value = this.get(value);
+  isGeometry(key: IResultSetPartialKey) {
+    if (key.column) {
+      const column = this.view.getColumn(key.column);
+      if (column?.dataKind?.toLocaleLowerCase() === 'geometry') {
+        return true;
+      }
+    }
+
+    if (key.row) {
+      const value = this.get(key as IResultSetElementKey);
+      return isResultSetComplexValue(value) && value.$type === 'geometry';
+    }
+
+    return false;
+  }
+
+  isText(key: IResultSetPartialKey): boolean {
+    if (!key?.column) {
+      return false;
+    }
+
+    const column = this.view.getColumn(key.column);
+
+    if (column?.dataKind?.toLocaleLowerCase() === 'string') {
+      return true;
+    }
+
+    if (key.row && !this.isBinary(key)) {
+      const value = this.get(key as IResultSetElementKey);
+
+      if (isResultSetContentValue(value)) {
+        return value.text !== undefined;
+      }
+    }
+
+    return false;
+  }
+
+  getHeaders(): string[] {
+    return this.view.columns.map(column => column.name!).filter(name => name !== undefined);
+  }
+
+  getLongestCells(column?: IResultSetColumnKey, offset = 0, count?: number): string[] {
+    const cells: string[] = [];
+    const columns = column ? [column] : this.view.columnKeys;
+    count ??= this.view.rowKeys.length;
+
+    for (let rowIndex = offset; rowIndex < offset + count; rowIndex++) {
+      for (let columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+        const key = { row: this.view.rowKeys[rowIndex]!, column: columns[columnIndex]! };
+        const displayString = this.getDisplayString(key);
+        const current = cells[columnIndex] ?? '';
+
+        if (displayString.length > current.length) {
+          cells[columnIndex] = displayString;
+        }
+      }
+    }
+
+    return cells;
+  }
+
+  get(key: IResultSetElementKey): IResultSetValue {
+    return this.view.getCellValue(key);
+  }
+
+  getText(key: IResultSetElementKey): string {
+    const value = this.get(key);
+
+    if (value === null) {
+      return '';
+    }
+
+    if (isResultSetContentValue(value)) {
+      if (value.text !== undefined) {
+        return value.text;
+      }
+
+      return '';
+    }
+
+    if (isResultSetGeometryValue(value)) {
+      if (value.text !== undefined) {
+        return value.text;
+      }
+
+      return '';
+    }
+
+    if (isResultSetComplexValue(value)) {
+      if (value.value !== undefined) {
+        if (typeof value.value === 'object' && value.value !== null) {
+          return JSON.stringify(value.value);
+        }
+        return String(value.value);
+      }
+      return '';
+    }
+
+    if (this.isBinary(key)) {
+      return '';
+    }
 
     if (value !== null && typeof value === 'object') {
       return JSON.stringify(value);
@@ -117,22 +206,57 @@ export class ResultSetFormatAction
     return value;
   }
 
-  toDisplayString(value: IResultSetValue): string {
-    value = this.getText(value);
+  getDisplayString(key: IResultSetElementKey): string {
+    const value = this.get(key);
 
     if (value === null) {
       return '[null]';
     }
 
-    if (typeof value === 'string' && value.length > 1000) {
-      return removeLineBreak(
-        value
-          .split('')
-          .map(v => (v.charCodeAt(0) < 32 ? ' ' : v))
-          .join(''),
-      );
+    if (isResultSetGeometryValue(value)) {
+      if (value.text !== undefined) {
+        return this.truncateText(String(value.text), DISPLAY_STRING_LENGTH);
+      }
+
+      return '[null]';
     }
 
-    return removeLineBreak(String(value));
+    if (this.isBinary(key)) {
+      if (isResultSetContentValue(value) && value.text === 'null') {
+        return '[null]';
+      }
+
+      return '[blob]';
+    }
+
+    if (isResultSetContentValue(value)) {
+      if (value.text !== undefined) {
+        return this.truncateText(String(value.text), DISPLAY_STRING_LENGTH);
+      }
+
+      return '[null]';
+    }
+
+    if (isResultSetComplexValue(value)) {
+      if (value.value !== undefined) {
+        if (typeof value.value === 'object' && value.value !== null) {
+          return JSON.stringify(value.value);
+        }
+
+        return String(value.value);
+      }
+
+      return '[null]';
+    }
+
+    return this.truncateText(String(value), DISPLAY_STRING_LENGTH);
+  }
+
+  truncateText(text: string, length: number): string {
+    return text
+      .slice(0, length)
+      .split('')
+      .map(v => (v.charCodeAt(0) < 32 ? ' ' : v))
+      .join('');
   }
 }

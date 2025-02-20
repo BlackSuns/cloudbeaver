@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ $mdc-theme-text-colors: (
     primary: white,
     secondary: rgba(white, 0.7),
     sub-secondary: rgba(white, 0.7),
-    hint: rgba(white, 0.45),
+    hint: rgba(white, 0.55),
     disabled: rgba(white, 0.45),
     icon: rgba(white, 0.45),
     negative: $color-negative,
@@ -51,13 +51,13 @@ $mdc-theme-text-colors: (
     primary: rgba(black, 0.87),
     secondary: rgba(black, 0.45),
     sub-secondary: rgba(black, 0.45),
-    hint: rgba(black, 0.45),
+    hint: rgba(black, 0.55),
     disabled: rgba(black, 0.2),
     icon: rgba(black, 0.38),
     negative: $color-negative,
   ),
 );
 
-$theme-name: "light";
+$theme-name: 'light';
 
-@import "mixins";
+@import './mixins';

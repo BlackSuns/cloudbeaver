@@ -1,11 +1,10 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { CoreSettingsService } from '@cloudbeaver/core-app';
 import { ConfirmationDialogDelete, RenameDialog } from '@cloudbeaver/core-blocks';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
 import { CommonDialogService, DialogueStateResult } from '@cloudbeaver/core-dialogs';
@@ -17,7 +16,7 @@ import {
   ENodeFeature,
   getNodePlainName,
   type INodeActions,
-  NAV_NODE_TYPE_FOLDER,
+  isConnectionFolder,
   type NavNode,
   NavNodeInfoResource,
   NavNodeManagerService,
@@ -33,13 +32,13 @@ import {
   ACTION_REFRESH,
   ACTION_RENAME,
   ActionService,
-  DATA_CONTEXT_MENU_NESTED,
   menuExtractItems,
   MenuSeparatorItem,
   MenuService,
 } from '@cloudbeaver/core-view';
 
-import { DATA_CONTEXT_NAV_NODE_ACTIONS } from '../NavigationTree/ElementsTree/NavigationTreeNode/TreeNodeMenu/DATA_CONTEXT_NAV_NODE_ACTIONS';
+import { DATA_CONTEXT_NAV_NODE_ACTIONS } from '../NavigationTree/ElementsTree/NavigationTreeNode/TreeNodeMenu/DATA_CONTEXT_NAV_NODE_ACTIONS.js';
+import { MENU_NAVIGATION_TREE_CREATE } from '../NavigationTree/ElementsTree/NavigationTreeNode/TreeNodeMenu/MENU_NAVIGATION_TREE_CREATE.js';
 
 export interface INodeMenuData {
   node: NavNode;
@@ -55,7 +54,6 @@ export class NavNodeContextMenuService extends Bootstrap {
     private readonly navTreeResource: NavTreeResource,
     private readonly actionService: ActionService,
     private readonly menuService: MenuService,
-    private readonly coreSettingsService: CoreSettingsService,
     private readonly localizationService: LocalizationService,
     private readonly navNodeInfoResource: NavNodeInfoResource,
     private readonly navTreeSettingsService: NavTreeSettingsService,
@@ -63,7 +61,7 @@ export class NavNodeContextMenuService extends Bootstrap {
     super();
   }
 
-  register(): void {
+  override register(): void {
     this.navTreeResource.beforeNodeDelete.addPostHandler(async (data, contexts) => {
       if (ExecutorInterrupter.isInterrupted(contexts)) {
         return;
@@ -99,14 +97,11 @@ export class NavNodeContextMenuService extends Bootstrap {
 
     this.actionService.addHandler({
       id: 'nav-node-base-handler',
+      contexts: [DATA_CONTEXT_NAV_NODE],
       isActionApplicable: (context, action): boolean => {
-        const node = context.tryGet(DATA_CONTEXT_NAV_NODE);
+        const node = context.get(DATA_CONTEXT_NAV_NODE)!;
 
-        if (!node) {
-          return false;
-        }
-
-        if (NodeManagerUtils.isDatabaseObject(node.id) || node.nodeType === NAV_NODE_TYPE_FOLDER) {
+        if (NodeManagerUtils.isDatabaseObject(node.id) || isConnectionFolder(node)) {
           if (action === ACTION_RENAME) {
             return node.features?.includes(ENodeFeature.canRename) ?? false;
           }
@@ -123,7 +118,7 @@ export class NavNodeContextMenuService extends Bootstrap {
         return [ACTION_OPEN, ACTION_REFRESH].includes(action);
       },
       handler: async (context, action) => {
-        const node = context.get(DATA_CONTEXT_NAV_NODE);
+        const node = context.get(DATA_CONTEXT_NAV_NODE)!;
         const name = getNodePlainName(node);
 
         switch (action) {
@@ -140,7 +135,7 @@ export class NavNodeContextMenuService extends Bootstrap {
             break;
           }
           case ACTION_RENAME: {
-            const actions = context.tryGet(DATA_CONTEXT_NAV_NODE_ACTIONS);
+            const actions = context.get(DATA_CONTEXT_NAV_NODE_ACTIONS);
 
             const save = async (newName: string) => {
               if (name !== newName && newName.trim().length) {
@@ -158,7 +153,7 @@ export class NavNodeContextMenuService extends Bootstrap {
               actions.rename(save);
             } else {
               const result = await this.commonDialogService.open(RenameDialog, {
-                value: name,
+                name,
                 subTitle: name,
                 objectName: node.nodeType || 'Object',
                 icon: node.icon,
@@ -186,24 +181,22 @@ export class NavNodeContextMenuService extends Bootstrap {
       },
     });
 
+    this.menuService.setHandler({
+      id: 'menu-navigation-tree-create',
+      menus: [MENU_NAVIGATION_TREE_CREATE],
+    });
+
     this.menuService.addCreator({
-      isApplicable: context => context.has(DATA_CONTEXT_NAV_NODE) && !context.has(DATA_CONTEXT_MENU_NESTED),
+      root: true,
+      contexts: [DATA_CONTEXT_NAV_NODE],
       getItems: (context, items) => {
-        const editingGlobalPermission = this.navTreeSettingsService.settings.isValueDefault('editing')
-          ? this.coreSettingsService.settings.getValue('app.metadata.editing')
-          : this.navTreeSettingsService.settings.getValue('editing');
+        items = [MENU_NAVIGATION_TREE_CREATE, ACTION_OPEN, ACTION_REFRESH, ...items];
 
-        const deleteGlobalPermission = this.navTreeSettingsService.settings.isValueDefault('deleting')
-          ? this.coreSettingsService.settings.getValue('app.metadata.deleting')
-          : this.navTreeSettingsService.settings.getValue('deleting');
-
-        items = [ACTION_OPEN, ACTION_REFRESH, ...items];
-
-        if (editingGlobalPermission) {
+        if (this.navTreeSettingsService.editing) {
           items.push(ACTION_RENAME);
         }
 
-        if (deleteGlobalPermission) {
+        if (this.navTreeSettingsService.deleting) {
           items.push(ACTION_DELETE);
         }
 
@@ -228,6 +221,4 @@ export class NavNodeContextMenuService extends Bootstrap {
       },
     });
   }
-
-  load(): void {}
 }

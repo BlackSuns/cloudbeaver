@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@ interface Props {
   authenticate: boolean;
 }
 
-export const AuthProviderForm = observer<Props>(function AuthProviderForm({ provider, credentials, authenticate }) {
+export const AuthProviderForm = observer<Props>(function AuthProviderForm({ provider, configuration, credentials, authenticate }) {
   const [elementRef] = useFocus<HTMLDivElement>({ focusFirstChild: true });
 
   function handleProfileSelect() {
     credentials.credentials = {};
   }
 
-  const profile = provider.credentialProfiles[credentials.profile as any as number];
+  const profile = provider.credentialProfiles[credentials.profile as any as number]!;
 
   return (
     <Group ref={elementRef} gap small center>
@@ -45,15 +45,15 @@ export const AuthProviderForm = observer<Props>(function AuthProviderForm({ prov
         parameter =>
           parameter.user && (
             <InputField
-              key={parameter.id}
+              key={`${provider.id}${configuration?.id ?? ''}${parameter.id}`}
+              required={provider.required}
               title={parameter.description}
               type={parameter.encryption === 'none' ? 'text' : 'password'}
               name={parameter.id}
               state={credentials.credentials}
-              disabled={authenticate}
+              readOnly={authenticate}
               canShowPassword={false}
-              autoComplete={`section-authentication section-${provider.id} ${parameter.id}`}
-              mod="surface"
+              autoComplete={`section-authentication section-${provider.id} ${configuration?.id ?? ''} ${parameter.id}`}
             >
               {parameter.displayName}
             </InputField>

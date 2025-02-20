@@ -1,6 +1,6 @@
 {
   "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint/eslint-plugin"],
+  "plugins": ["@typescript-eslint/eslint-plugin", "@cloudbeaver/eslint-plugin"],
   "overrides": [
     {
       "files": ["**/*.cjs"],
@@ -14,13 +14,14 @@
     "plugin:react/recommended",
     "plugin:react-hooks/recommended",
     "plugin:@typescript-eslint/recommended",
+    "plugin:@cloudbeaver/recommended",
     "prettier"
   ],
   "settings": {
     "react": {
       "createClass": "createReactClass",
       "pragma": "React",
-      "version": "detect"
+      "version": "18"
     }
   },
   "rules": {

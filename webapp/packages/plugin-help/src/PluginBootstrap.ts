@@ -1,22 +1,23 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { AppScreenService } from '@cloudbeaver/core-app';
-import { ActionSnackbar } from '@cloudbeaver/core-blocks';
+import { ActionSnackbar, importLazyComponent } from '@cloudbeaver/core-blocks';
+import { LocalStorageSaveService } from '@cloudbeaver/core-browser';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
 import { CommonDialogService } from '@cloudbeaver/core-dialogs';
-import { ENotificationType, INotification, NotificationService } from '@cloudbeaver/core-events';
+import { ENotificationType, type INotification, NotificationService } from '@cloudbeaver/core-events';
 import { ScreenService } from '@cloudbeaver/core-routing';
-import { LocalStorageSaveService } from '@cloudbeaver/core-settings';
 import { ActionService, menuExtractItems, MenuService } from '@cloudbeaver/core-view';
 import { MENU_APP_STATE } from '@cloudbeaver/plugin-top-app-bar';
 
-import { ACTION_APP_HELP } from './actions/ACTION_APP_HELP';
-import { ShortcutsDialog } from './Shortcuts/ShortcutsDialog';
+import { ACTION_APP_HELP } from './actions/ACTION_APP_HELP.js';
+
+const ShortcutsDialog = importLazyComponent(() => import('./Shortcuts/ShortcutsDialog.js').then(m => m.ShortcutsDialog));
 
 @injectable()
 export class PluginBootstrap extends Bootstrap {
@@ -33,9 +34,9 @@ export class PluginBootstrap extends Bootstrap {
     this.errorNotification = null;
   }
 
-  async load(): Promise<void> {}
+  override async load(): Promise<void> {}
 
-  register(): void {
+  override register(): void {
     this.addTopAppMenuItems();
     this.addMultiTabSupportNotification();
   }
@@ -86,7 +87,7 @@ export class PluginBootstrap extends Bootstrap {
 
     this.actionService.addHandler({
       id: 'app-help',
-      isActionApplicable: (context, action) => [ACTION_APP_HELP].includes(action),
+      actions: [ACTION_APP_HELP],
       handler: async (context, action) => {
         switch (action) {
           case ACTION_APP_HELP: {

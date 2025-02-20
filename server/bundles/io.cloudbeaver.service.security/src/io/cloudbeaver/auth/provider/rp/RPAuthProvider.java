@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package io.cloudbeaver.auth.provider.rp;
 
 import io.cloudbeaver.DBWUserIdentity;
 import io.cloudbeaver.auth.SMAuthProviderExternal;
+import io.cloudbeaver.auth.SMSignOutLinkProvider;
 import io.cloudbeaver.auth.provider.local.LocalAuthSession;
 import io.cloudbeaver.model.session.WebSession;
 import io.cloudbeaver.model.user.WebUser;
@@ -37,15 +38,20 @@ import org.jkiss.utils.CommonUtils;
 import java.util.HashMap;
 import java.util.Map;
 
-public class RPAuthProvider implements SMAuthProviderExternal<SMSession> {
+public class RPAuthProvider implements SMAuthProviderExternal<SMSession>, SMSignOutLinkProvider {
 
     private static final Log log = Log.getLog(RPAuthProvider.class);
 
     public static final String X_USER = "X-User";
+    @Deprecated // use X-Team
     public static final String X_ROLE = "X-Role";
+    public static final String X_TEAM = "X-Team";
+    public static final String X_ROLE_TE = "X-Role-TE";
     public static final String X_FIRST_NAME = "X-First-name";
     public static final String X_LAST_NAME = "X-Last-name";
+    public static final String X_FULL_NAME = "X-Full-name";
     public static final String AUTH_PROVIDER = "reverseProxy";
+    public static final String LOGOUT_URL = "logout-url";
 
     @NotNull
     @Override
@@ -77,6 +83,7 @@ public class RPAuthProvider implements SMAuthProviderExternal<SMSession> {
         Map<String, String> userMeta = new HashMap<>();
         String firstName = JSONUtils.getString(authParameters, SMStandardMeta.META_FIRST_NAME);
         String lastName = JSONUtils.getString(authParameters, SMStandardMeta.META_LAST_NAME);
+        String fullName = JSONUtils.getString(authParameters, "fullName");
         if (CommonUtils.isNotEmpty(firstName)) {
             nameBuilder.append(firstName);
             userMeta.put(SMStandardMeta.META_FIRST_NAME, firstName);
@@ -85,6 +92,10 @@ public class RPAuthProvider implements SMAuthProviderExternal<SMSession> {
         if (CommonUtils.isNotEmpty(lastName)) {
             nameBuilder.append(lastName);
             userMeta.put(SMStandardMeta.META_LAST_NAME, lastName);
+        }
+
+        if (CommonUtils.isNotEmpty(fullName)) {
+            nameBuilder = new StringBuilder(fullName);
         }
 
         return new DBWUserIdentity(
@@ -119,4 +130,18 @@ public class RPAuthProvider implements SMAuthProviderExternal<SMSession> {
     public void refreshSession(@NotNull DBRProgressMonitor monitor, @NotNull SMSession mainSession, SMSession session) throws DBException {
 
     }
+
+    @NotNull
+    @Override
+    public String getCommonSignOutLink(String id, @NotNull Map<String, Object> providerConfig) throws DBException {
+        return providerConfig.get(LOGOUT_URL) != null ? providerConfig.get(LOGOUT_URL).toString() : "";
+    }
+
+    @Override
+    public String getUserSignOutLink(@NotNull SMAuthProviderCustomConfiguration providerConfig, @NotNull Map<String, Object> userCredentials) throws DBException {
+        return providerConfig.getParameters().get(LOGOUT_URL) != null ?
+            providerConfig.getParameters().get(LOGOUT_URL).toString() :
+            null;
+    }
+
 }

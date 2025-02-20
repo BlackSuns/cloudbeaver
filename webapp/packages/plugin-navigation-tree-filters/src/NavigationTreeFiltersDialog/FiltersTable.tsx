@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,8 +10,8 @@ import { useState } from 'react';
 
 import { Button, Form, Group, InputField, s, Table, TableBody, useS, useTranslate } from '@cloudbeaver/core-blocks';
 
-import styles from './FiltersTable.m.css';
-import { FiltersTableItem } from './FiltersTableItem';
+import styles from './FiltersTable.module.css';
+import { FiltersTableItem } from './FiltersTableItem.js';
 
 interface Props {
   title: string;
@@ -35,7 +35,7 @@ export const FiltersTable = observer<Props>(function FiltersTable({ title, filte
   }
 
   return (
-    <Group className={styles.group} box medium overflow>
+    <Group className={styles['group']} box medium overflow>
       <div className={s(style, { container: true })}>
         <header className={s(style, { header: true })}>
           <h4 className={s(style, { headerTitle: true })}>{title}</h4>
@@ -47,7 +47,7 @@ export const FiltersTable = observer<Props>(function FiltersTable({ title, filte
                 value={filter}
                 onChange={v => setFilter(String(v))}
               />
-              <Button className={style.button} mod={['unelevated']} onClick={add}>
+              <Button className={style['button']} mod={['unelevated']} onClick={add}>
                 +
               </Button>
             </div>

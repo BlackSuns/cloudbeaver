@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -9,14 +9,13 @@ import { ConnectionExecutionContextResource } from '@cloudbeaver/core-connection
 import { injectable } from '@cloudbeaver/core-di';
 import { CachedDataResource } from '@cloudbeaver/core-resource';
 import { ServerEventId } from '@cloudbeaver/core-root';
-import type { CbDatabaseOutputLogEvent } from '@cloudbeaver/core-sdk';
+import type { CbDatabaseOutputLogEvent, WsOutputLogInfo } from '@cloudbeaver/core-sdk';
 
-import type { IOutputLogType } from './IOutputLogTypes';
-import { OutputLogsEventHandler } from './OutputLogsEventHandler';
+import type { IOutputLogType } from './IOutputLogTypes.js';
+import { OutputLogsEventHandler } from './OutputLogsEventHandler.js';
 
-export interface IOutputLog {
-  message: string;
-  severity: IOutputLogType;
+export interface IOutputLog extends WsOutputLogInfo {
+  severity?: IOutputLogType;
   contextId: string;
   timestamp: number;
 }

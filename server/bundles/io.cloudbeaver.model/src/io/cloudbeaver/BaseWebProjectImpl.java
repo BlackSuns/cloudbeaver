@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,20 @@
  */
 package io.cloudbeaver;
 
-import org.eclipse.core.resources.IProject;
 import org.jkiss.code.NotNull;
-import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.app.DBPWorkspace;
 import org.jkiss.dbeaver.model.auth.SMSessionContext;
+import org.jkiss.dbeaver.model.impl.app.BaseProjectImpl;
 import org.jkiss.dbeaver.model.rm.RMController;
 import org.jkiss.dbeaver.model.rm.RMControllerProvider;
 import org.jkiss.dbeaver.model.rm.RMProject;
-import org.jkiss.dbeaver.model.rm.RMUtils;
-import org.jkiss.dbeaver.registry.BaseProjectImpl;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.Pair;
 
 import java.nio.file.Path;
 import java.util.Collection;
 
-public class BaseWebProjectImpl extends BaseProjectImpl implements RMControllerProvider {
+public abstract class BaseWebProjectImpl extends BaseProjectImpl implements RMControllerProvider {
 
     @NotNull
     private final RMProject project;
@@ -40,7 +37,6 @@ public class BaseWebProjectImpl extends BaseProjectImpl implements RMControllerP
     @NotNull
     private final Path path;
     @NotNull
-    protected final DataSourceFilter dataSourceFilter;
     private final RMController resourceController;
 
     public BaseWebProjectImpl(
@@ -48,18 +44,23 @@ public class BaseWebProjectImpl extends BaseProjectImpl implements RMControllerP
         @NotNull RMController resourceController,
         @NotNull SMSessionContext sessionContext,
         @NotNull RMProject project,
-        @NotNull DataSourceFilter dataSourceFilter
+        @NotNull Path path
     ) {
         super(workspace, sessionContext);
         this.resourceController = resourceController;
-        this.path = RMUtils.getProjectPath(project);
+        this.path = path;
         this.project = project;
-        this.dataSourceFilter = dataSourceFilter;
     }
 
     @NotNull
     public RMController getResourceController() {
         return resourceController;
+    }
+
+    @NotNull
+    @Override
+    public RMProject getRMProject() {
+        return project;
     }
 
     @Override
@@ -85,12 +86,6 @@ public class BaseWebProjectImpl extends BaseProjectImpl implements RMControllerP
         return path;
     }
 
-    @Nullable
-    @Override
-    public IProject getEclipseProject() {
-        return null;
-    }
-
     @Override
     public boolean isOpen() {
         return true;
@@ -104,11 +99,6 @@ public class BaseWebProjectImpl extends BaseProjectImpl implements RMControllerP
     @Override
     public boolean isUseSecretStorage() {
         return false;
-    }
-
-    @NotNull
-    public RMProject getRmProject() {
-        return this.project;
     }
 
     /**

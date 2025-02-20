@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,15 +10,15 @@ import { useCallback, useContext } from 'react';
 
 import { EventContext } from '@cloudbeaver/core-events';
 
-import { Icon } from '../Icon';
-import { useTranslate } from '../localization/useTranslate';
-import { s } from '../s';
-import { useS } from '../useS';
-import { EventTableItemExpandFlag } from './EventTableItemExpandFlag';
-import { EventTableItemSelectionFlag } from './EventTableItemSelectionFlag';
-import { TableContext } from './TableContext';
-import { TableItemContext } from './TableItemContext';
-import style from './TableItemExpand.m.css';
+import { Icon } from '../Icon.js';
+import { useTranslate } from '../localization/useTranslate.js';
+import { s } from '../s.js';
+import { useS } from '../useS.js';
+import { EventTableItemExpandFlag } from './EventTableItemExpandFlag.js';
+import { EventTableItemSelectionFlag } from './EventTableItemSelectionFlag.js';
+import { TableContext } from './TableContext.js';
+import { TableItemContext } from './TableItemContext.js';
+import style from './TableItemExpand.module.css';
 
 interface Props {
   onExpand?: (item: any, state: boolean) => void;

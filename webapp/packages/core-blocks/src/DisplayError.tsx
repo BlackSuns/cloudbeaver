@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,11 +10,11 @@ import type React from 'react';
 
 import { ENotificationType } from '@cloudbeaver/core-events';
 
-import { AppRefreshButton } from './AppRefreshButton';
-import style from './DisplayError.m.css';
-import { s } from './s';
-import { NotificationMark } from './Snackbars/NotificationMark';
-import { useS } from './useS';
+import { AppRefreshButton } from './AppRefreshButton.js';
+import style from './DisplayError.module.css';
+import { s } from './s.js';
+import { NotificationMark } from './Snackbars/NotificationMark.js';
+import { useS } from './useS.js';
 
 interface Props {
   root?: boolean;
@@ -29,7 +29,7 @@ export const DisplayError = observer<Props>(function DisplayError({ root, childr
   const stack = errorInfo?.componentStack || error?.stack;
 
   return (
-    <div className={s(styles, { error: true, root }, className)}>
+    <div role="alert" tabIndex={0} className={s(styles, { error: true, root }, className)}>
       <div className={s(styles, { errorInnerBlock: true })}>
         <NotificationMark className={s(styles, { notificationMark: true })} type={ENotificationType.Error} />
         <p>Something went wrong.</p>

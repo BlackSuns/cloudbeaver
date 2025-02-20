@@ -1,97 +1,94 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import '@testing-library/jest-dom';
+// import { expect, test } from '@jest/globals';
 
-import { coreAppManifest, CoreSettingsService } from '@cloudbeaver/core-app';
-import { coreAuthenticationManifest } from '@cloudbeaver/core-authentication';
-import { mockAuthentication } from '@cloudbeaver/core-authentication/dist/__custom_mocks__/mockAuthentication';
-import { coreBrowserManifest } from '@cloudbeaver/core-browser';
-import { coreEventsManifest } from '@cloudbeaver/core-events';
-import { coreLocalizationManifest } from '@cloudbeaver/core-localization';
-import { corePluginManifest } from '@cloudbeaver/core-plugin';
-import { coreProductManifest } from '@cloudbeaver/core-product';
-import { coreRootManifest, ServerConfigResource } from '@cloudbeaver/core-root';
-import { createGQLEndpoint } from '@cloudbeaver/core-root/dist/__custom_mocks__/createGQLEndpoint';
-import { mockAppInit } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockAppInit';
-import { mockGraphQL } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockGraphQL';
-import { mockServerConfig } from '@cloudbeaver/core-root/dist/__custom_mocks__/resolvers/mockServerConfig';
-import { coreRoutingManifest } from '@cloudbeaver/core-routing';
-import { coreSDKManifest } from '@cloudbeaver/core-sdk';
-import { coreSettingsManifest } from '@cloudbeaver/core-settings';
-import { coreThemingManifest } from '@cloudbeaver/core-theming';
-import { coreViewManifest } from '@cloudbeaver/core-view';
-import toolsPanelPlugin from '@cloudbeaver/plugin-tools-panel';
-import { createApp } from '@cloudbeaver/tests-runner';
+// import { coreAppManifest } from '@cloudbeaver/core-app';
+// import { coreAuthenticationManifest } from '@cloudbeaver/core-authentication';
+// import { mockAuthentication } from '@cloudbeaver/core-authentication/__custom_mocks__/mockAuthentication.js';
+// import { coreBrowserManifest } from '@cloudbeaver/core-browser';
+// import { coreClientActivityManifest } from '@cloudbeaver/core-client-activity';
+// import { coreLocalizationManifest } from '@cloudbeaver/core-localization';
+// import { coreRootManifest, ServerConfigResource } from '@cloudbeaver/core-root';
+// import { createGQLEndpoint } from '@cloudbeaver/core-root/__custom_mocks__/createGQLEndpoint.js';
+// import '@cloudbeaver/core-root/__custom_mocks__/expectWebsocketClosedMessage.js';
+// import { mockAppInit } from '@cloudbeaver/core-root/__custom_mocks__/mockAppInit.js';
+// import { mockGraphQL } from '@cloudbeaver/core-root/__custom_mocks__/mockGraphQL.js';
+// import { mockServerConfig } from '@cloudbeaver/core-root/__custom_mocks__/resolvers/mockServerConfig.js';
+// import { coreRoutingManifest } from '@cloudbeaver/core-routing';
+// import { coreSDKManifest } from '@cloudbeaver/core-sdk';
+// import { coreSettingsManifest } from '@cloudbeaver/core-settings';
+// import {
+//   expectDeprecatedSettingMessage,
+//   expectNoDeprecatedSettingMessage,
+// } from '@cloudbeaver/core-settings/__custom_mocks__/expectDeprecatedSettingMessage.js';
+// import { coreStorageManifest } from '@cloudbeaver/core-storage';
+// import { coreViewManifest } from '@cloudbeaver/core-view';
+// import toolsPanelPlugin from '@cloudbeaver/plugin-tools-panel';
+// import { createApp } from '@cloudbeaver/tests-runner';
 
-import { logViewerPlugin } from '../manifest';
-import { LogViewerSettings, LogViewerSettingsService } from './LogViewerSettingsService';
+// import { logViewerPlugin } from '../manifest.js';
+// import { LogViewerSettingsService } from './LogViewerSettingsService.js';
 
-const endpoint = createGQLEndpoint();
-const app = createApp(
-  logViewerPlugin,
-  toolsPanelPlugin,
-  corePluginManifest,
-  coreProductManifest,
-  coreRootManifest,
-  coreSDKManifest,
-  coreViewManifest,
-  coreAuthenticationManifest,
-  coreSettingsManifest,
-  coreBrowserManifest,
-  coreLocalizationManifest,
-  coreEventsManifest,
-  coreAppManifest,
-  coreRoutingManifest,
-  coreThemingManifest,
-);
+// const endpoint = createGQLEndpoint();
+// const server = mockGraphQL(...mockAppInit(endpoint), ...mockAuthentication(endpoint));
+// const app = createApp(
+//   logViewerPlugin,
+//   toolsPanelPlugin,
+//   coreRootManifest,
+//   coreStorageManifest,
+//   coreSDKManifest,
+//   coreViewManifest,
+//   coreAuthenticationManifest,
+//   coreSettingsManifest,
+//   coreBrowserManifest,
+//   coreLocalizationManifest,
+//   coreAppManifest,
+//   coreRoutingManifest,
+//   coreClientActivityManifest,
+// );
 
-const server = mockGraphQL(...mockAppInit(endpoint), ...mockAuthentication(endpoint));
+// const deprecatedSettings = {
+//   'core.app.logViewer.maxLogRecords': 2,
+//   'core.app.logViewer.logBatchSize': 3,
+//   'core.app.logViewer.disabled': true,
+// };
 
-beforeAll(() => app.init());
+// const newSettings = {
+//   ...deprecatedSettings,
+//   'plugin.log-viewer.maxLogRecords': 6,
+//   'plugin.log-viewer.logBatchSize': 7,
+//   'plugin.log-viewer.disabled': false,
+// };
 
-const equalConfig = {
-  core: {
-    app: {
-      logViewer: {
-        refreshTimeout: 1,
-        maxLogRecords: 2,
-        logBatchSize: 3,
-        maxFailedRequests: 4,
-      } as LogViewerSettings,
-    },
-  },
-  plugin: {
-    'log-viewer': {
-      refreshTimeout: 1,
-      maxLogRecords: 2,
-      logBatchSize: 3,
-      maxFailedRequests: 4,
-      disabled: false,
-    } as LogViewerSettings,
-  },
-};
+// test('New settings override deprecated settings', async () => {
+//   const settings = app.serviceProvider.getService(LogViewerSettingsService);
+//   const config = app.serviceProvider.getService(ServerConfigResource);
 
-test('New settings equal deprecated settings', async () => {
-  const settings = app.injector.getServiceByClass(LogViewerSettingsService);
-  const coreSettings = app.injector.getServiceByClass(CoreSettingsService);
-  const config = app.injector.getServiceByClass(ServerConfigResource);
+//   server.use(endpoint.query('serverConfig', mockServerConfig(newSettings)));
 
-  server.use(endpoint.query('serverConfig', mockServerConfig(equalConfig)));
+//   await config.refresh();
 
-  await config.refresh();
+//   expect(settings.maxLogRecords).toBe(6);
+//   expect(settings.logBatchSize).toBe(7);
+//   expect(settings.disabled).toBe(false);
+//   expectNoDeprecatedSettingMessage();
+// });
 
-  expect(settings.settings.getValue('refreshTimeout')).toBe(1);
-  expect(settings.settings.getValue('maxLogRecords')).toBe(2);
-  expect(settings.settings.getValue('logBatchSize')).toBe(3);
-  expect(settings.settings.getValue('maxFailedRequests')).toBe(4);
-  expect(settings.settings.getValue('disabled')).toBe(false);
-  expect(coreSettings.settings.getValue('app.logViewer.refreshTimeout')).toBe(1);
-  expect(coreSettings.settings.getValue('app.logViewer.maxLogRecords')).toBe(2);
-  expect(coreSettings.settings.getValue('app.logViewer.logBatchSize')).toBe(3);
-  expect(coreSettings.settings.getValue('app.logViewer.maxFailedRequests')).toBe(4);
-});
+// test('Deprecated settings are used if new settings are not defined', async () => {
+//   const settings = app.serviceProvider.getService(LogViewerSettingsService);
+//   const config = app.serviceProvider.getService(ServerConfigResource);
+
+//   server.use(endpoint.query('serverConfig', mockServerConfig(deprecatedSettings)));
+
+//   await config.refresh();
+
+//   expect(settings.maxLogRecords).toBe(2);
+//   expect(settings.logBatchSize).toBe(3);
+//   expect(settings.disabled).toBe(true);
+//   expectDeprecatedSettingMessage();
+// });

@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,27 +10,25 @@ import { observer } from 'mobx-react-lite';
 import {
   Container,
   Expandable,
-  getPropertyControlType,
   Group,
   GroupTitle,
   ObjectPropertyInfoForm,
   useObjectPropertyCategories,
   useTranslate,
 } from '@cloudbeaver/core-blocks';
-import type { ConnectionConfig, DriverProviderPropertyInfoFragment } from '@cloudbeaver/core-sdk';
+import { type ConnectionConfig, type DriverPropertyInfoFragment, getObjectPropertyType } from '@cloudbeaver/core-sdk';
 
-type DriverProviderPropertyInfo = DriverProviderPropertyInfoFragment;
+type DriverPropertyInfo = DriverPropertyInfoFragment;
 
 interface Props {
   config: ConnectionConfig;
-  properties: DriverProviderPropertyInfo[];
+  properties: DriverPropertyInfo[];
   disabled?: boolean;
   readonly?: boolean;
 }
 
 export const ProviderPropertiesForm = observer<Props>(function ProviderPropertiesForm({ config, properties, disabled, readonly }) {
   const translate = useTranslate();
-
   const supportedProperties = properties.filter(property => property.supportedConfigurationTypes?.some(type => type === config.configurationType));
 
   const { categories, isUncategorizedExists } = useObjectPropertyCategories(supportedProperties);
@@ -84,7 +82,7 @@ export const ProviderPropertiesForm = observer<Props>(function ProviderPropertie
                 category={category}
                 disabled={disabled}
                 readOnly={readonly}
-                geLayoutSize={property => (getPropertyControlType(property) === 'checkbox' ? { maximum: true } : { small: true, noGrow: true })}
+                geLayoutSize={property => (getObjectPropertyType(property) === 'checkbox' ? { maximum: true } : { small: true, noGrow: true })}
                 hideEmptyPlaceholder
               />
             </Container>
@@ -95,6 +93,6 @@ export const ProviderPropertiesForm = observer<Props>(function ProviderPropertie
   );
 });
 
-function isOnlyBooleans(properties: DriverProviderPropertyInfo[], category?: string): boolean {
+function isOnlyBooleans(properties: DriverPropertyInfo[], category?: string): boolean {
   return properties.filter(property => !category || property.category === category).every(property => property.dataType === 'Boolean');
 }

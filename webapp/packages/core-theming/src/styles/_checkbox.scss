@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,13 @@ $mdc-checkbox-icon-size: 16px;
     @include mdc-checkbox-ink-color($mdc-checkbox-mark-color, $query);
     @include mdc-checkbox-disabled-ink-color(rgba($mdc-checkbox-mark-color, 0.5), $query);
     @include mdc-checkbox-container-colors($mdc-theme-surface, transparent, $mdc-theme-surface, $mdc-theme-surface);
+  }
+
+  .theme-checkbox_on_primary {
+    $mdc-checkbox-mark-color: $mdc-theme-primary;
+    @include mdc-checkbox-ink-color($mdc-checkbox-mark-color, $query);
+    @include mdc-checkbox-disabled-ink-color(rgba($mdc-checkbox-mark-color, 0.5), $query);
+    @include mdc-checkbox-container-colors($mdc-theme-on-primary, transparent, $mdc-theme-on-primary, $mdc-theme-on-primary);
   }
 
   .theme-checkbox_small {

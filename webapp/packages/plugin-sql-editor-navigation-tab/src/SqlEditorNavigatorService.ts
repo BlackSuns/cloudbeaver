@@ -1,22 +1,22 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { ConnectionInfoResource, createConnectionParam, IConnectionInfoParams } from '@cloudbeaver/core-connections';
+import { ConnectionInfoResource, createConnectionParam, type IConnectionInfoParams } from '@cloudbeaver/core-connections';
 import { injectable } from '@cloudbeaver/core-di';
 import { NotificationService } from '@cloudbeaver/core-events';
-import { Executor, IExecutionContextProvider, IExecutor } from '@cloudbeaver/core-executor';
+import { Executor, type IExecutionContextProvider, type IExecutor } from '@cloudbeaver/core-executor';
 import { NavigationService } from '@cloudbeaver/core-ui';
 import { uuid } from '@cloudbeaver/core-utils';
-import { ITab, NavigationTabsService } from '@cloudbeaver/plugin-navigation-tabs';
-import { ISqlEditorTabState, MemorySqlDataSource, SqlDataSourceService, SqlResultTabsService } from '@cloudbeaver/plugin-sql-editor';
+import { type ITab, NavigationTabsService } from '@cloudbeaver/plugin-navigation-tabs';
+import { type ISqlEditorTabState, MemorySqlDataSource, SqlDataSourceService, SqlResultTabsService } from '@cloudbeaver/plugin-sql-editor';
 
-import { isSQLEditorTab } from './isSQLEditorTab';
-import { SQL_EDITOR_SOURCE_ACTION } from './SQL_EDITOR_SOURCE_ACTION';
-import { SqlEditorTabService } from './SqlEditorTabService';
+import { isSQLEditorTab } from './isSQLEditorTab.js';
+import { SQL_EDITOR_SOURCE_ACTION } from './SQL_EDITOR_SOURCE_ACTION.js';
+import { SqlEditorTabService } from './SqlEditorTabService.js';
 
 enum SQLEditorNavigationAction {
   create,

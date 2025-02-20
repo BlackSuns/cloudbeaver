@@ -1,15 +1,13 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { action, computed, makeObservable, observable } from 'mobx';
 
-import { errorOf } from '../errorOf';
-import { PromiseCancelledError } from './PromiseCancelledError';
-import { PromiseExecutor } from './PromiseExecutor';
+import { PromiseExecutor } from './PromiseExecutor.js';
 
 export enum EDeferredState {
   'PENDING' = 'PENDING',
@@ -109,22 +107,5 @@ export class Deferred<T> {
     if (this.state === EDeferredState.CANCELLING) {
       this.state = EDeferredState.PENDING;
     }
-  }
-}
-
-export class DeferredFromPromise<T> extends Deferred<T> {
-  constructor(promise: Promise<T>) {
-    super();
-    promise.then(
-      value => this.toResolved(value),
-      err => {
-        const promiseCancelledError = errorOf(err, PromiseCancelledError);
-        if (promiseCancelledError) {
-          this.toCancelled(promiseCancelledError.cause);
-        } else {
-          this.toRejected(err);
-        }
-      },
-    );
   }
 }

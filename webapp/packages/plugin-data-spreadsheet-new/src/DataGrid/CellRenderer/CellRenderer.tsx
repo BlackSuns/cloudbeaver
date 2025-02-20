@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -12,24 +12,27 @@ import { useContext, useEffect } from 'react';
 import { getComputed, useCombinedHandler, useMouse, useObjectRef, useObservableRef } from '@cloudbeaver/core-blocks';
 import { EventContext, EventStopPropagationFlag } from '@cloudbeaver/core-events';
 import { clsx } from '@cloudbeaver/core-utils';
-import { DatabaseEditChangeType, IResultSetElementKey, IResultSetRowKey, isBooleanValuePresentationAvailable } from '@cloudbeaver/plugin-data-viewer';
-import { CalculatedColumn, Cell, CellRendererProps } from '@cloudbeaver/plugin-react-data-grid';
+import { type CalculatedColumn, Cell, type CellRendererProps } from '@cloudbeaver/plugin-data-grid';
+import {
+  DatabaseEditChangeType,
+  type IResultSetElementKey,
+  type IResultSetRowKey,
+  isBooleanValuePresentationAvailable,
+} from '@cloudbeaver/plugin-data-viewer';
 
-import { CellPosition, EditingContext } from '../../Editing/EditingContext';
-import { DataGridContext } from '../DataGridContext';
-import { DataGridSelectionContext } from '../DataGridSelection/DataGridSelectionContext';
-import { TableDataContext } from '../TableDataContext';
-import { CellContext } from './CellContext';
+import { type CellPosition, EditingContext } from '../../Editing/EditingContext.js';
+import { DataGridContext } from '../DataGridContext.js';
+import { DataGridSelectionContext } from '../DataGridSelection/DataGridSelectionContext.js';
+import { TableDataContext } from '../TableDataContext.js';
+import { CellContext } from './CellContext.js';
 
 export const CellRenderer = observer<CellRendererProps<IResultSetRowKey, unknown>>(function CellRenderer(props) {
-  const { row, column, isCellSelected, onDoubleClick, selectCell } = props;
+  const { rowIdx, row, column, isCellSelected, onDoubleClick, selectCell } = props;
   const dataGridContext = useContext(DataGridContext);
   const tableDataContext = useContext(TableDataContext);
   const selectionContext = useContext(DataGridSelectionContext);
   const editingContext = useContext(EditingContext);
   const mouse = useMouse<HTMLDivElement>({});
-
-  const rowIdx = tableDataContext.getRowIndexFromKey(row);
 
   const cellContext = useObservableRef(
     () => ({
@@ -49,6 +52,13 @@ export const CellRenderer = observer<CellRendererProps<IResultSetRowKey, unknown
       get isSelected(): boolean {
         return selectionContext.isSelected(this.position.rowIdx, this.position.idx) || false;
       },
+      get hasFocusedElementInRow(): boolean {
+        const focusedElement = this.focusedElementPosition;
+        return focusedElement?.rowIdx === this.position.rowIdx;
+      },
+      get focusedElementPosition() {
+        return selectionContext.getFocusedElementPosition();
+      },
       get isFocused(): boolean {
         return this.isEditing ? false : this.isCellSelected;
       },
@@ -67,6 +77,8 @@ export const CellRenderer = observer<CellRendererProps<IResultSetRowKey, unknown
       isCellSelected: observable.ref,
       position: computed,
       cell: computed,
+      hasFocusedElementInRow: computed,
+      focusedElementPosition: computed,
       isEditing: computed,
       isSelected: computed,
       isFocused: computed,
@@ -75,8 +87,13 @@ export const CellRenderer = observer<CellRendererProps<IResultSetRowKey, unknown
     { row, column, rowIdx, isCellSelected },
   );
 
+  const isDatabaseActionApplied = getComputed(() =>
+    [DatabaseEditChangeType.add, DatabaseEditChangeType.delete, DatabaseEditChangeType.update].includes(cellContext.editionState!),
+  );
+
   const classes = getComputed(() =>
     clsx({
+      'rdg-cell-custom-highlighted-row': cellContext.hasFocusedElementInRow && !isDatabaseActionApplied,
       'rdg-cell-custom-selected': cellContext.isSelected,
       'rdg-cell-custom-editing': cellContext.isEditing,
       'rdg-cell-custom-added': cellContext.editionState === DatabaseEditChangeType.add,
@@ -86,7 +103,18 @@ export const CellRenderer = observer<CellRendererProps<IResultSetRowKey, unknown
   );
 
   function isEditable(column: CalculatedColumn<IResultSetRowKey>): boolean {
-    if (!cellContext.cell) {
+    if (
+      !cellContext.cell ||
+      (!dataGridContext.model.hasElementIdentifier(tableDataContext.view.resultIndex) && cellContext.editionState !== DatabaseEditChangeType.add)
+    ) {
+      return false;
+    }
+
+    if (
+      tableDataContext.format.isBinary(cellContext.cell) ||
+      tableDataContext.format.isGeometry(cellContext.cell) ||
+      tableDataContext.dataContent.isTextTruncated(cellContext.cell)
+    ) {
       return false;
     }
 

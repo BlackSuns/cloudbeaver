@@ -3,32 +3,44 @@ type FSFile @since(version: "23.2.2") {
     length: Int!
     folder: Boolean!
     metaData: Object!
+    nodePath: String!
+}
+
+type FSFileSystem @since(version: "23.2.4") {
+    id: ID!
+    nodePath: String!
+    requiredAuth: String
 }
 
 extend type Query @since(version: "23.2.2") {
-    fsListFileSystems(projectId: ID!): [String!]!
+    fsListFileSystems(projectId: ID!): [FSFileSystem!]!
 
-    fsFile(projectId: ID!, fileURI: String!):  FSFile!
+    fsFileSystem(projectId: ID!, nodePath: String!): FSFileSystem! @since(version: "23.2.4")
 
-    fsListFiles(projectId: ID!, folderURI: String!): [FSFile!]!
+    fsFile(nodePath: String!):  FSFile!
+
+    fsListFiles(folderPath: String!): [FSFile!]!
 
     # Reads file contents as string in UTF-8
-    fsReadFileContentAsString(projectId: ID!, fileURI: String!): String!
+    fsReadFileContentAsString(nodePath: String!): String!
 }
 
 extend type Mutation @since(version: "23.2.2") {
-    fsCreateFile(projectId: ID!, fileURI:String!): FSFile!
+    fsCreateFile(parentPath : String!, fileName : String!): FSFile!
 
-    fsCreateFolder(projectId: ID!, folderURI:String!): FSFile!
+    fsCreateFolder(parentPath : String!, folderName: String!): FSFile!
 
-    fsDeleteFile(projectId: ID!, fileURI:String!): Boolean!
+    fsDelete(nodePath : String!): Boolean!
 
-    fsMoveFile(projectId: ID!, fromURI: String!, toURI: String!): FSFile!
+    fsMove(nodePath: String!, toParentNodePath: String!): FSFile!
+
+    fsRename(nodePath: String!, newName: String!): FSFile!
+
+    fsCopy(nodePath: String!, toParentNodePath: String!): FSFile! @since(version: "23.2.5")
 
     fsWriteFileStringContent(
-        projectId: ID!,
-        fileURI:String!,
+        nodePath:String!,
         data: String!,
         forceOverwrite: Boolean!
-    ): Boolean!
+    ): FSFile!
 }

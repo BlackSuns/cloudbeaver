@@ -1,15 +1,15 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { ILoadableState, isContainsException } from '@cloudbeaver/core-utils';
+import { type ILoadableState, isContainsException } from '@cloudbeaver/core-utils';
 
-import { CachedResource, CachedResourceParamKey } from './CachedResource';
-import type { CachedResourceIncludeArgs, CachedResourceValueIncludes } from './CachedResourceIncludes';
-import type { ICachedResourceMetadata } from './ICachedResourceMetadata';
+import { CachedResource, CachedResourceParamKey } from './CachedResource.js';
+import type { CachedResourceIncludeArgs, CachedResourceValueIncludes } from './CachedResourceIncludes.js';
+import type { ICachedResourceMetadata } from './ICachedResourceMetadata.js';
 
 export type CachedDataResourceData<TResource> = TResource extends CachedDataResource<infer T, any, any> ? T : never;
 export type CachedDataResourceKey<TResource> = TResource extends CachedDataResource<any, infer T, any> ? T : never;
@@ -35,7 +35,10 @@ export abstract class CachedDataResource<
     super(defaultKey, defaultValue, defaultIncludes);
   }
 
-  async refresh<T extends CachedResourceIncludeArgs<TData, TContext> = []>(param: TKey, context?: T): Promise<CachedResourceValueIncludes<TData, T>> {
+  override async refresh<T extends CachedResourceIncludeArgs<TData, TContext> = []>(
+    param: TKey,
+    context?: T,
+  ): Promise<CachedResourceValueIncludes<TData, T>> {
     if (param === undefined) {
       param = CachedResourceParamKey as TKey;
     }
@@ -43,7 +46,10 @@ export abstract class CachedDataResource<
     return this.data as CachedResourceValueIncludes<TData, T>;
   }
 
-  async load<T extends CachedResourceIncludeArgs<TData, TContext> = []>(param: TKey, context?: T): Promise<CachedResourceValueIncludes<TData, T>> {
+  override async load<T extends CachedResourceIncludeArgs<TData, TContext> = []>(
+    param: TKey,
+    context?: T,
+  ): Promise<CachedResourceValueIncludes<TData, T>> {
     if (param === undefined) {
       param = CachedResourceParamKey as TKey;
     }
@@ -58,32 +64,32 @@ export abstract class CachedDataResource<
 
 export function getCachedDataResourceLoaderState<TData, TKey = void, TContext extends Record<string, any> = Record<string, never>>(
   resource: CachedDataResource<TData, TKey, TContext>,
-  param: TKey,
-  context?: CachedResourceIncludeArgs<TData, TContext>,
+  getKey: () => TKey,
+  getIncludes?: () => CachedResourceIncludeArgs<TData, TContext> | undefined,
   lazy?: boolean,
 ): ILoadableState {
   return {
     lazy,
     get exception() {
-      return resource.getException(param);
+      return resource.getException(getKey());
     },
     isLoading() {
-      return resource.isLoading(param);
+      return resource.isLoading(getKey());
     },
     isError() {
       return isContainsException(this.exception);
     },
     isLoaded() {
-      return resource.isLoaded(param, context);
+      return resource.isLoaded(getKey(), getIncludes?.());
     },
     isOutdated() {
-      return resource.isOutdated(param);
+      return resource.isOutdated(getKey(), getIncludes?.());
     },
     async load() {
-      await resource.load(param, context);
+      await resource.load(getKey(), getIncludes?.());
     },
     async reload() {
-      await resource.refresh(param, context);
+      await resource.refresh(getKey(), getIncludes?.());
     },
   };
 }

@@ -1,17 +1,17 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { makeObservable, observable } from 'mobx';
 
-import type { IAsyncContextLoader, IContextLoader, ISyncContextLoader } from './IExecutionContext';
-import type { IExecutorHandler } from './IExecutorHandler';
-import type { ExecutorDataFilter, ExecutorDataMap, IChainLink, IExecutorHandlersCollection } from './IExecutorHandlersCollection';
+import type { IAsyncContextLoader, IContextLoader, ISyncContextLoader } from './IExecutionContext.js';
+import type { IExecutorHandler } from './IExecutorHandler.js';
+import type { ExecutorDataFilter, ExecutorDataMap, IChainLink, IExecutorHandlersCollection } from './IExecutorHandlersCollection.js';
 
-export class ExecutorHandlersCollection<T = unknown, TResult = any | Promise<any>> implements IExecutorHandlersCollection<T, TResult> {
+export class ExecutorHandlersCollection<T = void, TResult = any | Promise<any>> implements IExecutorHandlersCollection<T, TResult> {
   handlers: Array<IExecutorHandler<T, TResult>>;
   postHandlers: Array<IExecutorHandler<T, TResult>>;
   chain: Array<IChainLink<T, TResult>>;

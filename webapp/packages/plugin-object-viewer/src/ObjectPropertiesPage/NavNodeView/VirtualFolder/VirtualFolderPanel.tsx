@@ -1,13 +1,12 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useEffect } from 'react';
-import styled, { css } from 'reshadow';
 
 import { TextPlaceholder, useOffsetPagination, useResource, useTranslate } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
@@ -15,18 +14,9 @@ import { type DBObject, DBObjectParentKey, DBObjectResource, NavNodeInfoResource
 import { isDefined } from '@cloudbeaver/core-utils';
 import { type NavNodeTransformViewComponent, NavNodeViewService } from '@cloudbeaver/plugin-navigation-tree';
 
-import { TableLoader } from '../../ObjectPropertyTable/Table/TableLoader';
-import { VirtualFolderUtils } from './VirtualFolderUtils';
-
-const style = css`
-  tab-wrapper {
-    position: relative;
-    width: 100%;
-    flex: 1 0 auto;
-    display: flex;
-    flex-direction: column;
-  }
-`;
+import { TableLoader } from '../../ObjectPropertyTable/Table/TableLoader.js';
+import classes from './VirtualFolderPanel.module.css';
+import { VirtualFolderUtils } from './VirtualFolderUtils.js';
 
 export const VirtualFolderPanel: NavNodeTransformViewComponent = observer(function VirtualFolderPanel({ folderId, nodeId }) {
   const translate = useTranslate();
@@ -40,11 +30,12 @@ export const VirtualFolderPanel: NavNodeTransformViewComponent = observer(functi
     pageSize: tree.resource.childrenLimit,
   });
 
-  const dbObjectLoader = useResource(VirtualFolderPanel, DBObjectResource, pagination.key);
+  const dbObjectLoader = useResource(VirtualFolderPanel, DBObjectResource, pagination.currentPage);
 
-  const { nodes, duplicates } = navNodeViewService.filterDuplicates(dbObjectLoader.data.filter(isDefined).map(node => node?.id) || []);
+  const allData = dbObjectLoader.resource.get(pagination.allPages).filter(isDefined);
+  const { nodes, duplicates } = navNodeViewService.filterDuplicates(allData.map(node => node?.id) || []);
 
-  const objects = dbObjectLoader.data.filter(
+  const objects = allData.filter(
     object => object && nodes.includes(object.id) && navNodeInfoResource.get(object.id)?.nodeType === nodeType,
   ) as DBObject[];
 
@@ -52,15 +43,15 @@ export const VirtualFolderPanel: NavNodeTransformViewComponent = observer(functi
     navNodeViewService.logDuplicates(nodeId, duplicates);
   });
 
-  return styled(style)(
+  return (
     <>
       {objects.length === 0 ? (
         <TextPlaceholder>{translate('plugin_object_viewer_table_no_items')}</TextPlaceholder>
       ) : (
-        <tab-wrapper>
+        <div className={classes['tabWrapper']}>
           <TableLoader objects={objects} hasNextPage={pagination?.hasNextPage ?? false} loadMore={pagination.loadMore} />
-        </tab-wrapper>
+        </div>
       )}
-    </>,
+    </>
   );
 });

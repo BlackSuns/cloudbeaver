@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
  */
 package io.cloudbeaver.service.security.internal;
 
- import io.cloudbeaver.service.security.CBEmbeddedSecurityController;
- import org.eclipse.core.runtime.IStatus;
- import org.eclipse.core.runtime.Status;
- import org.jkiss.dbeaver.DBException;
- import org.jkiss.dbeaver.Log;
- import org.jkiss.dbeaver.model.runtime.AbstractJob;
- import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
- import org.jkiss.dbeaver.utils.GeneralUtils;
+import io.cloudbeaver.service.security.CBEmbeddedSecurityController;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.runtime.AbstractJob;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.utils.CommonUtils;
 
 public class ClearAuthAttemptInfoJob extends AbstractJob {
 
@@ -45,7 +45,7 @@ public class ClearAuthAttemptInfoJob extends AbstractJob {
             securityController.clearOldAuthAttemptInfo();
             schedule(CHECK_PERIOD);
         } catch (DBException e) {
-            log.error("Error to clear the auth attempt info: " + GeneralUtils.getRootCause(e).getMessage());
+            log.error("Error to clear the auth attempt info: " + CommonUtils.getRootCause(e).getMessage());
             // Check failed. Re-schedule after 5 seconds
             schedule(RETRY_PERIOD);
         }

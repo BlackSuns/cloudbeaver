@@ -1,17 +1,17 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { RenameDialog } from '@cloudbeaver/core-blocks';
 import {
-  Connection,
+  type Connection,
   ConnectionInfoResource,
   createConnectionParam,
   DATA_CONTEXT_CONNECTION,
-  IConnectionInfoParams,
+  type IConnectionInfoParams,
   isConnectionProvider,
   isObjectCatalogProvider,
   isObjectSchemaProvider,
@@ -22,8 +22,8 @@ import type { IExecutorHandler } from '@cloudbeaver/core-executor';
 import { ExtensionUtils } from '@cloudbeaver/core-extensions';
 import { LocalizationService } from '@cloudbeaver/core-localization';
 import { DATA_CONTEXT_NAV_NODE, EObjectFeature, NodeManagerUtils } from '@cloudbeaver/core-navigation-tree';
-import { ISessionAction, sessionActionContext, SessionActionService } from '@cloudbeaver/core-root';
-import { ACTION_RENAME, ActionService, DATA_CONTEXT_MENU_NESTED, menuExtractItems, MenuService, ViewService } from '@cloudbeaver/core-view';
+import { type ISessionAction, sessionActionContext, SessionActionService } from '@cloudbeaver/core-root';
+import { ACTION_RENAME, ActionService, menuExtractItems, MenuService, ViewService } from '@cloudbeaver/core-view';
 import { MENU_CONNECTIONS } from '@cloudbeaver/plugin-connections';
 import { NavigationTabsService } from '@cloudbeaver/plugin-navigation-tabs';
 import {
@@ -37,13 +37,13 @@ import {
 } from '@cloudbeaver/plugin-sql-editor';
 import { MENU_APP_ACTIONS } from '@cloudbeaver/plugin-top-app-bar';
 
-import { ACTION_SQL_EDITOR_NEW } from './ACTION_SQL_EDITOR_NEW';
-import { ACTION_SQL_EDITOR_OPEN } from './ACTION_SQL_EDITOR_OPEN';
-import { DATA_CONTEXT_SQL_EDITOR_TAB } from './DATA_CONTEXT_SQL_EDITOR_TAB';
-import { isSessionActionOpenSQLEditor } from './sessionActionOpenSQLEditor';
-import { SQL_EDITOR_SOURCE_ACTION } from './SQL_EDITOR_SOURCE_ACTION';
-import { SqlEditorNavigatorService } from './SqlEditorNavigatorService';
-import { SqlEditorTabService } from './SqlEditorTabService';
+import { ACTION_SQL_EDITOR_NEW } from './ACTION_SQL_EDITOR_NEW.js';
+import { ACTION_SQL_EDITOR_OPEN } from './ACTION_SQL_EDITOR_OPEN.js';
+import { DATA_CONTEXT_SQL_EDITOR_TAB } from './DATA_CONTEXT_SQL_EDITOR_TAB.js';
+import { isSessionActionOpenSQLEditor } from './sessionActionOpenSQLEditor.js';
+import { SQL_EDITOR_SOURCE_ACTION } from './SQL_EDITOR_SOURCE_ACTION.js';
+import { SqlEditorNavigatorService } from './SqlEditorNavigatorService.js';
+import { SqlEditorTabService } from './SqlEditorTabService.js';
 
 interface IActiveConnectionContext {
   connectionKey?: IConnectionInfoParams;
@@ -71,11 +71,11 @@ export class SqlEditorBootstrap extends Bootstrap {
     super();
   }
 
-  register(): void {
+  override register(): void {
     this.registerTopAppBarItem();
 
     this.menuService.addCreator({
-      isApplicable: context => context.has(DATA_CONTEXT_SQL_EDITOR_STATE) && context.has(DATA_CONTEXT_SQL_EDITOR_TAB),
+      contexts: [DATA_CONTEXT_SQL_EDITOR_STATE, DATA_CONTEXT_SQL_EDITOR_TAB],
       getItems: (context, items) => [...items, ACTION_RENAME],
       orderItems: (context, items) => {
         const actions = menuExtractItems(items, [ACTION_RENAME]);
@@ -89,18 +89,16 @@ export class SqlEditorBootstrap extends Bootstrap {
     });
 
     this.menuService.addCreator({
+      root: true,
+      contexts: [DATA_CONTEXT_CONNECTION],
       isApplicable: context => {
-        if (!context.has(DATA_CONTEXT_CONNECTION)) {
-          return false;
-        }
-
-        const node = context.tryGet(DATA_CONTEXT_NAV_NODE);
+        const node = context.get(DATA_CONTEXT_NAV_NODE);
 
         if (node && !node.objectFeatures.includes(EObjectFeature.dataSource)) {
           return false;
         }
 
-        return !context.has(DATA_CONTEXT_MENU_NESTED);
+        return true;
       },
       getItems: (context, items) => [...items, ACTION_SQL_EDITOR_OPEN],
     });
@@ -108,23 +106,27 @@ export class SqlEditorBootstrap extends Bootstrap {
     this.actionService.addHandler({
       id: 'sql-editor',
       isActionApplicable: (context, action) => {
-        if (action === ACTION_RENAME) {
-          const editorState = context.tryGet(DATA_CONTEXT_SQL_EDITOR_STATE);
+        switch (action) {
+          case ACTION_RENAME: {
+            const editorState = context.get(DATA_CONTEXT_SQL_EDITOR_STATE);
 
-          if (!editorState) {
-            return false;
+            if (!editorState) {
+              return false;
+            }
+
+            const dataSource = this.sqlDataSourceService.get(editorState.editorId);
+
+            return dataSource?.hasFeature(ESqlDataSourceFeatures.setName) ?? false;
           }
-
-          const dataSource = this.sqlDataSourceService.get(editorState.editorId);
-
-          return dataSource?.hasFeature(ESqlDataSourceFeatures.setName) ?? false;
+          case ACTION_SQL_EDITOR_OPEN:
+            return context.has(DATA_CONTEXT_CONNECTION);
         }
-        return action === ACTION_SQL_EDITOR_OPEN && context.has(DATA_CONTEXT_CONNECTION);
+        return false;
       },
       handler: async (context, action) => {
         switch (action) {
           case ACTION_RENAME: {
-            const state = context.get(DATA_CONTEXT_SQL_EDITOR_STATE);
+            const state = context.get(DATA_CONTEXT_SQL_EDITOR_STATE)!;
             const dataSource = this.sqlDataSourceService.get(state.editorId);
             const executionContext = dataSource?.executionContext;
 
@@ -142,7 +144,7 @@ export class SqlEditorBootstrap extends Bootstrap {
             const regexp = /^(.*?)(\.\w+)$/gi.exec(name);
 
             const result = await this.commonDialogService.open(RenameDialog, {
-              value: regexp?.[1] ?? name,
+              name: regexp?.[1] ?? name,
               objectName: name,
               icon: dataSource.icon,
               validation: name =>
@@ -157,7 +159,7 @@ export class SqlEditorBootstrap extends Bootstrap {
             break;
           }
           case ACTION_SQL_EDITOR_OPEN: {
-            const connection = context.get(DATA_CONTEXT_CONNECTION);
+            const connection = context.get(DATA_CONTEXT_CONNECTION)!;
 
             this.sqlEditorNavigatorService.openNewEditor({
               dataSourceKey: LocalStorageSqlDataSource.key,
@@ -177,8 +179,6 @@ export class SqlEditorBootstrap extends Bootstrap {
       }
     });
   }
-
-  load(): void {}
 
   private registerTopAppBarItem() {
     this.menuService.addCreator({
@@ -203,7 +203,7 @@ export class SqlEditorBootstrap extends Bootstrap {
 
     this.actionService.addHandler({
       id: 'sql-editor-new',
-      isActionApplicable: (context, action) => [ACTION_SQL_EDITOR_NEW].includes(action),
+      actions: [ACTION_SQL_EDITOR_NEW],
       isLabelVisible: () => false,
       getActionInfo: (context, action) => {
         const connectionContext = this.getActiveConnectionContext();
@@ -232,7 +232,7 @@ export class SqlEditorBootstrap extends Bootstrap {
       },
       isHidden: (context, action) => {
         if (action === ACTION_SQL_EDITOR_NEW) {
-          return this.sqlEditorSettingsService.settings.getValue('disabled');
+          return this.sqlEditorSettingsService.disabled;
         }
 
         return false;

@@ -1,15 +1,15 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
-import { ENotificationType, INotification, NotificationService } from '@cloudbeaver/core-events';
+import { ENotificationType, type INotification, NotificationService } from '@cloudbeaver/core-events';
 import { DataSynchronizationService, ServerConfigResource } from '@cloudbeaver/core-root';
 
-import { DataSynchronizationNotification } from './DataSynchronizationNotification';
+import { DataSynchronizationNotification } from './DataSynchronizationNotification.js';
 
 @injectable()
 export class DataSynchronizationResolverBootstrap extends Bootstrap {
@@ -24,11 +24,9 @@ export class DataSynchronizationResolverBootstrap extends Bootstrap {
     this.activeNotification = null;
   }
 
-  register(): void {
+  override register(): void {
     this.dataSynchronizationService.onSynchronizationRequest.addHandler(this.handleNetworkStateChange.bind(this));
   }
-
-  load(): void | Promise<void> {}
 
   private handleNetworkStateChange(): void {
     if (this.activeNotification || this.serverConfigResource.configurationMode) {

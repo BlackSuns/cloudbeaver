@@ -1,18 +1,18 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { injectable } from '@cloudbeaver/core-di';
-import { ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
+import { LocalizationService } from '@cloudbeaver/core-localization';
 import { CachedDataResource } from '@cloudbeaver/core-resource';
-import { GraphQLService, SessionStateFragment } from '@cloudbeaver/core-sdk';
+import { GraphQLService, type SessionStateFragment } from '@cloudbeaver/core-sdk';
 
-import { ServerConfigResource } from './ServerConfigResource';
-import { ServerEventId } from './SessionEventSource';
-import { SessionInfoEventHandler } from './SessionInfoEventHandler';
+import { ServerConfigResource } from './ServerConfigResource.js';
+import { ServerEventId } from './SessionEventSource.js';
+import { type ISessionStateEvent, SessionInfoEventHandler } from './SessionInfoEventHandler.js';
 
 export type SessionState = SessionStateFragment;
 export interface ISessionAction {
@@ -20,33 +20,21 @@ export interface ISessionAction {
   [key: string]: any;
 }
 
-interface SessionStateData {
-  isValid?: boolean;
-  remainingTime: number;
-}
-
 @injectable()
 export class SessionResource extends CachedDataResource<SessionState | null> {
   private action: ISessionAction | null;
-  private defaultLocale: string | undefined;
-  readonly onStatusUpdate: ISyncExecutor<SessionStateData>;
 
   constructor(
     private readonly graphQLService: GraphQLService,
-    sessionInfoEventHandler: SessionInfoEventHandler,
+    private readonly sessionInfoEventHandler: SessionInfoEventHandler,
     serverConfigResource: ServerConfigResource,
+    private readonly localizationService: LocalizationService,
   ) {
     super(() => null);
 
-    this.onStatusUpdate = new SyncExecutor();
-    sessionInfoEventHandler.onEvent(
-      ServerEventId.CbSessionState,
-      event => {
-        this.onStatusUpdate.execute(event);
-      },
-      undefined,
-      this,
-    );
+    this.handleSessionStateEvent = this.handleSessionStateEvent.bind(this);
+
+    sessionInfoEventHandler.onEvent(ServerEventId.CbSessionState, this.handleSessionStateEvent, undefined, this);
 
     this.action = null;
     this.sync(
@@ -64,24 +52,34 @@ export class SessionResource extends CachedDataResource<SessionState | null> {
     }
   }
 
-  setDefaultLocale(defaultLocale?: string): void {
-    this.defaultLocale = defaultLocale;
-  }
+  private handleSessionStateEvent(event: ISessionStateEvent) {
+    this.performUpdate(undefined, [], async () => {
+      if (!this.data) {
+        return;
+      }
 
-  //! this method results in onDataUpdate handler skipping
-  async refreshSilent(): Promise<void> {
-    const session = await this.loader();
+      const sessionState: SessionState = {
+        ...this.data,
+        valid: event?.isValid ?? this.data.valid,
+        remainingTime: event.remainingTime,
+        actionParameters: event.actionParameters,
+        cacheExpired: event?.isCacheExpired ?? this.data.cacheExpired,
+        lastAccessTime: String(event.lastAccessTime),
+        locale: event.locale,
+      };
 
-    this.setData(session);
+      this.setData(sessionState);
+    });
   }
 
   async changeLanguage(locale: string): Promise<void> {
-    if (this.data?.locale === locale) {
+    await this.load();
+    //TODO we check "!locale" because of the bug described in CB-6048, should be removed when fixed
+    if (this.data?.locale === locale || !locale) {
       return;
     }
     await this.graphQLService.sdk.changeSessionLanguage({ locale });
 
-    this.defaultLocale = locale;
     if (this.data) {
       this.data.locale = locale;
     }
@@ -90,12 +88,20 @@ export class SessionResource extends CachedDataResource<SessionState | null> {
   }
 
   protected async loader(): Promise<SessionState> {
-    const { session } = await this.graphQLService.sdk.openSession({ defaultLocale: this.defaultLocale });
+    const { session } = await this.graphQLService.sdk.openSession({ defaultLocale: this.localizationService.currentLanguage });
 
     return session;
   }
 
-  protected setData(data: SessionState | null) {
+  pingSession() {
+    if (!this.data?.valid) {
+      return;
+    }
+
+    this.sessionInfoEventHandler.pingSession();
+  }
+
+  protected override setData(data: SessionState | null) {
     if (!this.action) {
       this.action = data?.actionParameters;
     }

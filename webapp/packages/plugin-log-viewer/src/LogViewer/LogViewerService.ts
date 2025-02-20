@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@ import { UserDataService } from '@cloudbeaver/core-authentication';
 import { injectable } from '@cloudbeaver/core-di';
 import { ToolsPanelService } from '@cloudbeaver/plugin-tools-panel';
 
-import { LogViewerSettingsService } from './LogViewerSettingsService';
+import { LogViewerSettingsService } from './LogViewerSettingsService.js';
 
 const logViewerSettingsKey = 'log-viewer';
 
@@ -30,7 +30,7 @@ export class LogViewerService {
   }
 
   get disabled() {
-    return this.toolsPanelService.disabled || this.logViewerSettingsService.settings.getValue('disabled');
+    return this.toolsPanelService.disabled || this.logViewerSettingsService.disabled;
   }
 
   constructor(

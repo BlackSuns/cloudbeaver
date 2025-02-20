@@ -1,29 +1,26 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import styled from 'reshadow';
 
-import { GroupTitle, type PlaceholderComponent, Switch, useStyles, useTranslate } from '@cloudbeaver/core-blocks';
+import { GroupTitle, type PlaceholderComponent, Switch, useTranslate } from '@cloudbeaver/core-blocks';
 
-import type { IElementsTreeSettingsProps } from './ElementsTreeSettingsService';
+import type { IElementsTreeSettingsProps } from './ElementsTreeSettingsService.js';
 
 export const ElementsTreeBaseSettingsForm: PlaceholderComponent<IElementsTreeSettingsProps> = observer(function ElementsTreeBaseSettingsForm({
   tree: { root, settings },
-  style,
 }) {
-  const styles = useStyles(style);
   const translate = useTranslate();
 
   if (!settings) {
     return null;
   }
 
-  return styled(styles)(
+  return (
     <>
       <GroupTitle>{translate('ui_settings')}</GroupTitle>
       <Switch
@@ -70,6 +67,6 @@ export const ElementsTreeBaseSettingsForm: PlaceholderComponent<IElementsTreeSet
       >
         {translate('app_navigationTree_settings_folders_title')}
       </Switch>
-    </>,
+    </>
   );
 });

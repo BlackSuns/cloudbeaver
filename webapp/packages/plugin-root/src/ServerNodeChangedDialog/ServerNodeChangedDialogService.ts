@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@ import { ENotificationType, NotificationService } from '@cloudbeaver/core-events
 import { ServerNodeService } from '@cloudbeaver/core-root';
 import { RouterService } from '@cloudbeaver/core-routing';
 
-import { ServerNodeChangedDialog } from './ServerNodeChangedDialog';
+import { ServerNodeChangedDialog } from './ServerNodeChangedDialog.js';
 
 @injectable()
 export class ServerNodeChangedDialogService extends Bootstrap {
@@ -25,11 +25,9 @@ export class ServerNodeChangedDialogService extends Bootstrap {
     super();
   }
 
-  register(): void {
+  override register(): void {
     this.serverNodeService.onApplicationRunIdChange.addPostHandler(this.handleServerNodeChanged.bind(this));
   }
-
-  load(): void | Promise<void> {}
 
   private async handleServerNodeChanged(): Promise<void> {
     const state = await this.commonDialogService.open(ServerNodeChangedDialog, null);

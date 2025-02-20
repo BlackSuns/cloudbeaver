@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -20,22 +20,22 @@ import {
   createElementsTreeSettings,
   ElementsTreeLoader,
   getNavigationTreeUserSettingsId,
-  IElementsTreeSettings,
+  type IElementsTreeSettings,
   NavigationTreeService,
   validateElementsTreeSettings,
 } from '@cloudbeaver/plugin-navigation-tree';
 import { ResourceManagerService } from '@cloudbeaver/plugin-resource-manager';
 
-import { navigationTreeProjectFilter } from './ProjectsRenderer/navigationTreeProjectFilter';
-import { navigationTreeProjectSearchCompare } from './ProjectsRenderer/navigationTreeProjectSearchCompare';
-import { navigationTreeProjectsExpandStateGetter } from './ProjectsRenderer/navigationTreeProjectsExpandStateGetter';
-import { navigationTreeProjectsRendererRenderer } from './ProjectsRenderer/navigationTreeProjectsRendererRenderer';
-import { navigationTreeResourceTypeFilter } from './ProjectsRenderer/navigationTreeResourceTypeFilter';
-import { ProjectsSettingsPlaceholderElement } from './ProjectsRenderer/ProjectsSettingsForm';
-import { navigationTreeResourceExpandStateGetter } from './ResourceFolderRenderer/navigationTreeResourceExpandStateGetter';
-import style from './ResourceManagerTree.m.css';
-import { ResourceManagerTreeCaptureViewContext } from './ResourceManagerTreeCaptureViewContext';
-import { transformResourceNodeInfo } from './ResourceRenderer/transformResourceNodeInfo';
+import { navigationTreeProjectFilter } from './ProjectsRenderer/navigationTreeProjectFilter.js';
+import { navigationTreeProjectSearchCompare } from './ProjectsRenderer/navigationTreeProjectSearchCompare.js';
+import { navigationTreeProjectsExpandStateGetter } from './ProjectsRenderer/navigationTreeProjectsExpandStateGetter.js';
+import { navigationTreeProjectsRendererRenderer } from './ProjectsRenderer/navigationTreeProjectsRendererRenderer.js';
+import { navigationTreeResourceTypeFilter } from './ProjectsRenderer/navigationTreeResourceTypeFilter.js';
+import { ProjectsSettingsPlaceholderElement } from './ProjectsRenderer/ProjectsSettingsForm.js';
+import { navigationTreeResourceExpandStateGetter } from './ResourceFolderRenderer/navigationTreeResourceExpandStateGetter.js';
+import style from './ResourceManagerTree.module.css';
+import { ResourceManagerTreeCaptureViewContext } from './ResourceManagerTreeCaptureViewContext.js';
+import { transformResourceNodeInfo } from './ResourceRenderer/transformResourceNodeInfo.js';
 
 interface Props extends React.PropsWithChildren {
   resourceTypeId?: string;

@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,15 +10,14 @@ import { computed, observable } from 'mobx';
 import { useObservableRef } from '@cloudbeaver/core-blocks';
 import type { IDataContext } from '@cloudbeaver/core-data-context';
 import { useService } from '@cloudbeaver/core-di';
-import { flat, ILoadableState } from '@cloudbeaver/core-utils';
+import { flat, type ILoadableState } from '@cloudbeaver/core-utils';
 
-import { DATA_CONTEXT_MENU_LOCAL } from './DATA_CONTEXT_MENU_LOCAL';
-import type { IMenu } from './IMenu';
-import type { IMenuHandler } from './IMenuHandler';
-import type { MenuCreatorItem } from './IMenuItemsCreator';
-import type { IMenuItem } from './MenuItem/IMenuItem';
-import { MenuService } from './MenuService';
-import { useMenuContext } from './useMenuContext';
+import type { IMenu } from './IMenu.js';
+import type { IMenuHandler } from './IMenuHandler.js';
+import type { MenuCreatorItem } from './IMenuItemsCreator.js';
+import type { IMenuItem } from './MenuItem/IMenuItem.js';
+import { MenuService } from './MenuService.js';
+import { useMenuContext } from './useMenuContext.js';
 
 export interface IMenuData {
   menu: IMenu;
@@ -33,14 +32,11 @@ export interface IMenuData {
 interface IMenuOptions {
   menu: IMenu;
   context?: IDataContext;
-  local?: boolean;
 }
 
 export function useMenu(options: IMenuOptions): IMenuData {
   const menuService = useService(MenuService);
   const context = useMenuContext(options.menu, options.context);
-
-  context.set(DATA_CONTEXT_MENU_LOCAL, options.local);
 
   const state = useObservableRef<IMenuData>(
     () => ({

@@ -1,68 +1,42 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useState } from 'react';
-import styled, { css } from 'reshadow';
 
-import { AuthProvider, AuthProviderConfiguration, AuthProvidersResource, comparePublicAuthConfigurations } from '@cloudbeaver/core-authentication';
+import {
+  type AuthProvider,
+  type AuthProviderConfiguration,
+  AuthProvidersResource,
+  comparePublicAuthConfigurations,
+} from '@cloudbeaver/core-authentication';
 import {
   Button,
   Cell,
+  Clickable,
+  Container,
   Filter,
   getComputed,
   IconOrImage,
   Link,
   Loader,
+  s,
   TextPlaceholder,
   Translate,
   usePromiseState,
-  useStyles,
+  useS,
   useTranslate,
 } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import type { ITask } from '@cloudbeaver/core-executor';
 import type { UserInfo } from '@cloudbeaver/core-sdk';
-import { ServerConfigurationAdministrationNavService } from '@cloudbeaver/plugin-administration';
 
-import { AuthenticationService } from '../../AuthenticationService';
-
-const styles = css`
-  container {
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-    flex: 1;
-  }
-  Filter {
-    margin: 0 24px 12px 24px;
-  }
-  list {
-    overflow: auto;
-  }
-  Cell {
-    composes: theme-border-color-secondary from global;
-    border-bottom: 1px solid;
-    padding: 0 16px;
-  }
-  IconOrImage {
-    width: 100%;
-    height: 100%;
-  }
-  center {
-    margin: auto;
-  }
-`;
-
-const loaderStyle = css`
-  ExceptionMessage {
-    padding: 24px;
-  }
-`;
+import { AuthenticationService } from '../../AuthenticationService.js';
+import styles from './ConfigurationsList.module.css';
 
 interface IProviderConfiguration {
   provider: AuthProvider;
@@ -88,10 +62,9 @@ export const ConfigurationsList = observer<Props>(function ConfigurationsList({
   onClose,
   className,
 }) {
-  const serverConfigurationAdministrationNavService = useService(ServerConfigurationAdministrationNavService);
   const authenticationService = useService(AuthenticationService);
   const translate = useTranslate();
-  const style = useStyles(styles);
+  const style = useS(styles);
 
   const [search, setSearch] = useState('');
   const authTaskState = usePromiseState(authTask);
@@ -118,11 +91,6 @@ export const ConfigurationsList = observer<Props>(function ConfigurationsList({
     return target.toUpperCase().includes(search.toUpperCase());
   });
 
-  function navToSettings() {
-    onClose?.();
-    serverConfigurationAdministrationNavService.navToSettings();
-  }
-
   function navToIdentityProvidersSettings() {
     onClose?.();
     authenticationService.configureIdentityProvider?.();
@@ -138,45 +106,55 @@ export const ConfigurationsList = observer<Props>(function ConfigurationsList({
   }
 
   if (activeProvider && activeConfiguration) {
-    return styled(style)(
-      <container className={className}>
-        <Loader state={authTaskState} style={loaderStyle} message="authentication_authorizing" hideException>
-          <center>
+    return (
+      <Container className={className} center>
+        <Loader state={authTaskState} message="authentication_authorizing" hideException>
+          <Container keepSize center>
             {providerDisabled ? (
-              <TextPlaceholder>
-                {translate('plugin_authentication_authentication_method_disabled')}
-                {authenticationService.configureIdentityProvider && <Link onClick={navToSettings}>{translate('ui_configure')}</Link>}
-              </TextPlaceholder>
+              <TextPlaceholder>{translate('plugin_authentication_authentication_method_disabled')}</TextPlaceholder>
             ) : (
               <Button type="button" mod={['unelevated']} onClick={() => login(false, activeProvider, activeConfiguration)}>
                 <Translate token="authentication_login" />
               </Button>
             )}
-          </center>
+          </Container>
         </Loader>
-      </container>,
+      </Container>
     );
   }
 
-  return styled(style)(
-    <container className={className}>
+  return (
+    <Container className={className} noWrap vertical>
       {configurations.length >= 10 && (
-        <Filter placeholder={translate('authentication_identity_provider_search_placeholder')} value={search} max onFilter={setSearch} />
+        <Container keepSize>
+          <Filter
+            className={s(style, { filter: true })}
+            placeholder={translate('authentication_identity_provider_search_placeholder')}
+            value={search}
+            onChange={setSearch}
+          />
+        </Container>
       )}
-      <list>
+      <Container overflow>
         {filteredConfigurations.map(({ provider, configuration }) => {
           const icon = configuration.iconURL || provider.icon;
           const title = `${configuration.displayName}\n${configuration.description || ''}`;
           return (
             <Link key={configuration.id} title={title} wrapper onClick={() => login(false, provider, configuration)}>
-              <Cell before={icon ? <IconOrImage icon={icon} /> : undefined} description={configuration.description}>
-                {configuration.displayName}
-              </Cell>
+              <Clickable as="div">
+                <Cell
+                  className={s(style, { cell: true })}
+                  before={icon ? <IconOrImage className={s(style, { iconOrImage: true })} icon={icon} /> : undefined}
+                  description={configuration.description}
+                >
+                  {configuration.displayName}
+                </Cell>
+              </Clickable>
             </Link>
           );
         })}
-      </list>
-      <Loader state={authTaskState} style={loaderStyle} message="authentication_authorizing" overlay hideException />
-    </container>,
+      </Container>
+      <Loader state={authTaskState} message="authentication_authorizing" overlay hideException />
+    </Container>
   );
 });

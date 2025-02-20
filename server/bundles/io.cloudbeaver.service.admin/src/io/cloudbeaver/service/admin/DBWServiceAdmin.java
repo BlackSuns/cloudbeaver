@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,6 +68,9 @@ public interface DBWServiceAdmin extends DBWService {
 
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     List<String> listAuthRoles();
+
+    @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
+    List<String> listTeamRoles();
 
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     boolean deleteUser(@NotNull WebSession webSession, String userName) throws DBWebException;
@@ -138,6 +141,9 @@ public interface DBWServiceAdmin extends DBWService {
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     boolean setDefaultNavigatorSettings(WebSession webSession, DBNBrowseSettings settings) throws DBWebException;
 
+    @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
+    boolean updateProductConfiguration(WebSession webSession, Map<String, Object> productConfiguration) throws DBWebException;
+
     ////////////////////////////////////////////////////////////////////
     // Permissions
 
@@ -147,12 +153,29 @@ public interface DBWServiceAdmin extends DBWService {
         @Nullable String projectId,
         String connectionId) throws DBWebException;
 
+    @Deprecated
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     boolean setConnectionSubjectAccess(
         @NotNull WebSession webSession,
         @Nullable String projectId,
         @NotNull String connectionId,
         @NotNull List<String> subjects) throws DBWebException;
+
+    @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
+    boolean addConnectionsAccess(
+        @NotNull WebSession webSession,
+        @Nullable String projectId,
+        @NotNull List<String> connectionIds,
+        @NotNull List<String> subjects
+    ) throws DBWebException;
+
+    @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
+    boolean deleteConnectionsAccess(
+        @NotNull WebSession webSession,
+        @Nullable String projectId,
+        @NotNull List<String> connectionIds,
+        @NotNull List<String> subjects
+    ) throws DBWebException;
 
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     SMDataSourceGrant[] getSubjectConnectionAccess(@NotNull WebSession webSession, @NotNull String subjectId) throws DBWebException;
@@ -162,6 +185,7 @@ public interface DBWServiceAdmin extends DBWService {
         DBWebException;
 
     ////////////////////////////////////////////////////////////////////
+
     // User meta parameters
 
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
@@ -170,15 +194,21 @@ public interface DBWServiceAdmin extends DBWService {
 
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     Boolean deleteUserMetaParameter(WebSession webSession, String id) throws DBWebException;
-
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     Boolean setUserMetaParameterValues(WebSession webSession, String userId, Map<String, String> parameters) throws DBWebException;
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     Boolean setTeamMetaParameterValues(WebSession webSession, String teamId, Map<String, String> parameters) throws DBWebException;
+
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     Boolean enableUser(WebSession webSession, String userId, Boolean enabled) throws DBWebException;
 
     @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
     Boolean setUserAuthRole(WebSession webSession, String userId, String authRole) throws DBWebException;
+
+    @WebAction(requirePermissions = DBWConstants.PERMISSION_ADMIN)
+    Boolean setUserTeamRole(
+        @NotNull WebSession webSession, @NotNull String userId,
+        @NotNull String teamId, @Nullable String teamRole
+    ) throws DBWebException;
 
 }

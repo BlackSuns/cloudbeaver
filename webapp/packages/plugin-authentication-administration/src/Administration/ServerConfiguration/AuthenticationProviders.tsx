@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -10,17 +10,18 @@ import React, { useContext } from 'react';
 
 import {
   AUTH_PROVIDER_LOCAL_ID,
-  AuthProvider,
   AuthProviderService,
   AuthProvidersResource,
   AuthSettingsService,
+  sortProvider,
 } from '@cloudbeaver/core-authentication';
-import { FormContext, Group, GroupTitle, PlaceholderComponent, Switch, useExecutor, useResource, useTranslate } from '@cloudbeaver/core-blocks';
+import { FormContext, Group, GroupTitle, type PlaceholderComponent, Switch, useExecutor, useResource, useTranslate } from '@cloudbeaver/core-blocks';
 import { useService } from '@cloudbeaver/core-di';
 import { CachedMapAllKey } from '@cloudbeaver/core-resource';
+import { isDefined } from '@cloudbeaver/core-utils';
 import type { IConfigurationPlaceholderProps } from '@cloudbeaver/plugin-administration';
 
-import { ServerConfigurationAdminForm } from './ServerConfigurationAdminForm';
+import { ServerConfigurationAdminForm } from './ServerConfigurationAdminForm.js';
 
 export const AuthenticationProviders: PlaceholderComponent<IConfigurationPlaceholderProps> = observer(function AuthenticationProviders({
   state: { serverConfig },
@@ -36,19 +37,29 @@ export const AuthenticationProviders: PlaceholderComponent<IConfigurationPlaceho
     throw new Error('Form state should be provided');
   }
 
-  const providerList = providers.data.filter<AuthProvider>((provider): provider is AuthProvider => {
-    if (configurationWizard && (provider?.configurable || provider?.private)) {
-      return false;
-    }
-
-    return true;
-  });
-
   const localProvider = providers.resource.get(AUTH_PROVIDER_LOCAL_ID);
-  const primaryProvider = providers.resource.get(providers.resource.getPrimary());
-  const externalAuthentication = localProvider === undefined && providerList.length === 1;
+  const providerList = providers.data
+    .filter(isDefined)
+    .filter(provider => {
+      if (provider.private) {
+        return false;
+      }
+
+      if (configurationWizard) {
+        const disabledByFeature = provider.requiredFeatures.some(feat => !serverConfig.enabledFeatures?.includes(feat));
+
+        if (provider.configurable || disabledByFeature || provider.authHidden) {
+          return false;
+        }
+      }
+
+      return true;
+    })
+    .sort(sortProvider);
+
+  const externalAuthentication = providerList.length === 0;
   const authenticationDisabled = serverConfig.enabledAuthProviders?.length === 0;
-  const isAnonymousAccessDisabled = authSettingsService.settings.getValue('disableAnonymousAccess');
+  const isAnonymousAccessDisabled = authSettingsService.disableAnonymousAccess;
 
   useExecutor({
     executor: formContext.onChange,
@@ -57,8 +68,6 @@ export const AuthenticationProviders: PlaceholderComponent<IConfigurationPlaceho
         if (serverConfig.enabledAuthProviders?.length === 0) {
           if (localProvider && !isAnonymousAccessDisabled) {
             serverConfig.anonymousAccessEnabled = true;
-          } else if (primaryProvider) {
-            serverConfig.enabledAuthProviders.push(primaryProvider.id);
           }
         }
 
@@ -97,21 +106,8 @@ export const AuthenticationProviders: PlaceholderComponent<IConfigurationPlaceho
 
         {providerList.map(provider => {
           const links = authProviderService.getServiceDescriptionLinks(provider);
-          let disabled = provider.requiredFeatures.some(feat => !serverConfig.enabledFeatures?.includes(feat));
+          const disabled = provider.requiredFeatures.some(feat => !serverConfig.enabledFeatures?.includes(feat));
           const tooltip = disabled ? `Following services need to be enabled: "${provider.requiredFeatures.join(', ')}"` : '';
-
-          if (
-            !localProvider &&
-            primaryProvider?.id === provider.id &&
-            serverConfig.enabledAuthProviders?.length === 1 &&
-            serverConfig.enabledAuthProviders.includes(provider.id)
-          ) {
-            disabled = true;
-          }
-
-          if (provider.private || (configurationWizard && (disabled || provider.id !== AUTH_PROVIDER_LOCAL_ID))) {
-            return null;
-          }
 
           return (
             <Switch

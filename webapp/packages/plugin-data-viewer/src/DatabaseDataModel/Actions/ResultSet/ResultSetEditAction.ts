@@ -1,32 +1,39 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { action, computed, makeObservable, observable } from 'mobx';
+import { action, makeObservable, observable } from 'mobx';
 
-import { ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
-import { ResultDataFormat, SqlResultRow, UpdateResultsDataBatchMutationVariables } from '@cloudbeaver/core-sdk';
-import { uuid } from '@cloudbeaver/core-utils';
+import { type ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
+import { ResultDataFormat, type SqlResultRow, type UpdateResultsDataBatchMutationVariables } from '@cloudbeaver/core-sdk';
+import { isNull } from '@cloudbeaver/core-utils';
 
-import type { IDatabaseDataSource } from '../../IDatabaseDataSource';
-import type { IDatabaseResultSet } from '../../IDatabaseResultSet';
-import { databaseDataAction } from '../DatabaseDataActionDecorator';
-import { DatabaseEditAction } from '../DatabaseEditAction';
+import type { IDatabaseDataSource } from '../../IDatabaseDataSource.js';
+import type { IDatabaseResultSet } from '../../IDatabaseResultSet.js';
+import { databaseDataAction } from '../DatabaseDataActionDecorator.js';
+import { DatabaseEditAction } from '../DatabaseEditAction.js';
 import {
   DatabaseEditChangeType,
-  IDatabaseDataEditActionData,
-  IDatabaseDataEditActionValue,
-  IDatabaseDataEditApplyActionData,
-  IDatabaseDataEditApplyActionUpdate,
-} from '../IDatabaseDataEditAction';
-import type { IResultSetColumnKey, IResultSetElementKey, IResultSetRowKey } from './IResultSetDataKey';
-import { isResultSetContentValue } from './isResultSetContentValue';
-import { ResultSetDataAction } from './ResultSetDataAction';
-import { ResultSetDataKeysUtils } from './ResultSetDataKeysUtils';
-import type { IResultSetValue } from './ResultSetFormatAction';
+  type IDatabaseDataEditActionData,
+  type IDatabaseDataEditActionValue,
+  type IDatabaseDataEditApplyActionData,
+  type IDatabaseDataEditApplyActionUpdate,
+} from '../IDatabaseDataEditAction.js';
+import { compareResultSetRowKeys } from './compareResultSetRowKeys.js';
+import { createResultSetContentValue } from './createResultSetContentValue.js';
+import { createResultSetFileValue } from './createResultSetFileValue.js';
+import type { IResultSetBlobValue } from './IResultSetBlobValue.js';
+import type { IResultSetColumnKey, IResultSetElementKey, IResultSetRowKey } from './IResultSetDataKey.js';
+import { isResultSetBlobValue } from './isResultSetBlobValue.js';
+import { isResultSetComplexValue } from './isResultSetComplexValue.js';
+import { isResultSetContentValue } from './isResultSetContentValue.js';
+import { isResultSetFileValue } from './isResultSetFileValue.js';
+import { ResultSetDataAction } from './ResultSetDataAction.js';
+import { ResultSetDataKeysUtils } from './ResultSetDataKeysUtils.js';
+import type { IResultSetValue } from './ResultSetFormatAction.js';
 
 export interface IResultSetUpdate {
   row: IResultSetRowKey;
@@ -39,9 +46,9 @@ export type IResultSetEditActionData = IDatabaseDataEditActionData<IResultSetEle
 
 @databaseDataAction()
 export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey, IResultSetValue, IDatabaseResultSet> {
-  static dataFormat = [ResultDataFormat.Resultset];
+  static override dataFormat = [ResultDataFormat.Resultset];
 
-  readonly applyAction: ISyncExecutor<IDatabaseDataEditApplyActionData<IResultSetRowKey>>;
+  override readonly applyAction: ISyncExecutor<IDatabaseDataEditApplyActionData<IResultSetRowKey>>;
   private readonly editorData: Map<string, IResultSetUpdate>;
   private readonly data: ResultSetDataAction;
 
@@ -54,8 +61,6 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
 
     makeObservable<this, 'editorData'>(this, {
       editorData: observable,
-      addRows: computed,
-      updates: computed,
       set: action,
       add: action,
       addRow: action,
@@ -63,6 +68,7 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
       deleteRow: action,
       revert: action,
       applyUpdate: action,
+      applyPartialUpdate: action,
     });
   }
 
@@ -75,14 +81,6 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
   get updates(): IResultSetUpdate[] {
     return Array.from(this.editorData.values()).sort((a, b) => {
       if (a.type !== b.type) {
-        if (a.type === DatabaseEditChangeType.update) {
-          return -1;
-        }
-
-        if (b.type === DatabaseEditChangeType.update) {
-          return 1;
-        }
-
         return a.type - b.type;
       }
 
@@ -144,13 +142,13 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
     const [update] = this.getOrCreateUpdate(key.row, DatabaseEditChangeType.update);
     const prevValue = update.source?.[key.column.index] as any;
 
-    if (isResultSetContentValue(prevValue) && value !== null) {
-      if ('text' in prevValue) {
-        value = {
-          ...prevValue,
+    if (isResultSetContentValue(prevValue) && !isResultSetComplexValue(value)) {
+      if ('text' in prevValue && !isNull(value)) {
+        value = createResultSetContentValue({
           text: String(value),
           contentLength: String(value).length,
-        };
+          contentType: prevValue.contentType ?? 'text/plain',
+        });
       }
     }
 
@@ -179,15 +177,13 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
   addRow(row?: IResultSetRowKey, value?: IResultSetValue[], column?: IResultSetColumnKey): void {
     if (!row) {
       row = this.data.getDefaultKey().row;
-    } else if (!('key' in row)) {
-      row = { ...row, index: row.index + 1 };
     }
 
     if (value === undefined) {
       value = this.data.columns.map(() => null);
     }
 
-    row = { ...row, key: uuid() };
+    row = this.getNextRowAdd(row);
 
     if (!column) {
       column = this.data.getDefaultKey().column;
@@ -210,32 +206,32 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
   }
 
   duplicate(...keys: IResultSetElementKey[]): void {
-    const rows: IResultSetRowKey[] = [];
+    const result: IResultSetElementKey[] = [];
     const rowKeys = new Set<string>();
 
     for (const key of keys) {
       const serialized = ResultSetDataKeysUtils.serialize(key.row);
 
       if (!rowKeys.has(serialized)) {
-        rows.push(key.row);
+        result.push(key);
         rowKeys.add(serialized);
       }
     }
 
-    this.duplicateRow(...rows);
+    this.duplicateRow(...result);
   }
 
-  duplicateRow(...rows: IResultSetRowKey[]): void {
-    for (const row of rows) {
-      let value = this.data.getRowValue(row);
+  duplicateRow(...keys: IResultSetElementKey[]): void {
+    for (const key of keys) {
+      let value = this.data.getRowValue(key.row);
 
-      const editedValue = this.editorData.get(ResultSetDataKeysUtils.serialize(row));
+      const editedValue = this.editorData.get(ResultSetDataKeysUtils.serialize(key.row));
 
       if (editedValue) {
         value = editedValue.update;
       }
 
-      this.addRow(row, JSON.parse(JSON.stringify(value)));
+      this.addRow(key.row, JSON.parse(JSON.stringify(value)), key.column);
     }
   }
 
@@ -279,6 +275,10 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
     const serializedKey = ResultSetDataKeysUtils.serialize(key);
     const update = this.editorData.get(serializedKey);
 
+    if (key.subIndex !== 0 && !update) {
+      return;
+    }
+
     if (update && update.type !== DatabaseEditChangeType.delete) {
       this.editorData.delete(serializedKey);
     }
@@ -316,73 +316,70 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
     }
   }
 
-  applyUpdate(result: IDatabaseResultSet): void {
-    const applyUpdate: Array<IDatabaseDataEditApplyActionUpdate<IResultSetRowKey>> = [];
-    let rowIndex = 0;
-    let addShift = 0;
-    let deleteShift = 0;
-
-    const insertedRows: IResultSetRowKey[] = [];
-
-    if (result.data?.rows?.length !== this.updates.length) {
+  applyPartialUpdate(result: IDatabaseResultSet): void {
+    if (result.data?.rowsWithMetaData?.length !== this.updates.length) {
       console.warn('ResultSetEditAction: returned data differs from performed update');
     }
 
-    for (const update of this.updates) {
-      switch (update.type) {
+    const applyUpdate: Array<IDatabaseDataEditApplyActionUpdate<IResultSetRowKey>> = [];
+
+    const tempUpdates = this.updates
+      .map((update, i) => ({
+        rowIndex: update.type === DatabaseEditChangeType.delete ? -1 : i,
+        update,
+      }))
+      .sort((a, b) => compareResultSetRowKeys(b.update.row, a.update.row));
+
+    let offset = tempUpdates.reduce((offset, { update }) => {
+      if (update.type === DatabaseEditChangeType.add) {
+        return offset + 1;
+      }
+      if (update.type === DatabaseEditChangeType.delete) {
+        return offset - 1;
+      }
+      return offset;
+    }, 0);
+
+    for (const update of tempUpdates) {
+      const value = result.data?.rowsWithMetaData?.[update.rowIndex]?.data;
+      const row = update.update.row;
+      const type = update.update.type;
+
+      switch (update.update.type) {
         case DatabaseEditChangeType.update: {
-          const value = result.data?.rows?.[rowIndex];
-
-          if (value !== undefined) {
-            this.data.setRowValue(update.row, value);
-            applyUpdate.push({
-              type: DatabaseEditChangeType.update,
-              row: update.row,
-              newRow: update.row,
-            });
+          if (value) {
+            this.data.setRowValue(update.update.row, value);
           }
-
-          rowIndex++;
+          applyResultToUpdate(update.update, value);
+          this.shiftRow(update.update.row, offset);
+          this.removeEmptyUpdate(update.update);
           break;
         }
 
         case DatabaseEditChangeType.add: {
-          const value = result.data?.rows?.[rowIndex];
-
-          if (value !== undefined) {
-            const newRow = this.data.insertRow(update.row, value, addShift);
-
-            if (newRow) {
-              applyUpdate.push({
-                type: DatabaseEditChangeType.add,
-                row: update.row,
-                newRow,
-              });
-            }
+          if (value) {
+            this.data.insertRow(update.update.row, value, 1);
           }
-
-          insertedRows.push(update.row);
-          rowIndex++;
-          addShift++;
+          applyResultToUpdate(update.update, value);
+          this.shiftRow(update.update.row, offset);
+          this.removeEmptyUpdate(update.update);
+          offset--;
           break;
         }
 
         case DatabaseEditChangeType.delete: {
-          const insertShift = insertedRows.filter(row => row.index <= update.row.index).length;
-          const newRow = this.data.removeRow(update.row, deleteShift + insertShift);
-
-          if (newRow) {
-            applyUpdate.push({
-              type: DatabaseEditChangeType.delete,
-              row: update.row,
-              newRow,
-            });
-          }
-
-          deleteShift--;
+          this.revert({ row: update.update.row, column: { index: 0 } });
+          this.data.removeRow(update.update.row);
+          offset++;
           break;
         }
       }
+
+      applyUpdate.push({
+        type,
+        row,
+        newRow: update.update.row,
+      });
     }
 
     if (applyUpdate.length > 0) {
@@ -391,6 +388,10 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
         updates: applyUpdate,
       });
     }
+  }
+
+  applyUpdate(result: IDatabaseResultSet): void {
+    this.applyPartialUpdate(result);
 
     this.clear();
   }
@@ -457,13 +458,23 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
     }
   }
 
-  clear(): void {
-    this.editorData.clear();
+  getBlobsToUpload(): Array<IResultSetBlobValue> {
+    const blobs: Array<IResultSetBlobValue> = [];
 
-    this.action.execute({
-      resultId: this.result.id,
-      revert: true,
-    });
+    for (const update of this.updates) {
+      if (update.type === DatabaseEditChangeType.delete) {
+        continue;
+      }
+
+      for (let i = 0; i < update.update.length; i++) {
+        const value = update.update[i];
+        if (isResultSetBlobValue(value) && value.fileId === null) {
+          blobs.push(value);
+        }
+      }
+    }
+
+    return blobs;
   }
 
   fillBatch(batch: UpdateResultsDataBatchMutationVariables): void {
@@ -479,11 +490,16 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
             updatedRows.push({
               data: update.source,
               updateValues: update.update.reduce<Record<number, IResultSetValue>>((obj, value, index) => {
-                if (value !== update.source![index]) {
+                if (isResultSetBlobValue(value)) {
+                  if (value.fileId !== null) {
+                    obj[index] = createResultSetFileValue(value.fileId, value.contentType, value.contentLength);
+                  }
+                } else if (value !== update.source![index]) {
                   obj[index] = value;
                 }
                 return obj;
               }, {}),
+              metaData: this.data.getRowMetadata(update.row),
             });
           }
           break;
@@ -495,7 +511,7 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
           }
           const addedRows = batch.addedRows as SqlResultRow[];
 
-          addedRows.push({ data: update.update });
+          addedRows.push({ data: replaceUploadBlobs(update.update) });
           break;
         }
 
@@ -505,18 +521,50 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
           }
           const deletedRows = batch.deletedRows as SqlResultRow[];
 
-          deletedRows.push({ data: update.update });
+          deletedRows.push({ data: replaceBlobsWithNull(update.update), metaData: this.data.getRowMetadata(update.row) });
           break;
         }
       }
     }
   }
 
-  updateResult(result: IDatabaseResultSet, index: number): void {
+  override updateResult(result: IDatabaseResultSet, index: number): void {
     super.updateResult(result, index);
 
     if (result.data?.singleEntity) {
-      this.features = ['add', 'delete'];
+      this.features = ['add', 'delete', 'revert'];
+    }
+  }
+
+  clear(): void {
+    this.editorData.clear();
+
+    this.action.execute({
+      resultId: this.result.id,
+      revert: true,
+    });
+  }
+
+  private getNextRowAdd(row: IResultSetRowKey): IResultSetRowKey {
+    let i = row.subIndex + 1;
+    while (this.editorData.has(ResultSetDataKeysUtils.serialize({ ...row, subIndex: i }))) {
+      i++;
+    }
+
+    return { ...row, subIndex: i };
+  }
+
+  private shiftRow(row: IResultSetRowKey, shift: number) {
+    const key = ResultSetDataKeysUtils.serialize(row);
+    const update = this.editorData.get(ResultSetDataKeysUtils.serialize(row));
+
+    if (update) {
+      update.row = {
+        index: update.row.index + shift,
+        subIndex: 0,
+      };
+      this.editorData.delete(key);
+      this.editorData.set(ResultSetDataKeysUtils.serialize(update.row), update);
     }
   }
 
@@ -574,5 +622,47 @@ export class ResultSetEditAction extends DatabaseEditAction<IResultSetElementKey
     }
 
     return valueA === valueB;
+  }
+}
+
+function replaceBlobsWithNull(values: IResultSetValue[]) {
+  return values.map(value => {
+    if (isResultSetBlobValue(value)) {
+      return null;
+    }
+    return value;
+  });
+}
+
+function replaceUploadBlobs(values: IResultSetValue[]) {
+  return values.map(value => {
+    if (isResultSetBlobValue(value)) {
+      if (value.fileId !== null) {
+        return createResultSetFileValue(value.fileId, value.contentType, value.contentLength);
+      } else {
+        return null;
+      }
+    }
+    return value;
+  });
+}
+
+function applyResultToUpdate(update: IResultSetUpdate, result?: IResultSetValue[]): void {
+  if (result) {
+    update.source = result;
+
+    update.update = update.update.map((value, i) => {
+      const source = update.source![i];
+      if (isResultSetContentValue(source) && isResultSetFileValue(value)) {
+        if (value.fileId && value.contentLength === source.contentLength) {
+          return JSON.parse(JSON.stringify(source));
+        }
+      }
+      return value;
+    });
+  }
+
+  if (update.type === DatabaseEditChangeType.add) {
+    update.type = DatabaseEditChangeType.update;
   }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.sql.SQLModelPreferences;
 import org.jkiss.dbeaver.model.sql.SQLSyntaxManager;
 import org.jkiss.dbeaver.model.sql.completion.SQLCompletionContext;
 import org.jkiss.dbeaver.model.sql.completion.SQLCompletionProposalBase;
@@ -66,7 +67,8 @@ public class WebSQLCompletionContext implements SQLCompletionContext {
 
     @Override
     public boolean isUseFQNames() {
-        return false;
+        return sqlContext.getWebSession().getUserPreferenceStore()
+            .getBoolean(SQLModelPreferences.SQL_EDITOR_PROPOSAL_ALWAYS_FQ);
     }
 
     @Override
@@ -121,6 +123,6 @@ public class WebSQLCompletionContext implements SQLCompletionContext {
 
     @Override
     public SQLCompletionProposalBase createProposal(@NotNull SQLCompletionRequest request, @NotNull String displayString, @NotNull String replacementString, int cursorPosition, @Nullable DBPImage image, @NotNull DBPKeywordType proposalType, @Nullable String description, @Nullable DBPNamedObject object, @NotNull Map<String, Object> params) {
-        return new SQLCompletionProposalBase(this, request.getWordDetector(), displayString, replacementString, cursorPosition, image, proposalType, description, object, params);
+        return new SQLCompletionProposalBase(request, displayString, replacementString, cursorPosition, image, proposalType, description, object, params);
     }
 }

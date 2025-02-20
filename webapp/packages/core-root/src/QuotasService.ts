@@ -1,13 +1,13 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { injectable } from '@cloudbeaver/core-di';
 
-import { ServerConfigResource } from './ServerConfigResource';
+import { ServerResourceQuotasResource } from './ServerResourceQuotasResource.js';
 
 interface IQuotas {
   dataExportFileSizeLimit: number;
@@ -46,10 +46,13 @@ export class QuotasService {
     };
   }
 
-  constructor(private readonly serverConfigResource: ServerConfigResource) {}
+  constructor(private readonly serverResourceQuotasResource: ServerResourceQuotasResource) {}
 
+  /**
+   * Quotas should be manually loaded from ServerResourceQuotasResource before using this method
+   */
   getQuota(key: QuotaKey) {
-    const serverQuota = this.serverConfigResource.data?.resourceQuotas[key];
+    const serverQuota = this.serverResourceQuotasResource.data?.[key];
 
     if (isNumber(serverQuota)) {
       return serverQuota;

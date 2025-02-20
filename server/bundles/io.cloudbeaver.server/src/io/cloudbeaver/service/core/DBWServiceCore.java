@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,20 @@
  */
 package io.cloudbeaver.service.core;
 
-import io.cloudbeaver.*;
+import io.cloudbeaver.DBWebException;
+import io.cloudbeaver.WebAction;
+import io.cloudbeaver.WebObjectId;
+import io.cloudbeaver.WebProjectAction;
 import io.cloudbeaver.model.*;
 import io.cloudbeaver.model.session.WebSession;
- import io.cloudbeaver.model.user.WebDataSourceProviderInfo;
 import io.cloudbeaver.service.DBWService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.navigator.DBNBrowseSettings;
 import org.jkiss.dbeaver.model.rm.RMConstants;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.Part;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -38,8 +38,17 @@ import java.util.Map;
  */
 public interface DBWServiceCore extends DBWService {
 
-    @WebAction(authRequired = false)
+    @WebAction(authRequired = false, initializationRequired = false)
     WebServerConfig getServerConfig() throws DBWebException;
+
+    /**
+     * Returns information of system.
+     */
+    @WebAction(authRequired = false)
+    WebPropertyInfo[] getSystemInformationProperties(@NotNull WebSession webSession);
+
+    @WebAction(authRequired = false)
+    WebProductSettings getProductSettings(@NotNull WebSession webSession);
 
     @WebAction
     List<WebDatabaseDriverInfo> getDriverList(@NotNull WebSession webSession, String driverId) throws DBWebException;
@@ -90,8 +99,14 @@ public interface DBWServiceCore extends DBWService {
     @WebAction(authRequired = false)
     boolean closeSession(HttpServletRequest request) throws DBWebException;
 
+    @Deprecated
     @WebAction(authRequired = false)
     boolean touchSession(@NotNull HttpServletRequest request, @NotNull HttpServletResponse servletResponse) throws DBWebException;
+
+    @Deprecated
+    @WebAction(authRequired = false)
+    WebSession updateSession(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response)
+        throws DBWebException;
 
     @WebAction(authRequired = false)
     boolean refreshSessionConnections(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response) throws DBWebException;
@@ -112,8 +127,9 @@ public interface DBWServiceCore extends DBWService {
         @NotNull String connectionId,
         @NotNull Map<String, Object> authProperties,
         @Nullable List<WebNetworkHandlerConfigInput> networkCredentials,
-        @Nullable Boolean saveCredentials,
-        @Nullable Boolean sharedCredentials
+        boolean saveCredentials,
+        boolean sharedCredentials,
+        @Nullable String selectedCredentials
     ) throws DBWebException;
 
     @WebProjectAction(requireProjectPermissions = {RMConstants.PERMISSION_PROJECT_DATASOURCES_EDIT})
@@ -136,6 +152,7 @@ public interface DBWServiceCore extends DBWService {
         @NotNull String connectionId) throws DBWebException;
 
     @WebAction
+    @Deprecated
     WebConnectionInfo createConnectionFromTemplate(
         @NotNull WebSession webSession,
         @NotNull String projectId,

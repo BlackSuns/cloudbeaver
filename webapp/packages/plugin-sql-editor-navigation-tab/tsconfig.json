@@ -1,73 +1,77 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "@cloudbeaver/tsconfig/tsconfig.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+    "composite": true
   },
   "references": [
     {
-      "path": "../plugin-connections/tsconfig.json"
+      "path": "../core-blocks"
     },
     {
-      "path": "../plugin-navigation-tabs/tsconfig.json"
+      "path": "../core-cli"
     },
     {
-      "path": "../plugin-sql-editor/tsconfig.json"
+      "path": "../core-connections"
     },
     {
-      "path": "../plugin-top-app-bar/tsconfig.json"
+      "path": "../core-data-context"
     },
     {
-      "path": "../core-blocks/tsconfig.json"
+      "path": "../core-di"
     },
     {
-      "path": "../core-connections/tsconfig.json"
+      "path": "../core-dialogs"
     },
     {
-      "path": "../core-data-context/tsconfig.json"
+      "path": "../core-events"
     },
     {
-      "path": "../core-di/tsconfig.json"
+      "path": "../core-executor"
     },
     {
-      "path": "../core-dialogs/tsconfig.json"
+      "path": "../core-extensions"
     },
     {
-      "path": "../core-events/tsconfig.json"
+      "path": "../core-localization"
     },
     {
-      "path": "../core-executor/tsconfig.json"
+      "path": "../core-navigation-tree"
     },
     {
-      "path": "../core-extensions/tsconfig.json"
+      "path": "../core-projects"
     },
     {
-      "path": "../core-localization/tsconfig.json"
+      "path": "../core-resource"
     },
     {
-      "path": "../core-navigation-tree/tsconfig.json"
+      "path": "../core-root"
     },
     {
-      "path": "../core-projects/tsconfig.json"
+      "path": "../core-sdk"
     },
     {
-      "path": "../core-resource/tsconfig.json"
+      "path": "../core-ui"
     },
     {
-      "path": "../core-root/tsconfig.json"
+      "path": "../core-utils"
     },
     {
-      "path": "../core-sdk/tsconfig.json"
+      "path": "../core-view"
     },
     {
-      "path": "../core-ui/tsconfig.json"
+      "path": "../plugin-connections"
     },
     {
-      "path": "../core-utils/tsconfig.json"
+      "path": "../plugin-navigation-tabs"
     },
     {
-      "path": "../core-view/tsconfig.json"
+      "path": "../plugin-sql-editor"
+    },
+    {
+      "path": "../plugin-top-app-bar"
     }
   ],
   "include": [

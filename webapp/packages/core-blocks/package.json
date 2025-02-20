@@ -1,48 +1,64 @@
 {
   "name": "@cloudbeaver/core-blocks",
+  "type": "module",
   "sideEffects": [
     "src/**/*.css",
     "src/**/*.scss",
-    "public/**",
     "public/**/*"
   ],
   "version": "0.1.0",
   "description": "",
   "license": "Apache-2.0",
-  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
-    "build": "core-cli-build --mode=production --config ../core-cli/configs/webpack.plugin.config.js",
+    "build": "tsc -b",
+    "clean": "rimraf --glob dist",
     "lint": "eslint ./src/ --ext .ts,.tsx",
-    "lint-fix": "eslint ./src/ --ext .ts,.tsx --fix",
-    "pretest": "tsc -b",
     "test": "core-cli-test",
-    "validate-dependencies": "core-cli-validate-dependencies",
-    "update-ts-references": "rimraf --glob dist/* && typescript-resolve-references"
+    "validate-dependencies": "core-cli-validate-dependencies"
   },
   "dependencies": {
-    "go-split": "^3.4.1",
-    "@cloudbeaver/core-authentication": "~0.1.0",
-    "@cloudbeaver/core-di": "~0.1.0",
-    "@cloudbeaver/core-dialogs": "~0.1.0",
-    "@cloudbeaver/core-events": "~0.1.0",
-    "@cloudbeaver/core-executor": "~0.1.0",
-    "@cloudbeaver/core-localization": "~0.1.0",
-    "@cloudbeaver/core-resource": "~0.1.0",
-    "@cloudbeaver/core-root": "~0.1.0",
-    "@cloudbeaver/core-sdk": "~0.1.0",
-    "@cloudbeaver/core-theming": "~0.1.0",
-    "@cloudbeaver/core-utils": "~0.1.0"
-  },
-  "peerDependencies": {
-    "reshadow": "~0.x.x",
-    "reakit": "~1.x.x",
-    "react": "~18.x.x",
-    "mobx": "~6.x.x",
-    "mobx-react-lite": "~3.x.x",
-    "@testing-library/jest-dom": "~6.x.x",
-    "@testing-library/react": "~13.x.x"
+    "@cloudbeaver/core-authentication": "workspace:*",
+    "@cloudbeaver/core-di": "workspace:*",
+    "@cloudbeaver/core-dialogs": "workspace:*",
+    "@cloudbeaver/core-events": "workspace:*",
+    "@cloudbeaver/core-executor": "workspace:*",
+    "@cloudbeaver/core-localization": "workspace:*",
+    "@cloudbeaver/core-resource": "workspace:*",
+    "@cloudbeaver/core-root": "workspace:*",
+    "@cloudbeaver/core-sdk": "workspace:*",
+    "@cloudbeaver/core-theming": "workspace:*",
+    "@cloudbeaver/core-utils": "workspace:*",
+    "go-split": "^3",
+    "minisearch": "^7",
+    "mobx": "^6",
+    "mobx-react-lite": "^4",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-hotkeys-hook": "^4",
+    "react-minisearch": "^7",
+    "reakit": "^1",
+    "reakit-utils": "^0",
+    "tslib": "^2"
   },
   "devDependencies": {
-    "@cloudbeaver/tests-runner": "~0.1.0"
+    "@cloudbeaver/core-cli": "workspace:*",
+    "@cloudbeaver/core-di": "workspace:*",
+    "@cloudbeaver/core-executor": "workspace:*",
+    "@cloudbeaver/core-utils": "workspace:*",
+    "@cloudbeaver/tests-runner": "workspace:*",
+    "@cloudbeaver/tsconfig": "workspace:*",
+    "@jest/globals": "^29",
+    "@testing-library/dom": "^10",
+    "@testing-library/react": "^16",
+    "@types/jest": "^29",
+    "@types/react": "^19",
+    "mobx": "^6",
+    "react": "^19",
+    "react-dom": "^19",
+    "typescript": "^5",
+    "typescript-plugin-css-modules": "^5"
   }
 }

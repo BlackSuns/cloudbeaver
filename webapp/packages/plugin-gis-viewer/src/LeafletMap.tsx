@@ -1,23 +1,21 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="./react-leaflet.d.ts" />
-import type geojson from 'geojson';
 import leaflet from 'leaflet';
 import { useCallback, useEffect, useState } from 'react';
-import { GeoJSON, LayersControl, MapContainer, TileLayer } from 'react-leaflet';
-import type { TileLayerProps } from 'react-leaflet';
-import styled, { css } from 'reshadow';
+import { GeoJSON, LayersControl, MapContainer, TileLayer, type TileLayerProps } from 'react-leaflet';
 
-import { useSplit, useTranslate } from '@cloudbeaver/core-blocks';
+import { s, useS, useSplit, useTranslate } from '@cloudbeaver/core-blocks';
 import type { IResultSetElementKey, IResultSetValue } from '@cloudbeaver/plugin-data-viewer';
 
-import baseStyles from './styles/base.scss';
+import styles from './LeafletMap.module.css';
+import './styles/base.scss';
 
 export interface IAssociatedValue {
   key: string;
@@ -31,7 +29,7 @@ interface IFeatureProperties {
 
 export interface IGeoJSONFeature extends GeoJSON.Feature<GeoJSON.GeometryObject, IFeatureProperties> {
   type: 'Feature';
-  bbox?: geojson.BBox;
+  bbox?: any;
 }
 
 interface IBaseTile extends TileLayerProps {
@@ -39,7 +37,7 @@ interface IBaseTile extends TileLayerProps {
   checked?: boolean;
 }
 
-export type CrsKey = 'Simple' | 'EPSG3857' | 'EPSG4326' | 'EPSG3395' | 'EPSG900913';
+export type CrsKey = 'Simple' | 'EPSG:3857' | 'EPSG:4326' | 'EPSG:3395' | 'EPSG:900913';
 
 interface Props {
   geoJSON: IGeoJSONFeature[];
@@ -92,25 +90,18 @@ function getCRS(crsKey: CrsKey): leaflet.CRS {
   switch (crsKey) {
     case 'Simple':
       return leaflet.CRS.Simple;
-    case 'EPSG3857':
+    case 'EPSG:3857':
       return leaflet.CRS.EPSG3857;
-    case 'EPSG4326':
+    case 'EPSG:4326':
       return leaflet.CRS.EPSG4326;
-    case 'EPSG3395':
+    case 'EPSG:3395':
       return leaflet.CRS.EPSG3395;
-    case 'EPSG900913':
+    case 'EPSG:900913':
       return leaflet.CRS.EPSG900913;
     default:
       return leaflet.CRS.EPSG3857;
   }
 }
-
-const styles = css`
-  MapContainer {
-    width: 100%;
-    height: 100%;
-  }
-`;
 
 export const LeafletMap: React.FC<Props> = function LeafletMap({ geoJSON, crsKey, getAssociatedValues }) {
   const split = useSplit();
@@ -129,7 +120,7 @@ export const LeafletMap: React.FC<Props> = function LeafletMap({ geoJSON, crsKey
 
         popupContent += '<table>';
         for (let i = 0; i < associatedValues.length; i++) {
-          const { key, value } = associatedValues[i];
+          const { key, value } = associatedValues[i]!;
 
           if (value === undefined || typeof value === 'object') {
             continue;
@@ -149,7 +140,7 @@ export const LeafletMap: React.FC<Props> = function LeafletMap({ geoJSON, crsKey
       geoJSONLayerRef.clearLayers();
 
       for (let i = 0; i < geoJSON.length; i++) {
-        geoJSONLayerRef.addData(geoJSON[i]);
+        geoJSONLayerRef.addData(geoJSON[i]!);
       }
 
       const bounds = geoJSONLayerRef.getBounds();
@@ -175,20 +166,13 @@ export const LeafletMap: React.FC<Props> = function LeafletMap({ geoJSON, crsKey
   useEffect(() => {
     if (mapRef) {
       mapRef.invalidateSize();
-
-      if (mapRef.options.crs?.code !== crs.code) {
-        const center = mapRef.getCenter();
-        mapRef.options.crs = crs;
-        mapRef.setView(center);
-      }
     }
-  }, [split.state.isResizing, split.state.mode, crs, mapRef]);
+  }, [split.state.isResizing, split.state.mode, mapRef]);
 
-  return styled(
-    styles,
-    baseStyles,
-  )(
-    <MapContainer ref={setMapRef} crs={crs} zoom={12}>
+  const style = useS(styles);
+
+  return (
+    <MapContainer ref={setMapRef} className={s(style, { mapContainer: true })} crs={leaflet.CRS.EPSG3857} zoom={12}>
       <GeoJSON
         // data is not optional property, see react-leaflet.d.ts
         // data={[]}
@@ -217,6 +201,6 @@ export const LeafletMap: React.FC<Props> = function LeafletMap({ geoJSON, crsKey
           </LayersControl.BaseLayer>
         </LayersControl>
       )}
-    </MapContainer>,
+    </MapContainer>
   );
 };

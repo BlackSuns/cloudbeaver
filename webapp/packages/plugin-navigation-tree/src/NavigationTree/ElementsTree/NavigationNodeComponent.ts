@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,9 +8,8 @@
 import type React from 'react';
 
 import type { NavNode } from '@cloudbeaver/core-navigation-tree';
-import type { ComponentStyle } from '@cloudbeaver/core-theming';
 
-import type { INavTreeNodeInfo } from './INavTreeNodeInfo';
+import type { INavTreeNodeInfo } from './INavTreeNodeInfo.js';
 
 export type NavTreeNodeComponent = React.FC<{
   nodeId: string;
@@ -28,12 +27,12 @@ export type NavTreeControlProps = {
   dndPlaceholder?: boolean;
   expanded?: boolean;
   className?: string;
-  style?: ComponentStyle;
-  ref?: React.Ref<HTMLDivElement> | undefined;
   onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
 };
 
-export type NavTreeControlComponent = React.ForwardRefExoticComponent<NavTreeControlProps>;
+export type NavTreeControlComponent =
+  | React.MemoExoticComponent<React.ForwardRefExoticComponent<React.PropsWithoutRef<NavTreeControlProps> & React.RefAttributes<HTMLDivElement>>>
+  | React.ForwardRefExoticComponent<React.PropsWithoutRef<NavTreeControlProps> & React.RefAttributes<HTMLDivElement>>;
 
 export type NavigationNodeComponent = React.FC<{
   node: NavNode;
@@ -43,7 +42,6 @@ export type NavigationNodeComponent = React.FC<{
   dragging?: boolean;
   expanded?: boolean;
   className?: string;
-  style?: ComponentStyle;
 }>;
 
 export type NavigationNodeRendererComponent = React.FC<{

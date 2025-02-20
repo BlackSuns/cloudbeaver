@@ -1,31 +1,30 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { observable } from 'mobx';
+import { observable, toJS } from 'mobx';
 
-import type { AdminUser, UsersResource } from '@cloudbeaver/core-authentication';
+import type { AdminUser, AuthRolesResource, UserMetaParameter, UsersMetaParametersResource, UsersResource } from '@cloudbeaver/core-authentication';
 import type { IExecutionContextProvider } from '@cloudbeaver/core-executor';
-import { getCachedDataResourceLoaderState } from '@cloudbeaver/core-resource';
 import type { ServerConfigResource } from '@cloudbeaver/core-root';
-import { FormMode, FormPart, formValidationContext, IFormState } from '@cloudbeaver/core-ui';
+import { FormMode, FormPart, formValidationContext, type IFormState } from '@cloudbeaver/core-ui';
 import { isArraysEqual, isDefined, isObjectsEqual, isValuesEqual } from '@cloudbeaver/core-utils';
-import { DATA_CONTEXT_LOADABLE_STATE } from '@cloudbeaver/core-view';
 
-import type { IUserFormState } from '../AdministrationUserFormService';
-import type { AdministrationUserFormState } from '../AdministrationUserFormState';
-import type { IUserFormInfoState } from './IUserFormInfoState';
+import type { IUserFormState } from '../AdministrationUserFormService.js';
+import type { IUserFormInfoState } from './IUserFormInfoState.js';
 
 const DEFAULT_ENABLED = true;
 
 export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormState> {
   constructor(
+    private readonly authRolesResource: AuthRolesResource,
     private readonly serverConfigResource: ServerConfigResource,
-    formState: AdministrationUserFormState,
+    formState: IFormState<IUserFormState>,
     private readonly usersResource: UsersResource,
+    private readonly usersMetaParametersResource: UsersMetaParametersResource,
   ) {
     super(formState, {
       userId: formState.state.userId || '',
@@ -33,22 +32,43 @@ export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormStat
       password: '',
       metaParameters: {},
       teams: [],
+      authRole: '',
     });
+
+    this.disableUser = this.disableUser.bind(this);
   }
 
-  isOutdated(): boolean {
-    if (this.formState.mode === FormMode.Edit && this.initialState.userId) {
-      return this.usersResource.isOutdated(this.initialState.userId);
+  protected override format(data: IFormState<IUserFormState>, contexts: IExecutionContextProvider<IFormState<IUserFormState>>): void | Promise<void> {
+    this.state.password = this.state.password.trim();
+    const metaParameters = this.state.metaParameters;
+
+    if (this.formState.mode === FormMode.Create) {
+      this.state.userId = this.state.userId.trim();
     }
 
-    return false;
+    for (const key in metaParameters) {
+      const value = metaParameters[key];
+
+      if (typeof value === 'string') {
+        metaParameters[key] = value.trim();
+      }
+    }
   }
 
-  isLoaded(): boolean {
+  override isOutdated(): boolean {
+    if (this.formState.mode === FormMode.Edit && this.initialState.userId) {
+      return this.usersResource.isOutdated(this.initialState.userId) || this.usersMetaParametersResource.isOutdated(this.initialState.userId);
+    }
+
+    return this.serverConfigResource.isOutdated() || this.authRolesResource.isOutdated();
+  }
+
+  override isLoaded(): boolean {
     if (
       this.formState.mode === FormMode.Edit &&
       this.initialState.userId &&
-      !this.usersResource.isLoaded(this.initialState.userId, ['includeMetaParameters'])
+      !this.usersResource.isLoaded(this.initialState.userId) &&
+      !this.usersMetaParametersResource.isLoaded(this.initialState.userId)
     ) {
       return false;
     }
@@ -56,7 +76,13 @@ export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormStat
     return this.loaded;
   }
 
-  isChanged(): boolean {
+  async disableUser() {
+    await this.usersResource.enableUser(this.state.userId, false, true);
+    this.state.enabled = false;
+    this.initialState.enabled = false;
+  }
+
+  override get isChanged(): boolean {
     if (!this.loaded) {
       return false;
     }
@@ -66,7 +92,8 @@ export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormStat
       !isValuesEqual(this.state.enabled, this.initialState.enabled, null) ||
       !isValuesEqual(this.state.password, this.initialState.password, null) ||
       !isObjectsEqual(this.state.metaParameters, this.initialState.metaParameters) ||
-      !isArraysEqual(this.state.teams, this.initialState.teams)
+      !isArraysEqual(this.state.teams, this.initialState.teams) ||
+      !isValuesEqual(this.state.authRole, this.initialState.authRole, '')
     );
   }
 
@@ -74,7 +101,11 @@ export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormStat
     if (this.formState.mode === FormMode.Create) {
       const user = await this.usersResource.create({
         userId: this.state.userId,
+        authRole: getTransformedAuthRole(this.state.authRole),
+        enabled: this.state.enabled,
       });
+      // userId is modified by backend and may not match value we sent, so we need to update the state
+      this.state.userId = user.userId;
       this.initialState.userId = user.userId;
       this.formState.setMode(FormMode.Edit);
     }
@@ -84,7 +115,10 @@ export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormStat
 
     await this.updateCredentials();
     await this.updateTeams();
-    await this.updateStatus();
+    await this.updateAuthRole(); // we must update role before enabling user to prevent situation when user current role will reach the limit
+    if (this.formState.mode === FormMode.Edit) {
+      await this.updateStatus();
+    }
     await this.updateMetaParameters();
 
     this.usersResource.markOutdated(this.state.userId);
@@ -98,7 +132,7 @@ export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormStat
     const validation = contexts.getContext(formValidationContext);
 
     if (data.mode === FormMode.Create) {
-      if (!this.state.userId.trim()) {
+      if (!this.state.userId) {
         validation.error('authentication_user_login_not_set');
       }
 
@@ -106,19 +140,34 @@ export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormStat
         validation.error('authentication_user_password_not_set');
       }
     }
-  }
-  protected override configure() {
-    const loadableStateContext = this.formState.dataContext.get(DATA_CONTEXT_LOADABLE_STATE);
 
-    loadableStateContext.getState('user-info', () => [getCachedDataResourceLoaderState(this.serverConfigResource, undefined)]);
+    if (this.authRolesResource.data.length > 0) {
+      const authRole = getTransformedAuthRole(this.state.authRole);
+      if (!authRole || !this.authRolesResource.data.includes(authRole)) {
+        validation.error('authentication_user_role_not_set');
+      }
+    }
   }
 
   private async updateCredentials() {
-    if (this.state.password) {
+    const password = this.state.password;
+
+    if (password) {
       await this.usersResource.updateCredentials(this.state.userId, {
         profile: '0',
-        credentials: { password: this.state.password },
+        credentials: { password },
       });
+    }
+  }
+
+  private async updateAuthRole() {
+    if (this.state.userId && this.authRolesResource.data.length > 0) {
+      const authRole = getTransformedAuthRole(this.state.authRole);
+      const user = this.usersResource.get(this.state.userId);
+
+      if (!isValuesEqual(authRole, user?.authRole, '')) {
+        await this.usersResource.setAuthRole(this.state.userId, authRole, true);
+      }
     }
   }
 
@@ -126,7 +175,7 @@ export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormStat
     let grantedTeams: string[] = [];
 
     if (this.state.userId) {
-      grantedTeams = this.usersResource.get(this.state.userId)?.grantedTeams ?? [];
+      grantedTeams = toJS(this.usersResource.get(this.state.userId)?.grantedTeams ?? []);
     }
 
     if (isArraysEqual(this.state.teams, grantedTeams)) {
@@ -158,31 +207,43 @@ export class UserFormInfoPart extends FormPart<IUserFormInfoState, IUserFormStat
   }
 
   private async updateMetaParameters() {
-    if (this.state.userId) {
-      const user = this.usersResource.get(this.state.userId);
+    const metaParameters = toJS(this.state.metaParameters);
 
-      if (user && isObjectsEqual(user.metaParameters, this.state.metaParameters)) {
+    if (this.state.userId) {
+      const userMetaParameters = this.usersMetaParametersResource.get(this.state.userId);
+
+      if (userMetaParameters && isObjectsEqual(userMetaParameters, metaParameters)) {
         return;
       }
     }
 
-    await this.usersResource.setMetaParameters(this.state.userId, this.state.metaParameters);
+    await this.usersMetaParametersResource.setMetaParameters(this.state.userId, metaParameters);
   }
 
   protected override async loader() {
     let user: AdminUser | null = null;
-    const serverConfig = await this.serverConfigResource.load();
+    let metaParameters: UserMetaParameter | object = {};
+    const [serverConfig] = await Promise.all([this.serverConfigResource.load(), this.authRolesResource.load()]);
 
     if (this.formState.mode === FormMode.Edit && this.initialState.userId) {
-      user = await this.usersResource.load(this.initialState.userId, ['includeMetaParameters']);
+      [user, metaParameters] = await Promise.all([
+        this.usersResource.load(this.initialState.userId),
+        this.usersMetaParametersResource.load(this.initialState.userId),
+      ]);
     }
 
     this.setInitialState({
       userId: user?.userId || this.formState.state.userId || '',
-      enabled: user?.enabled || DEFAULT_ENABLED,
-      metaParameters: observable(user?.metaParameters || {}),
+      enabled: user?.enabled ?? DEFAULT_ENABLED,
+      metaParameters: observable(metaParameters),
       teams: observable(user?.grantedTeams || [serverConfig?.defaultUserTeam].filter(isDefined)),
       password: '',
+
+      authRole: user?.authRole ?? serverConfig?.defaultAuthRole ?? '',
     });
   }
+}
+
+function getTransformedAuthRole(authRole: string): string {
+  return authRole.trim();
 }

@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,30 +8,34 @@
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
 import { ActionService, DATA_CONTEXT_MENU, menuExtractItems, MenuSeparatorItem, MenuService } from '@cloudbeaver/core-view';
 
-import { ACTION_TAB_CLOSE } from './Actions/ACTION_TAB_CLOSE';
-import { ACTION_TAB_CLOSE_ALL } from './Actions/ACTION_TAB_CLOSE_ALL';
-import { ACTION_TAB_CLOSE_ALL_TO_THE_LEFT } from './Actions/ACTION_TAB_CLOSE_ALL_TO_THE_LEFT';
-import { ACTION_TAB_CLOSE_ALL_TO_THE_RIGHT } from './Actions/ACTION_TAB_CLOSE_ALL_TO_THE_RIGHT';
-import { ACTION_TAB_CLOSE_OTHERS } from './Actions/ACTION_TAB_CLOSE_OTHERS';
-import { DATA_CONTEXT_TAB_ID } from './Tab/DATA_CONTEXT_TAB_ID';
-import { DATA_CONTEXT_TABS_CONTEXT } from './Tab/DATA_CONTEXT_TABS_CONTEXT';
-import { MENU_TAB } from './Tab/MENU_TAB';
+import { ACTION_TAB_CLOSE } from './Actions/ACTION_TAB_CLOSE.js';
+import { ACTION_TAB_CLOSE_ALL } from './Actions/ACTION_TAB_CLOSE_ALL.js';
+import { ACTION_TAB_CLOSE_ALL_TO_THE_LEFT } from './Actions/ACTION_TAB_CLOSE_ALL_TO_THE_LEFT.js';
+import { ACTION_TAB_CLOSE_ALL_TO_THE_RIGHT } from './Actions/ACTION_TAB_CLOSE_ALL_TO_THE_RIGHT.js';
+import { ACTION_TAB_CLOSE_OTHERS } from './Actions/ACTION_TAB_CLOSE_OTHERS.js';
+import { DATA_CONTEXT_TAB_ID } from './Tab/DATA_CONTEXT_TAB_ID.js';
+import { DATA_CONTEXT_TABS_CONTEXT } from './Tab/DATA_CONTEXT_TABS_CONTEXT.js';
+import { MENU_TAB } from './Tab/MENU_TAB.js';
 
 @injectable()
 export class TabsBootstrap extends Bootstrap {
-  constructor(private readonly actionService: ActionService, private readonly menuService: MenuService) {
+  constructor(
+    private readonly actionService: ActionService,
+    private readonly menuService: MenuService,
+  ) {
     super();
   }
 
-  register(): void | Promise<void> {
+  override register(): void | Promise<void> {
     this.actionService.addHandler({
       id: 'tabs-base-handler',
+      contexts: [DATA_CONTEXT_TAB_ID, DATA_CONTEXT_TABS_CONTEXT],
       isActionApplicable: (context, action) => {
         const menu = context.hasValue(DATA_CONTEXT_MENU, MENU_TAB);
-        const state = context.tryGet(DATA_CONTEXT_TABS_CONTEXT);
-        const tab = context.tryGet(DATA_CONTEXT_TAB_ID);
+        const state = context.get(DATA_CONTEXT_TABS_CONTEXT);
+        const tab = context.get(DATA_CONTEXT_TAB_ID)!;
 
-        if (!menu || !state?.tabList || !tab) {
+        if (!menu || !state?.tabList) {
           return false;
         }
 
@@ -56,8 +60,8 @@ export class TabsBootstrap extends Bootstrap {
         return [ACTION_TAB_CLOSE].includes(action);
       },
       handler: async (context, action) => {
-        const state = context.get(DATA_CONTEXT_TABS_CONTEXT);
-        const tab = context.get(DATA_CONTEXT_TAB_ID);
+        const state = context.get(DATA_CONTEXT_TABS_CONTEXT)!;
+        const tab = context.get(DATA_CONTEXT_TAB_ID)!;
 
         switch (action) {
           case ACTION_TAB_CLOSE:
@@ -82,10 +86,11 @@ export class TabsBootstrap extends Bootstrap {
     });
 
     this.menuService.addCreator({
+      menus: [MENU_TAB],
       isApplicable: context => {
-        const tab = context.tryGet(DATA_CONTEXT_TAB_ID);
-        const state = context.tryGet(DATA_CONTEXT_TABS_CONTEXT);
-        return !!tab && !!state?.enabledBaseActions && context.get(DATA_CONTEXT_MENU) === MENU_TAB && state.canClose(tab);
+        const tab = context.get(DATA_CONTEXT_TAB_ID);
+        const state = context.get(DATA_CONTEXT_TABS_CONTEXT);
+        return !!tab && !!state?.enabledBaseActions && state.canClose(tab);
       },
       getItems: (context, items) => [
         ...items,
@@ -115,6 +120,4 @@ export class TabsBootstrap extends Bootstrap {
       },
     });
   }
-
-  load(): void | Promise<void> {}
 }

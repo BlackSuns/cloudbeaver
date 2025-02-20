@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,22 @@
 package io.cloudbeaver.service.auth.local;
 
 import io.cloudbeaver.model.session.WebSession;
+import io.cloudbeaver.server.CBApplication;
 import io.cloudbeaver.server.CBPlatform;
 import io.cloudbeaver.server.actions.AbstractActionServletHandler;
-import io.cloudbeaver.utils.WebAppUtils;
+import io.cloudbeaver.utils.ServletAppUtils;
+import jakarta.servlet.Servlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 
-import javax.servlet.Servlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 public class LocalServletHandler extends AbstractActionServletHandler {
 
     public static final String URI_PREFIX = "open";
+    public static final String PARAM_PROJECT_ID = "project_id";
     public static final String PARAM_CONNECTION_ID = "id";
     public static final String PARAM_CONNECTION_NAME = "name";
     public static final String PARAM_CONNECTION_URL = "url";
@@ -39,9 +41,9 @@ public class LocalServletHandler extends AbstractActionServletHandler {
 
     @Override
     public boolean handleRequest(Servlet servlet, HttpServletRequest request, HttpServletResponse response) throws DBException, IOException {
-        if (URI_PREFIX.equals(WebAppUtils.removeSideSlashes(request.getPathInfo()))) {
+        if (URI_PREFIX.equals(ServletAppUtils.removeSideSlashes(request.getServletPath()))) {
             try {
-                WebSession webSession = CBPlatform.getInstance().getSessionManager().getWebSession(request, response, true);
+                WebSession webSession = CBApplication.getInstance().getSessionManager().getWebSession(request, response, true);
                 createActionFromParams(webSession, request, response);
                 return true;
             } catch (Exception e) {

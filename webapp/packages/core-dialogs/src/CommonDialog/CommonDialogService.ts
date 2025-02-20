@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -50,11 +50,9 @@ export class CommonDialogService {
     options?: DialogOptions,
   ): Promise<TResult | DialogueStateResult> {
     let _resolve: (value: TResult | DialogueStateResult) => void;
-    let _reject: (reason?: any) => void;
 
-    const promise = new Promise<TResult | DialogueStateResult>((resolve, reject) => {
+    const promise = new Promise<TResult | DialogueStateResult>(resolve => {
       _resolve = resolve;
-      _reject = reject;
     });
 
     const dialogInternal: DialogInternal<TResult> = {

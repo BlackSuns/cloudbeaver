@@ -1,17 +1,18 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { Suspense } from 'react';
-import { createRoot, Root } from 'react-dom/client';
-import styled from 'reshadow';
+import { createRoot, type Root } from 'react-dom/client';
 
-import { Body } from '@cloudbeaver/core-app';
-import { DisplayError, ErrorBoundary, Loader } from '@cloudbeaver/core-blocks';
-import { AppContext, IServiceInjector } from '@cloudbeaver/core-di';
+import { BodyLazy } from '@cloudbeaver/core-app';
+import { DisplayError, ErrorBoundary, Loader, s } from '@cloudbeaver/core-blocks';
+import { HideAppLoadingScreen, IServiceProvider, ServiceProviderContext } from '@cloudbeaver/core-di';
+
+import styles from './renderLayout.module.css';
 
 interface IRender {
   initRoot(): Root;
@@ -20,7 +21,7 @@ interface IRender {
   unmount(): void;
 }
 
-export function renderLayout(serviceInjector: IServiceInjector): IRender {
+export function renderLayout(serviceProvider: IServiceProvider): IRender {
   let root: Root | undefined;
 
   return {
@@ -46,26 +47,29 @@ export function renderLayout(serviceInjector: IServiceInjector): IRender {
     },
     renderApp() {
       this.initRoot().render(
-        styled`
-          Loader {
-            height: 100vh;
-          }
-        `(
-          <AppContext app={serviceInjector}>
-            <ErrorBoundary root>
-              <Suspense fallback={<Loader />}>
-                <Body />
+        <ErrorBoundary fallback={<HideAppLoadingScreen />} simple>
+          <ServiceProviderContext serviceProvider={serviceProvider}>
+            <ErrorBoundary fallback={<HideAppLoadingScreen />} root>
+              <Suspense fallback={<Loader className={s(styles, { loader: true })} />}>
+                <BodyLazy />
+                <HideAppLoadingScreen />
               </Suspense>
             </ErrorBoundary>
-          </AppContext>,
-        ),
+          </ServiceProviderContext>
+        </ErrorBoundary>,
       );
     },
     renderError(exception?: any) {
+      if (exception) {
+        console.error(exception);
+      }
       this.initRoot().render(
-        <AppContext app={serviceInjector}>
-          <DisplayError error={exception} root />
-        </AppContext>,
+        <ErrorBoundary fallback={<HideAppLoadingScreen />} simple>
+          <ServiceProviderContext serviceProvider={serviceProvider}>
+            <DisplayError error={exception} root />
+            <HideAppLoadingScreen />
+          </ServiceProviderContext>
+        </ErrorBoundary>,
       );
     },
   };

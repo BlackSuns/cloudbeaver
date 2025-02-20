@@ -1,33 +1,34 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { action, computed, makeObservable, observable } from 'mobx';
 
-import { DataTypeLogicalOperation, ResultDataFormat, SqlResultColumn } from '@cloudbeaver/core-sdk';
+import { type DataTypeLogicalOperation, ResultDataFormat, type SqlResultColumn } from '@cloudbeaver/core-sdk';
 
-import { DatabaseDataAction } from '../../DatabaseDataAction';
-import type { IDatabaseDataSource } from '../../IDatabaseDataSource';
-import type { IDatabaseResultSet } from '../../IDatabaseResultSet';
-import { databaseDataAction } from '../DatabaseDataActionDecorator';
-import type { IDatabaseDataResultAction } from '../IDatabaseDataResultAction';
-import type { IResultSetContentValue } from './IResultSetContentValue';
-import type { IResultSetColumnKey, IResultSetElementKey, IResultSetRowKey } from './IResultSetDataKey';
-import { isResultSetContentValue } from './isResultSetContentValue';
-import { ResultSetDataAction } from './ResultSetDataAction';
-import { ResultSetDataKeysUtils } from './ResultSetDataKeysUtils';
-import { ResultSetEditAction } from './ResultSetEditAction';
-import type { IResultSetValue } from './ResultSetFormatAction';
+import { DatabaseDataAction } from '../../DatabaseDataAction.js';
+import type { IDatabaseDataAction } from '../../IDatabaseDataAction.js';
+import type { IDatabaseDataSource } from '../../IDatabaseDataSource.js';
+import type { IDatabaseResultSet } from '../../IDatabaseResultSet.js';
+import { databaseDataAction } from '../DatabaseDataActionDecorator.js';
+import { compareResultSetRowKeys } from './compareResultSetRowKeys.js';
+import type { IResultSetComplexValue } from './IResultSetComplexValue.js';
+import type { IResultSetColumnKey, IResultSetElementKey, IResultSetRowKey } from './IResultSetDataKey.js';
+import { isResultSetContentValue } from './isResultSetContentValue.js';
+import { ResultSetDataAction } from './ResultSetDataAction.js';
+import { ResultSetDataKeysUtils } from './ResultSetDataKeysUtils.js';
+import { ResultSetEditAction } from './ResultSetEditAction.js';
+import type { IResultSetValue } from './ResultSetFormatAction.js';
 
 @databaseDataAction()
-export class ResultSetViewAction extends DatabaseDataAction<any, IDatabaseResultSet> implements IDatabaseDataResultAction<IDatabaseResultSet> {
+export class ResultSetViewAction extends DatabaseDataAction<any, IDatabaseResultSet> implements IDatabaseDataAction<any, IDatabaseResultSet> {
   static dataFormat = [ResultDataFormat.Resultset];
 
   get rowKeys(): IResultSetRowKey[] {
-    return [...this.editor.addRows, ...this.data.rows.map((c, index) => ({ index }))].sort((a, b) => a.index - b.index);
+    return [...this.editor.addRows, ...this.data.rows.map((c, index) => ({ index, subIndex: 0 }))].sort(compareResultSetRowKeys);
   }
 
   get columnKeys(): IResultSetColumnKey[] {
@@ -35,11 +36,11 @@ export class ResultSetViewAction extends DatabaseDataAction<any, IDatabaseResult
   }
 
   get rows(): IResultSetValue[][] {
-    return this.data.rows;
+    return this.data.rows.map(row => row.data || []);
   }
 
   get columns(): SqlResultColumn[] {
-    return this.columnsOrder.map(i => this.data.columns[i]);
+    return this.columnsOrder.map(i => this.data.columns[i]!);
   }
 
   private columnsOrder: number[] = [];
@@ -52,12 +53,12 @@ export class ResultSetViewAction extends DatabaseDataAction<any, IDatabaseResult
     this.editor = editor;
 
     makeObservable<this, 'columnsOrder'>(this, {
-      rowKeys: computed,
-      columnKeys: computed,
-      rows: computed,
-      columns: computed,
       columnsOrder: observable,
       setColumnOrder: action,
+      rows: computed,
+      rowKeys: computed,
+      columns: computed,
+      columnKeys: computed,
     });
   }
 
@@ -129,7 +130,7 @@ export class ResultSetViewAction extends DatabaseDataAction<any, IDatabaseResult
     return { row, column };
   }
 
-  getCellValue(cell: IResultSetElementKey): IResultSetValue | undefined {
+  getCellValue(cell: IResultSetElementKey): IResultSetValue {
     const edited = this.editor.get(cell);
 
     if (edited !== undefined) {
@@ -137,13 +138,13 @@ export class ResultSetViewAction extends DatabaseDataAction<any, IDatabaseResult
     }
 
     if (cell.row.index >= this.rows.length || cell.column.index >= this.columns.length) {
-      return undefined;
+      throw new Error('Cell is out of range');
     }
 
-    return this.rows[cell.row.index][cell.column.index];
+    return this.rows[cell.row.index]![cell.column.index]!;
   }
 
-  getContent(cell: IResultSetElementKey): IResultSetContentValue | null {
+  getContent(cell: IResultSetElementKey): IResultSetComplexValue | null {
     const value = this.getCellValue(cell);
 
     if (isResultSetContentValue(value)) {
@@ -158,7 +159,13 @@ export class ResultSetViewAction extends DatabaseDataAction<any, IDatabaseResult
       return undefined;
     }
 
-    return this.columns[key.index];
+    const index = this.columnIndex(key);
+
+    if (index === -1) {
+      return undefined;
+    }
+
+    return this.columns[index];
   }
 
   getColumnOperations(key: IResultSetColumnKey): DataTypeLogicalOperation[] {
@@ -171,7 +178,7 @@ export class ResultSetViewAction extends DatabaseDataAction<any, IDatabaseResult
     return column.supportedOperations.filter(operation => operation.argumentCount === 1 || operation.argumentCount === 0);
   }
 
-  updateResult(result: IDatabaseResultSet, index: number): void {
+  override updateResult(result: IDatabaseResultSet, index: number): void {
     super.updateResult(result, index);
     if (this.columnsOrder.length !== this.data.columns.length) {
       this.columnsOrder = this.data.columns.map((key, index) => index);

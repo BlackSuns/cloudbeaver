@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -9,15 +9,15 @@ import { computed, makeObservable } from 'mobx';
 
 import { UserDataService, UserInfoResource } from '@cloudbeaver/core-authentication';
 import { Dependency, injectable } from '@cloudbeaver/core-di';
-import { Executor, ExecutorInterrupter, IExecutor, ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
+import { Executor, ExecutorInterrupter, type IExecutor, type ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
 import { CachedMapAllKey, resourceKeyList, ResourceKeyUtils } from '@cloudbeaver/core-resource';
 import { DataSynchronizationService, ServerConfigResource, ServerEventId } from '@cloudbeaver/core-root';
 import { NavigationService } from '@cloudbeaver/core-ui';
 import { isArraysEqual } from '@cloudbeaver/core-utils';
 
-import { activeProjectsContext } from './activeProjectsContext';
-import { IProjectInfoEvent, ProjectInfoEventHandler } from './ProjectInfoEventHandler';
-import { ProjectInfo, ProjectInfoResource } from './ProjectInfoResource';
+import { activeProjectsContext } from './activeProjectsContext.js';
+import { type IProjectInfoEvent, ProjectInfoEventHandler } from './ProjectInfoEventHandler.js';
+import { type ProjectInfo, ProjectInfoResource } from './ProjectInfoResource.js';
 
 interface IActiveProjectData {
   projects: string[];
@@ -35,8 +35,6 @@ export class ProjectsService extends Dependency {
 
     if (this.userInfoResource.data) {
       project = this.projectInfoResource.getUserProject(this.userInfoResource.data.userId);
-    } else {
-      project = this.projectInfoResource.get('anonymous');
     }
 
     return project;
@@ -109,7 +107,7 @@ export class ProjectsService extends Dependency {
     this.getActiveProjectTask = new SyncExecutor();
     this.onActiveProjectChange = new Executor();
 
-    this.onActiveProjectChange.before(navigationService.navigationTask);
+    this.onActiveProjectChange.before(navigationService.navigationTask, undefined, data => !isArraysEqual(data.projects, this.activeProjectIds));
 
     this.userInfoResource.onUserChange.addHandler(() => {
       this.onActiveProjectChange.execute({
@@ -196,6 +194,8 @@ export class ProjectsService extends Dependency {
       return false;
     }
     this.userProjectsSettings.activeProjectIds = ids;
+
+    this.projectInfoResource.markOutdated(resourceKeyList(ids));
 
     await this.onActiveProjectChange.execute({
       type: 'after',

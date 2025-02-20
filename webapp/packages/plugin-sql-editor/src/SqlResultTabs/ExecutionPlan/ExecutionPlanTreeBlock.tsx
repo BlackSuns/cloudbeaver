@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import {
 } from '@cloudbeaver/core-blocks';
 import type { SqlExecutionPlanNode } from '@cloudbeaver/core-sdk';
 
-import style from './ExecutionPlanTreeBlock.m.css';
-import { NestedNode } from './NestedNode';
-import { useExecutionPlanTreeState } from './useExecutionPlanTreeState';
+import style from './ExecutionPlanTreeBlock.module.css';
+import { NestedNode } from './NestedNode.js';
+import { useExecutionPlanTreeState } from './useExecutionPlanTreeState.js';
 
 interface Props {
   nodeList: SqlExecutionPlanNode[];
@@ -43,9 +43,9 @@ export const ExecutionPlanTreeBlock = observer<Props>(function ExecutionPlanTree
 
   return (
     <Split className={s(styles, { split: true }, className)} {...splitState} sticky={30} split="horizontal" keepRatio>
-      <Pane className={styles.pane}>
+      <Pane className={styles['pane']}>
         {state.nodes.length && state.columns.length ? (
-          <Table selectedItems={state.selectedNodes} onSelect={state.selectNode}>
+          <Table selectedItems={state['selectedNodes']} onSelect={state.selectNode}>
             <TableHeader fixed>
               {state.columns.map(property => {
                 const name = property.displayName;
@@ -67,8 +67,8 @@ export const ExecutionPlanTreeBlock = observer<Props>(function ExecutionPlanTree
           <TextPlaceholder>{translate('sql_execution_plan_placeholder')}</TextPlaceholder>
         )}
       </Pane>
-      <ResizerControls className={styles.resizerControls} />
-      <Pane className={styles.pane} basis="30%" main>
+      <ResizerControls className={styles['resizerControls']} />
+      <Pane className={styles['pane']} basis="30%" main>
         <Textarea className={s(styles, { textarea: true }, className)} name="value" rows={3} value={query} readOnly embedded />
       </Pane>
     </Split>

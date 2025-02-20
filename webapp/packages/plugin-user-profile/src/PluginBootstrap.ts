@@ -1,14 +1,15 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
+import { importLazyComponent } from '@cloudbeaver/core-blocks';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
 import { TopNavService } from '@cloudbeaver/plugin-top-app-bar';
 
-import { UserMenu } from './UserMenu/UserMenu';
+const UserMenu = importLazyComponent(() => import('./UserMenu/UserMenu.js').then(m => m.UserMenu));
 
 @injectable()
 export class PluginBootstrap extends Bootstrap {
@@ -16,9 +17,7 @@ export class PluginBootstrap extends Bootstrap {
     super();
   }
 
-  register(): void {
+  override register(): void {
     this.topNavService.placeholder.add(UserMenu, 4);
   }
-
-  load(): void {}
 }

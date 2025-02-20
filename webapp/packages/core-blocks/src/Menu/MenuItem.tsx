@@ -1,21 +1,20 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import React, { useContext } from 'react';
-import { MenuItem as ReakitMenuItem } from 'reakit/Menu';
-import type { CompositeItemOptions } from 'reakit/ts';
+import { MenuItem as ReakitMenuItem, type CompositeItemOptions } from 'reakit';
 
-import { s } from '../s';
-import { useCombinedHandler } from '../useCombinedHandler';
-import { useS } from '../useS';
-import style from './MenuItem.m.css';
-import { MenuStateContext } from './MenuStateContext';
-import type { ReakitProxyComponent, ReakitProxyComponentOptions } from './ReakitProxyComponent';
+import { s } from '../s.js';
+import { useCombinedHandler } from '../useCombinedHandler.js';
+import { useS } from '../useS.js';
+import style from './MenuItem.module.css';
+import { MenuStateContext } from './MenuStateContext.js';
+import type { ReakitProxyComponent, ReakitProxyComponentOptions } from './ReakitProxyComponent.js';
 
 export type MenuItemOptions = CompositeItemOptions & {
   selected?: boolean;
@@ -48,4 +47,4 @@ export const MenuItem: ReakitProxyComponent<'button', MenuItemOptions> = observe
       </MenuItem>
     );
   },
-);
+) as ReakitProxyComponent<'button', MenuItemOptions>;

@@ -1,32 +1,23 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import type { PluginManifest } from '@cloudbeaver/core-di';
 
-import { LocaleService } from './LocaleService';
-import { DBObjectPageService } from './ObjectPage/DBObjectPageService';
-import { NavNodeMetadataViewBootstrap } from './ObjectPropertiesPage/NavNodeView/NavNodeMetadata/NavNodeMetadataViewBootstrap';
-import { VirtualFolderViewBootstrap } from './ObjectPropertiesPage/NavNodeView/VirtualFolder/VirtualFolderViewBootstrap';
-import { ObjectPropertiesPageService } from './ObjectPropertiesPage/ObjectPropertiesPageService';
-import { ObjectPropertyTableFooterService } from './ObjectPropertiesPage/ObjectPropertyTable/ObjectPropertyTableFooterService';
-import { ObjectViewerBootstrap } from './ObjectViewerBootstrap';
-import { ObjectViewerTabService } from './ObjectViewerTabService';
-
 export const objectViewerManifest: PluginManifest = {
   info: { name: 'Object Viewer Plugin' },
 
   providers: [
-    ObjectViewerBootstrap,
-    NavNodeMetadataViewBootstrap,
-    VirtualFolderViewBootstrap,
-    ObjectPropertiesPageService,
-    ObjectViewerTabService,
-    DBObjectPageService,
-    LocaleService,
-    ObjectPropertyTableFooterService,
+    () => import('./ObjectViewerBootstrap.js').then(m => m.ObjectViewerBootstrap),
+    () => import('./ObjectPropertiesPage/NavNodeView/NavNodeMetadata/NavNodeMetadataViewBootstrap.js').then(m => m.NavNodeMetadataViewBootstrap),
+    () => import('./ObjectPropertiesPage/NavNodeView/VirtualFolder/VirtualFolderViewBootstrap.js').then(m => m.VirtualFolderViewBootstrap),
+    () => import('./ObjectPropertiesPage/ObjectPropertiesPageService.js').then(m => m.ObjectPropertiesPageService),
+    () => import('./ObjectViewerTabService.js').then(m => m.ObjectViewerTabService),
+    () => import('./ObjectPage/DBObjectPageService.js').then(m => m.DBObjectPageService),
+    () => import('./LocaleService.js').then(m => m.LocaleService),
+    () => import('./ObjectPropertiesPage/ObjectPropertyTable/ObjectPropertyTableFooterService.js').then(m => m.ObjectPropertyTableFooterService),
   ],
 };

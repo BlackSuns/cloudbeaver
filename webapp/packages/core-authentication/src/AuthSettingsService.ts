@@ -1,32 +1,48 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { injectable } from '@cloudbeaver/core-di';
-import { PluginManagerService, PluginSettings } from '@cloudbeaver/core-plugin';
-import { SettingsManagerService } from '@cloudbeaver/core-settings';
+import { SettingsManagerService, SettingsProvider, SettingsProviderService } from '@cloudbeaver/core-settings';
+import { schema, schemaExtra } from '@cloudbeaver/core-utils';
 
-import { AUTH_SETTINGS_GROUP, settings } from './AUTH_SETTINGS_GROUP';
+const settingsSchema = schema.object({
+  'core.authentication.disableAnonymousAccess': schemaExtra.stringedBoolean().default(false),
+});
 
-const defaultSettings = {
-  baseAuthProvider: undefined as undefined | string,
-  primaryAuthProvider: 'local',
-  disableAnonymousAccess: false,
-};
-
-export type AuthSettings = typeof defaultSettings;
+export type AuthSettings = schema.infer<typeof settingsSchema>;
 
 @injectable()
 export class AuthSettingsService {
-  readonly settings: PluginSettings<AuthSettings>;
+  get disableAnonymousAccess(): boolean {
+    return this.settings.getValue('core.authentication.disableAnonymousAccess');
+  }
+  readonly settings: SettingsProvider<typeof settingsSchema>;
 
-  constructor(private readonly pluginManagerService: PluginManagerService, settingsManagerService: SettingsManagerService) {
-    this.settings = this.pluginManagerService.createSettings('authentication', 'core', defaultSettings);
+  constructor(
+    private readonly settingsProviderService: SettingsProviderService,
+    private readonly settingsManagerService: SettingsManagerService,
+  ) {
+    this.settings = this.settingsProviderService.createSettings(settingsSchema);
 
-    settingsManagerService.addGroup(AUTH_SETTINGS_GROUP);
-    settingsManagerService.addSettings(settings.scopeType, settings.scope, settings.settingsData);
+    this.registerSettings();
+  }
+
+  private registerSettings() {
+    this.settingsManagerService.registerSettings(this.settings, () => [
+      // {
+      //   key: 'core.authentication.disableAnonymousAccess',
+      //   access: {
+      //     scope: ['server'],
+      //   },
+      //   type: ESettingsValueType.Checkbox,
+      //   name: 'settings_authentication_disable_anonymous_access_name',
+      //   description: 'settings_authentication_disable_anonymous_access_description',
+      //   group: AUTH_SETTINGS_GROUP,
+      // },
+    ]);
   }
 }

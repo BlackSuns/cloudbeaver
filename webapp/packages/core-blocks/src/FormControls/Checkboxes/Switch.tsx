@@ -1,23 +1,25 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 
-import { filterLayoutFakeProps } from '../../Containers/filterLayoutFakeProps';
-import elementsSizeStyles from '../../Containers/shared/ElementsSize.m.css';
-import { s } from '../../s';
-import { useS } from '../../useS';
-import formControlStyles from '../FormControl.m.css';
-import { isControlPresented } from '../isControlPresented';
-import type { ICheckboxControlledProps, ICheckboxObjectProps } from './Checkbox';
-import switchStyles from './Switch.m.css';
-import denseModStyles from './SwitchDense.m.css';
-import primaryModStyles from './SwitchPrimary.m.css';
-import { useCheckboxState } from './useCheckboxState';
+import { filterLayoutFakeProps } from '../../Containers/filterLayoutFakeProps.js';
+import type { ILayoutSizeProps } from '../../Containers/ILayoutSizeProps.js';
+import { s } from '../../s.js';
+import { useS } from '../../useS.js';
+import { Field } from '../Field.js';
+import { FieldDescription } from '../FieldDescription.js';
+import { FieldLabel } from '../FieldLabel.js';
+import { isControlPresented } from '../isControlPresented.js';
+import type { ICheckboxControlledProps, ICheckboxObjectProps } from './Checkbox.js';
+import switchStyles from './Switch.module.css';
+import denseModStyles from './SwitchDense.module.css';
+import primaryModStyles from './SwitchPrimary.module.css';
+import { useCheckboxState } from './useCheckboxState.js';
 
 const switchMod = {
   primary: primaryModStyles,
@@ -31,8 +33,8 @@ interface IBaseProps {
 }
 
 interface SwitchType {
-  (props: IBaseProps & ICheckboxControlledProps): React.ReactElement<any, any> | null;
-  <TKey extends string>(props: IBaseProps & ICheckboxObjectProps<TKey>): React.ReactElement<any, any> | null;
+  (props: IBaseProps & ICheckboxControlledProps & ILayoutSizeProps): React.ReactElement<any, any> | null;
+  <TKey extends string>(props: IBaseProps & ICheckboxObjectProps<TKey> & ILayoutSizeProps): React.ReactElement<any, any> | null;
 }
 
 export const Switch: SwitchType = observer(function Switch({
@@ -52,7 +54,7 @@ export const Switch: SwitchType = observer(function Switch({
   disabled,
   onChange,
   ...rest
-}: IBaseProps & (ICheckboxControlledProps | ICheckboxObjectProps<any>)) {
+}: IBaseProps & (ICheckboxControlledProps | ICheckboxObjectProps<any>) & ILayoutSizeProps) {
   const checkboxState = useCheckboxState({
     value,
     defaultValue,
@@ -64,19 +66,19 @@ export const Switch: SwitchType = observer(function Switch({
     onChange,
   });
   rest = filterLayoutFakeProps(rest);
-  const styles = useS(elementsSizeStyles, formControlStyles, switchStyles, ...mod.map(mod => switchMod[mod]));
+  const styles = useS(switchStyles, ...mod.map(mod => switchMod[mod]));
 
   if (autoHide && !isControlPresented(name, state)) {
     return null;
   }
 
   return (
-    <div data-testid="field" className={s(styles, { field: true }, className)} title={rest.title}>
-      <div data-testid="switch-body" className={styles.switchBody}>
-        <div data-testid="switch-control" className={s(styles, { switchControl: true, disabled: disabled, checked: checkboxState.checked })}>
-          <div data-testid="switch-control-track" className={styles.switchControlTrack} />
-          <div data-testid="switch-control-underlay" className={styles.switchControlUnderlay}>
-            <div data-testid="switch-control-thumb" className={styles.switchControlThumb} />
+    <Field title={rest.title}>
+      <div className={styles['switchBody']}>
+        <div className={s(styles, { switchControl: true, disabled: disabled, checked: checkboxState.checked })}>
+          <div className={styles['switchControlTrack']} />
+          <div className={styles['switchControlUnderlay']}>
+            <div className={styles['switchControlThumb']} />
             <input
               {...rest}
               type="checkbox"
@@ -85,21 +87,16 @@ export const Switch: SwitchType = observer(function Switch({
               aria-checked={checkboxState.checked}
               checked={checkboxState.checked}
               disabled={disabled}
-              data-testid="switch-input"
-              className={styles.switchInput}
+              className={styles['switchInput']}
               onChange={checkboxState.change}
             />
           </div>
         </div>
-        <label htmlFor={id || value || name} data-testid="field-label" className={styles.fieldLabel}>
+        <FieldLabel htmlFor={id || value || name} className={styles['fieldLabel']}>
           {children}
-        </label>
+        </FieldLabel>
       </div>
-      {description && (
-        <div data-testid="field-description" className={styles.fieldDescription}>
-          {description}
-        </div>
-      )}
-    </div>
+      {description && <FieldDescription>{description}</FieldDescription>}
+    </Field>
   );
 });

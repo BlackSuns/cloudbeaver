@@ -1,26 +1,23 @@
 # Steps to run
+
 ## Install Dependencies
 
 ```sh
 yarn
-yarn lerna bootstrap
 ```
 
 ## Build
 
 ```sh
-yarn lerna run build --stream --scope=@cloudbeaver/product-default
+cd packages/product-default
+yarn run bundle
 ```
-open ```packages/product-default/lib/index.html``` or run ```npx serve packages/product-default/lib```
+
+open `packages/product-default/lib/index.html` or run `npx serve packages/product-default/lib`
 
 ## Dev
 
 ```sh
-yarn lerna run dev --stream --scope=@cloudbeaver/product-default
+cd packages/product-default
+yarn run dev
 ```
-
-## Build GQL SDK
-```sh
-yarn lerna run gql:gen --stream
-```
-

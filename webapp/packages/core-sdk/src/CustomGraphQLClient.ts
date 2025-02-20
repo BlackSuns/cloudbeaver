@@ -1,25 +1,32 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import axios, { AxiosProgressEvent, AxiosResponse, isAxiosError } from 'axios';
-import { ClientError, GraphQLClient, RequestDocument, RequestOptions, resolveRequestDocument, Variables } from 'graphql-request';
+import axios, { type AxiosProgressEvent, CanceledError, isAxiosError, isCancel } from 'axios';
+import {
+  resolveRequestDocument as analyzeDocument,
+  ClientError,
+  GraphQLClient,
+  type RequestDocument,
+  type RequestOptions,
+  type Variables,
+} from 'graphql-request';
 
-import { GQLError } from './GQLError';
-import type { IResponseInterceptor } from './IResponseInterceptor';
-import { PlainGQLError } from './PlainGQLError';
-import { ServerInternalError } from './ServerInternalError';
+import { GQLError } from './GQLError.js';
+import type { IResponseInterceptor } from './IResponseInterceptor.js';
+import { PlainGQLError } from './PlainGQLError.js';
+import { ServerInternalError } from './ServerInternalError.js';
 
 export type UploadProgressEvent = AxiosProgressEvent;
 
-type GqlResponse =
-  | { data: object; errors: undefined }[]
-  | { data: object; errors: undefined }
-  | { data: undefined; errors: object }
-  | { data: undefined; errors: object[] };
+// type GqlResponse =
+//   | { data: object; errors: undefined }[]
+//   | { data: object; errors: undefined }
+//   | { data: undefined; errors: object }
+//   | { data: undefined; errors: object[] };
 
 export class CustomGraphQLClient extends GraphQLClient {
   get blockReason(): Error | string | null {
@@ -32,14 +39,28 @@ export class CustomGraphQLClient extends GraphQLClient {
 
   async uploadFile<T = any, V extends Variables = Variables>(
     url: string,
-    files: FileList,
+    file: Blob,
+    query?: string,
+    variables?: V,
+    onUploadProgress?: (event: UploadProgressEvent) => void,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    return this.interceptors.reduce(
+      (accumulator, interceptor) => interceptor(accumulator),
+      this.overrideFilesUpload<T, V>(url, file, query, variables, onUploadProgress, signal),
+    );
+  }
+
+  async uploadFiles<T = any, V extends Variables = Variables>(
+    url: string,
+    files: File[],
     query?: string,
     variables?: V,
     onUploadProgress?: (event: UploadProgressEvent) => void,
   ): Promise<T> {
     return this.interceptors.reduce(
       (accumulator, interceptor) => interceptor(accumulator),
-      this.overrideFileUpload<T, V>(url, files, query, variables, onUploadProgress),
+      this.overrideFilesUpload<T, V>(url, files, query, variables, onUploadProgress),
     );
   }
 
@@ -47,9 +68,9 @@ export class CustomGraphQLClient extends GraphQLClient {
     this.interceptors.push(interceptor);
   }
 
-  request<T = any, V = Variables>(document: RequestDocument, variables?: V, requestHeaders?: HeadersInit): Promise<T>;
-  request<T = any, V extends Variables = Variables>(options: RequestOptions<V>): Promise<T>;
-  request<T = any, V extends Variables = Variables>(
+  override request<T = any, V = Variables>(document: RequestDocument, variables?: V, requestHeaders?: HeadersInit): Promise<T>;
+  override request<T = any, V extends Variables = Variables>(options: RequestOptions<V>): Promise<T>;
+  override request<T = any, V extends Variables = Variables>(
     document: RequestDocument | RequestOptions<V>,
     variables?: V,
     requestHeaders?: HeadersInit,
@@ -88,9 +109,9 @@ export class CustomGraphQLClient extends GraphQLClient {
     this.blockRequestsReasonHandler();
     try {
       const requestOptions = parseRequestArgs(documentOrOptions, variables, requestHeaders);
-      const { query, operationName } = resolveRequestDocument(requestOptions.document);
+      const { query: expression } = analyzeDocument(requestOptions.document);
 
-      const response = await this.rawRequest<T, V>(query, variables, requestHeaders);
+      const response = await this.rawRequest<T, V>(expression, variables, requestHeaders);
 
       // TODO: seems here can be undefined
       return response.data;
@@ -107,30 +128,37 @@ export class CustomGraphQLClient extends GraphQLClient {
     }
   }
 
-  private async overrideFileUpload<T, V extends Variables = Variables>(
+  private async overrideFilesUpload<T, V extends Variables = Variables>(
     url: string,
-    files: FileList,
+    files: File[] | Blob,
     query?: string,
     variables?: V,
     onUploadProgress?: (event: UploadProgressEvent) => void,
+    signal?: AbortSignal,
   ): Promise<T> {
     this.blockRequestsReasonHandler();
     try {
-      const { operationName } = resolveRequestDocument(query ?? '');
+      const { operationName } = analyzeDocument(query ?? '');
       // TODO: we don't support GQL response right now
-      const response = await axios.postForm/*<GqlResponse>*/ <T>(
-        url,
-        {
-          operationName,
-          query,
-          variables: JSON.stringify(variables),
-          'files[]': files,
-        },
-        {
-          onUploadProgress,
-          responseType: 'json',
-        },
-      );
+      const data = {
+        operationName,
+        query,
+        variables: JSON.stringify(variables),
+        'files[]': undefined as any,
+        fileData: undefined as any,
+      };
+
+      if (files instanceof Array) {
+        data['files[]'] = files;
+      } else {
+        data.fileData = files;
+      }
+
+      const response = await axios.postForm/*<GqlResponse>*/ <T>(url, data, {
+        signal,
+        onUploadProgress,
+        responseType: 'json',
+      });
 
       // TODO: we don't support GQL response right now
       // TODO: seems here can be undefined
@@ -138,6 +166,10 @@ export class CustomGraphQLClient extends GraphQLClient {
 
       return response.data;
     } catch (error: any) {
+      if (isCancel(error)) {
+        throw new CanceledError('ui_processing_canceled');
+      }
+
       if (isAxiosError(error) && error.response?.data.message) {
         throw new ServerInternalError({ ...error, message: error.response.data.message });
       }
@@ -151,38 +183,6 @@ export class CustomGraphQLClient extends GraphQLClient {
       }
 
       throw error;
-    }
-  }
-
-  private parseGQLResponse<T>(response: AxiosResponse<GqlResponse>, query: string, variables?: Variables): T {
-    const result = response.data;
-
-    const successfullyReceivedData = Array.isArray(result) ? !result.some(({ data }) => !data) : Boolean(result.data);
-
-    const successfullyPassedErrorPolicy = Array.isArray(result) || !result.errors || (Array.isArray(result.errors) && !result.errors.length);
-
-    if (response.status === 200 && successfullyPassedErrorPolicy && successfullyReceivedData) {
-      const data = result;
-      const dataEnvelope = data;
-
-      // @ts-expect-error TODO
-      return {
-        ...dataEnvelope,
-        headers: response.headers,
-        status: response.status,
-      };
-    } else {
-      const errorResult =
-        typeof result === 'string'
-          ? {
-              error: result,
-            }
-          : result;
-      throw new ClientError(
-        // @ts-expect-error TODO
-        { ...errorResult, status: response.status, headers: response.headers },
-        { query, variables },
-      );
     }
   }
 }

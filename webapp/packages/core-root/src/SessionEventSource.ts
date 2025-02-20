@@ -1,27 +1,42 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { catchError, debounceTime, filter, interval, map, merge, Observable, repeat, retry, share, Subject, throwError } from 'rxjs';
+import {
+  catchError,
+  debounceTime,
+  delayWhen,
+  filter,
+  interval,
+  map,
+  merge,
+  Observable,
+  type Observer,
+  of,
+  repeat,
+  retry,
+  share,
+  Subject,
+  throwError,
+} from 'rxjs';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 
 import { injectable } from '@cloudbeaver/core-di';
-import { ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
+import { type ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
 import {
   CbClientEventId as ClientEventId,
   EnvironmentService,
-  GraphQLService,
   CbServerEventId as ServerEventId,
   ServiceError,
   CbEventTopic as SessionEventTopic,
 } from '@cloudbeaver/core-sdk';
 
-import { NetworkStateService } from './NetworkStateService';
-import type { IBaseServerEvent, IServerEventCallback, IServerEventEmitter, Subscription } from './ServerEventEmitter/IServerEventEmitter';
-import { SessionExpireService } from './SessionExpireService';
+import { NetworkStateService } from './NetworkStateService.js';
+import type { IBaseServerEvent, IServerEventCallback, IServerEventEmitter, Unsubscribe } from './ServerEventEmitter/IServerEventEmitter.js';
+import { SessionExpireService } from './SessionExpireService.js';
 
 export { ServerEventId, SessionEventTopic, ClientEventId };
 
@@ -50,17 +65,19 @@ export class SessionEventSource implements IServerEventEmitter<ISessionEvent, IS
   private readonly errorSubject: Subject<Error>;
   private readonly subject: WebSocketSubject<ISessionEvent>;
   private readonly oldEventsSubject: Subject<ISessionEvent>;
+  private readonly emitSubject: Subject<ISessionEvent>;
   private readonly retryTimer: Observable<number>;
+  private readonly disconnectSubject: Subject<boolean>;
   private disconnected: boolean;
 
   constructor(
-    private readonly networkStateService: NetworkStateService,
+    networkStateService: NetworkStateService,
     private readonly sessionExpireService: SessionExpireService,
-    private readonly environmentService: EnvironmentService,
-    private readonly graphQLService: GraphQLService,
+    environmentService: EnvironmentService,
   ) {
     this.onInit = new SyncExecutor();
     this.oldEventsSubject = new Subject();
+    this.disconnectSubject = new Subject();
     this.closeSubject = new Subject();
     this.openSubject = new Subject();
     this.errorSubject = new Subject();
@@ -74,6 +91,9 @@ export class SessionEventSource implements IServerEventEmitter<ISessionEvent, IS
       openObserver: this.openSubject,
     });
 
+    this.emitSubject = new Subject();
+    this.emitSubject.pipe(this.handleDisconnected()).subscribe(this.subject);
+
     this.openSubject.subscribe(() => {
       this.onInit.execute();
     });
@@ -82,7 +102,7 @@ export class SessionEventSource implements IServerEventEmitter<ISessionEvent, IS
       console.info(`Websocket closed: ${event.reason}`);
     });
 
-    this.eventsSubject = merge(this.oldEventsSubject, this.subject);
+    this.eventsSubject = merge(this.oldEventsSubject, this.subject).pipe(this.handleErrors());
 
     this.errorSubject.pipe(debounceTime(1000)).subscribe(error => {
       console.error(error);
@@ -91,10 +111,9 @@ export class SessionEventSource implements IServerEventEmitter<ISessionEvent, IS
     this.errorHandler = this.errorHandler.bind(this);
   }
 
-  onEvent<T = ISessionEvent>(id: SessionEventId, callback: IServerEventCallback<T>, mapTo: (event: ISessionEvent) => T = e => e as T): Subscription {
+  onEvent<T = ISessionEvent>(id: SessionEventId, callback: IServerEventCallback<T>, mapTo: (event: ISessionEvent) => T = e => e as T): Unsubscribe {
     const sub = this.eventsSubject
       .pipe(
-        this.handleErrors(),
         filter(event => event.id === id),
         map(mapTo),
       )
@@ -109,8 +128,8 @@ export class SessionEventSource implements IServerEventEmitter<ISessionEvent, IS
     callback: IServerEventCallback<T>,
     mapTo: (event: ISessionEvent) => T = e => e as T,
     filterFn: (event: ISessionEvent) => boolean = () => true,
-  ): Subscription {
-    const sub = this.eventsSubject.pipe(this.handleErrors(), filter(filterFn), map(mapTo)).subscribe(callback);
+  ): Unsubscribe {
+    const sub = this.eventsSubject.pipe(filter(filterFn), map(mapTo)).subscribe(callback);
 
     return () => {
       sub.unsubscribe();
@@ -118,23 +137,60 @@ export class SessionEventSource implements IServerEventEmitter<ISessionEvent, IS
   }
 
   multiplex<T = ISessionEvent>(topicId: SessionEventTopic, mapTo: (event: ISessionEvent) => T = e => e as T): Observable<T> {
-    return merge(
-      this.subject.multiplex(
-        () => ({ id: ClientEventId.CbClientTopicSubscribe, topicId } as ITopicSubEvent),
-        () => ({ id: ClientEventId.CbClientTopicUnsubscribe, topicId } as ITopicSubEvent),
-        event => event.topicId === topicId,
-      ),
-      this.oldEventsSubject,
-    ).pipe(this.handleErrors(), map(mapTo));
+    return new Observable((observer: Observer<T>) => {
+      try {
+        this.emitSubject.next({ id: ClientEventId.CbClientTopicSubscribe, topicId } as ITopicSubEvent);
+      } catch (err) {
+        observer.error(err);
+      }
+
+      const subscription = this.eventsSubject.subscribe({
+        next: x => {
+          try {
+            if (x.topicId === topicId) {
+              observer.next(mapTo(x));
+            }
+          } catch (err) {
+            observer.error(err);
+          }
+        },
+        error: err => observer.error(err),
+        complete: () => observer.complete(),
+      });
+
+      return () => {
+        try {
+          this.emitSubject.next({ id: ClientEventId.CbClientTopicUnsubscribe, topicId } as ITopicSubEvent);
+        } catch (err) {
+          observer.error(err);
+        }
+        subscription.unsubscribe();
+      };
+    });
   }
 
   emit(event: ISessionEvent): this {
-    this.subject.next(event);
+    this.emitSubject.next(event);
     return this;
+  }
+
+  connect() {
+    this.disconnected = false;
+    this.disconnectSubject.next(this.disconnected);
   }
 
   disconnect() {
     this.disconnected = true;
+    this.disconnectSubject.next(this.disconnected);
+  }
+
+  private handleDisconnected() {
+    return delayWhen<ISessionEvent>(() => {
+      if (this.disconnected) {
+        return this.disconnectSubject.pipe(filter(disconnected => !disconnected));
+      }
+      return of(true);
+    });
   }
 
   private handleErrors() {

@@ -1,20 +1,20 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useCallback } from 'react';
-import styled from 'reshadow';
 
-import { Combobox, Group, GroupTitle, ITag, s, Tag, Tags, useResource, useS, useStyles, useTranslate } from '@cloudbeaver/core-blocks';
+import { Combobox, Group, GroupTitle, type ITag, s, Tag, Tags, useResource, useS, useTranslate } from '@cloudbeaver/core-blocks';
 import { DBDriverResource } from '@cloudbeaver/core-connections';
 import { CachedMapAllKey, resourceKeyList } from '@cloudbeaver/core-resource';
 import type { ServerConfigInput } from '@cloudbeaver/core-sdk';
+import { isDefined } from '@cloudbeaver/core-utils';
 
-import style from './ServerConfigurationDriversForm.m.css';
+import style from './ServerConfigurationDriversForm.module.css';
 
 interface Props {
   serverConfig: ServerConfigInput;
@@ -25,7 +25,7 @@ export const ServerConfigurationDriversForm = observer<Props>(function ServerCon
   const translate = useTranslate();
   const driversResource = useResource(ServerConfigurationDriversForm, DBDriverResource, CachedMapAllKey);
 
-  const drivers = driversResource.resource.values.slice().sort(driversResource.resource.compare);
+  const drivers = driversResource.data.filter(isDefined).sort(driversResource.resource.compare);
 
   const tags: ITag[] = driversResource.resource
     .get(resourceKeyList(serverConfig.disabledDrivers || []))
@@ -36,25 +36,31 @@ export const ServerConfigurationDriversForm = observer<Props>(function ServerCon
       icon: driver!.icon,
     }));
 
-  const handleSelect = useCallback((value: string) => {
-    if (serverConfig.disabledDrivers && !serverConfig.disabledDrivers.includes(value)) {
-      serverConfig.disabledDrivers.push(value);
-    }
-  }, []);
+  const handleSelect = useCallback(
+    (value: string) => {
+      if (serverConfig.disabledDrivers && !serverConfig.disabledDrivers.includes(value)) {
+        serverConfig.disabledDrivers.push(value);
+      }
+    },
+    [serverConfig.disabledDrivers],
+  );
 
-  const handleRemove = useCallback((id: string) => {
-    if (!serverConfig.disabledDrivers) {
-      return;
-    }
+  const handleRemove = useCallback(
+    (id: string) => {
+      if (!serverConfig.disabledDrivers) {
+        return;
+      }
 
-    const index = serverConfig.disabledDrivers.indexOf(id);
+      const index = serverConfig.disabledDrivers.indexOf(id);
 
-    if (index !== -1) {
-      serverConfig.disabledDrivers.splice(index, 1);
-    }
-  }, []);
+      if (index !== -1) {
+        serverConfig.disabledDrivers.splice(index, 1);
+      }
+    },
+    [serverConfig.disabledDrivers],
+  );
 
-  return styled(useStyles(style))(
+  return (
     <Group maximum gap>
       <GroupTitle>{translate('administration_disabled_drivers_title')}</GroupTitle>
       <Combobox
@@ -72,6 +78,6 @@ export const ServerConfigurationDriversForm = observer<Props>(function ServerCon
           <Tag key={tag.id} id={tag.id} label={tag.label} icon={tag.icon} onRemove={handleRemove} />
         ))}
       </Tags>
-    </Group>,
+    </Group>
   );
 });

@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@ import {
   useTranslate,
 } from '@cloudbeaver/core-blocks';
 import type { DialogComponent } from '@cloudbeaver/core-dialogs';
+import { WEBSITE_LINKS } from '@cloudbeaver/core-links';
 
-import { Shortcut } from './Shortcut';
-import { DATA_VIEWER_SHORTCUTS, NAVIGATION_TREE_SHORTCUTS, SQL_EDITOR_SHORTCUTS } from './SHORTCUTS_DATA';
-import style from './ShortcutsDialog.m.css';
+import { Shortcut } from './Shortcut.js';
+import { DATA_VIEWER_SHORTCUTS, NAVIGATION_TREE_SHORTCUTS, SQL_EDITOR_SHORTCUTS } from './SHORTCUTS_DATA.js';
+import style from './ShortcutsDialog.module.css';
 
 export const ShortcutsDialog: DialogComponent<null> = function ShortcutsDialog({ rejectDialog }) {
   const translate = useTranslate();
@@ -33,10 +34,10 @@ export const ShortcutsDialog: DialogComponent<null> = function ShortcutsDialog({
     <CommonDialogWrapper size="large">
       <CommonDialogHeader title={translate('shortcuts_title')} onReject={rejectDialog} />
       <CommonDialogBody>
-        <Container className={s(styles, { container: true })} wrap overflow>
-          <Group className={s(styles, { group: true })} overflow>
-            <GroupTitle className={s(styles, { groupTitle: true })}>
-              <Link href="https://dbeaver.com/docs/cloudbeaver/Data-editor/" target="_blank" wrapper indicator>
+        <Container className={s(styles, { container: true })} gap wrap overflow>
+          <Group box gap dense overflow>
+            <GroupTitle header>
+              <Link href={WEBSITE_LINKS.DATA_EDITOR_DOCUMENTATION_PAGE} target="_blank" wrapper indicator>
                 Data Viewer
               </Link>
             </GroupTitle>
@@ -44,9 +45,9 @@ export const ShortcutsDialog: DialogComponent<null> = function ShortcutsDialog({
               <Shortcut key={shortcut.label} shortcut={shortcut} />
             ))}
           </Group>
-          <Group className={s(styles, { group: true })} overflow>
-            <GroupTitle className={s(styles, { groupTitle: true })}>
-              <Link href="https://dbeaver.com/docs/cloudbeaver/SQL-Editor/" target="_blank" wrapper indicator>
+          <Group box gap dense overflow>
+            <GroupTitle header>
+              <Link href={WEBSITE_LINKS.SQL_EDITOR_DOCUMENTATION_PAGE} target="_blank" wrapper indicator>
                 SQL Editor
               </Link>
             </GroupTitle>
@@ -54,9 +55,9 @@ export const ShortcutsDialog: DialogComponent<null> = function ShortcutsDialog({
               <Shortcut key={shortcut.label} shortcut={shortcut} />
             ))}
           </Group>
-          <Group className={s(styles, { group: true })} overflow>
-            <GroupTitle className={s(styles, { groupTitle: true })}>
-              <Link href="https://dbeaver.com/docs/cloudbeaver/Database-Navigator/" target="_blank" wrapper indicator>
+          <Group box gap dense overflow>
+            <GroupTitle header>
+              <Link href={WEBSITE_LINKS.DATABASE_NAVIGATOR_DOCUMENTATION_PAGE} target="_blank" wrapper indicator>
                 Navigation Tree
               </Link>
             </GroupTitle>

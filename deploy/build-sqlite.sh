@@ -1,1 +1,0 @@
-./build.sh '../config/sample-databases/SQLiteConfiguration' '../config/sample-databases/db'

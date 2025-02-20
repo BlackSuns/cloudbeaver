@@ -1,5 +1,6 @@
 {
   "name": "@cloudbeaver/core-ui",
+  "type": "module",
   "sideEffects": [
     "src/**/*.css",
     "src/**/*.scss",
@@ -8,35 +9,40 @@
   "version": "0.1.0",
   "description": "",
   "license": "Apache-2.0",
-  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
-    "build": "core-cli-build --mode=production --config ../core-cli/configs/webpack.plugin.config.js",
+    "build": "tsc -b",
+    "clean": "rimraf --glob dist",
     "lint": "eslint ./src/ --ext .ts,.tsx",
-    "lint-fix": "eslint ./src/ --ext .ts,.tsx --fix",
-    "validate-dependencies": "core-cli-validate-dependencies",
-    "update-ts-references": "rimraf --glob dist/* && typescript-resolve-references"
+    "validate-dependencies": "core-cli-validate-dependencies"
   },
   "dependencies": {
-    "react-dnd": "~16.0.1",
-    "react-dnd-html5-backend": "~16.0.1",
-    "@cloudbeaver/core-authentication": "~0.1.0",
-    "@cloudbeaver/core-blocks": "~0.1.0",
-    "@cloudbeaver/core-data-context": "~0.1.0",
-    "@cloudbeaver/core-di": "~0.1.0",
-    "@cloudbeaver/core-dialogs": "~0.1.0",
-    "@cloudbeaver/core-events": "~0.1.0",
-    "@cloudbeaver/core-executor": "~0.1.0",
-    "@cloudbeaver/core-localization": "~0.1.0",
-    "@cloudbeaver/core-routing": "~0.1.0",
-    "@cloudbeaver/core-theming": "~0.1.0",
-    "@cloudbeaver/core-utils": "~0.1.0",
-    "@cloudbeaver/core-view": "~0.1.0"
+    "@cloudbeaver/core-blocks": "workspace:*",
+    "@cloudbeaver/core-data-context": "workspace:*",
+    "@cloudbeaver/core-di": "workspace:*",
+    "@cloudbeaver/core-dialogs": "workspace:*",
+    "@cloudbeaver/core-events": "workspace:*",
+    "@cloudbeaver/core-executor": "workspace:*",
+    "@cloudbeaver/core-localization": "workspace:*",
+    "@cloudbeaver/core-routing": "workspace:*",
+    "@cloudbeaver/core-utils": "workspace:*",
+    "@cloudbeaver/core-view": "workspace:*",
+    "mobx": "^6",
+    "mobx-react-lite": "^4",
+    "react": "^19",
+    "react-dnd": "^16",
+    "react-dnd-html5-backend": "^16",
+    "react-dom": "^19",
+    "reakit": "^1",
+    "tslib": "^2"
   },
-  "peerDependencies": {
-    "mobx": "~6.x.x",
-    "mobx-react-lite": "~3.x.x",
-    "reshadow": "~0.x.x",
-    "reakit": "~1.x.x"
-  },
-  "devDependencies": {}
+  "devDependencies": {
+    "@cloudbeaver/core-cli": "workspace:*",
+    "@cloudbeaver/tsconfig": "workspace:*",
+    "@types/react": "^19",
+    "typescript": "^5",
+    "typescript-plugin-css-modules": "^5"
+  }
 }

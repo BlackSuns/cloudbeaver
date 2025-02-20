@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,7 +8,7 @@
 import { observer } from 'mobx-react-lite';
 
 import {
-  ColoredContainer,
+  Container,
   Group,
   Table,
   TableBody,
@@ -23,6 +23,7 @@ import {
 } from '@cloudbeaver/core-blocks';
 import {
   compareConnectionsInfo,
+  ConnectionInfoOriginResource,
   ConnectionInfoProjectKey,
   ConnectionInfoResource,
   DBDriverResource,
@@ -34,9 +35,9 @@ import { CachedMapAllKey, resourceKeyList } from '@cloudbeaver/core-resource';
 import { type TabContainerPanelComponent, useTab, useTabState } from '@cloudbeaver/core-ui';
 import { isDefined } from '@cloudbeaver/core-utils';
 
-import type { UserFormProps } from '../AdministrationUserFormService';
-import type { UserFormConnectionAccessPart } from './UserFormConnectionAccessPart';
-import { UserFormConnectionTableItem } from './UserFormConnectionTableItem';
+import type { UserFormProps } from '../AdministrationUserFormService.js';
+import type { UserFormConnectionAccessPart } from './UserFormConnectionAccessPart.js';
+import { UserFormConnectionTableItem } from './UserFormConnectionTableItem.js';
 
 export const UserFormConnectionAccess: TabContainerPanelComponent<UserFormProps> = observer(function UserFormConnectionAccess({ tabId }) {
   const translate = useTranslate();
@@ -44,16 +45,17 @@ export const UserFormConnectionAccess: TabContainerPanelComponent<UserFormProps>
   const driversResource = useService(DBDriverResource);
   const tabState = useTabState<UserFormConnectionAccessPart>();
   const projectLoader = useResource(UserFormConnectionAccess, ProjectInfoResource, CachedMapAllKey, { active: tab.selected });
-  const connectionsLoader = useResource(
-    UserFormConnectionAccess,
-    ConnectionInfoResource,
-    ConnectionInfoProjectKey(...projectLoader.data.filter(isGlobalProject).map(project => project.id)),
-    { active: tab.selected },
-  );
+  const key = ConnectionInfoProjectKey(...projectLoader.data.filter(isGlobalProject).map(project => project.id));
+  const connectionsLoader = useResource(UserFormConnectionAccess, ConnectionInfoResource, key, { active: tab.selected });
+  const connectionsOriginsLoader = useResource(UserFormConnectionAccess, ConnectionInfoOriginResource, key, { active: tab.selected });
 
   const connections = connectionsLoader.data.filter(isDefined).sort(compareConnectionsInfo);
-  const cloudExists = connections.some(isCloudConnection);
-  const localConnections = connections.filter(connection => !isCloudConnection(connection));
+  const connectionsOrigins = connectionsOriginsLoader.data.filter(isDefined);
+  const cloudExists = connectionsOrigins.some(connectionOrigin => isCloudConnection(connectionOrigin.origin));
+  const localConnectionsIds = new Set(
+    connectionsOrigins.filter(connection => !isCloudConnection(connection.origin)).map(connection => connection.id),
+  );
+  const localConnections = connections.filter(connection => localConnectionsIds.has(connection.id));
 
   useResource(
     UserFormConnectionAccess,
@@ -68,11 +70,11 @@ export const UserFormConnectionAccess: TabContainerPanelComponent<UserFormProps>
 
   if (connections.length === 0) {
     return (
-      <ColoredContainer>
+      <Container>
         <Group large>
           <TextPlaceholder>{translate('authentication_administration_user_connections_empty')}</TextPlaceholder>
         </Group>
-      </ColoredContainer>
+      </Container>
     );
   }
 
@@ -92,9 +94,9 @@ export const UserFormConnectionAccess: TabContainerPanelComponent<UserFormProps>
   // }
 
   return (
-    <ColoredContainer vertical gap>
+    <Container parent vertical>
       {/* {info && <InfoItem info={info} />} */}
-      <Group box large overflow>
+      <Group box border large overflow>
         <Table onSelect={handleSelect}>
           <TableHeader fixed>
             <TableColumnHeader min />
@@ -114,6 +116,6 @@ export const UserFormConnectionAccess: TabContainerPanelComponent<UserFormProps>
           </TableBody>
         </Table>
       </Group>
-    </ColoredContainer>
+    </Container>
   );
 });

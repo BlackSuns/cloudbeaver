@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,14 @@
     border-left-color: $cursor;
   }
 
+  .editor .cm-link {
+    &.cm-link-loaded {
+      @include mdc-theme-prop(color, primary, false);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+  }
+
   .editor .cm-dropCursor {
     border-left: 1.2px solid $cursor;
   }
@@ -59,7 +67,8 @@
     @include mdc-theme-prop(border-color, background, false);
   }
 
-  .cm-panels-top {
+  .cm-panels-top,
+  .cm-panels-bottom {
     @include mdc-theme-prop(border-color, background, false);
   }
 
@@ -208,5 +217,33 @@
   .editor .tok-variable-3,
   .editor .tok-type {
     color: $variable-3;
+  }
+
+  .editor .tok-typeName {
+    color: $type-name;
+  }
+
+  .editor .tok-punctuation {
+    color: $punctuation;
+  }
+
+  .editor .tok-propertyName {
+    color: $property-name;
+  }
+
+  .editor .tok-className {
+    color: $class-name;
+  }
+
+  .editor .tok-bool {
+    color: $bool;
+  }
+
+  .editor .tok-variableName {
+    color: $variable-name;
+  }
+
+  .editor .tok-labelName {
+    color: $label-name;
   }
 }

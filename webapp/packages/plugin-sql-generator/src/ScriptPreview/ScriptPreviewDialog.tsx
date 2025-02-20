@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -20,40 +20,34 @@ import {
   useS,
   useTranslate,
 } from '@cloudbeaver/core-blocks';
-import { ConnectionDialectResource, ConnectionExecutionContextService, createConnectionParam } from '@cloudbeaver/core-connections';
-import { useService } from '@cloudbeaver/core-di';
+import { ConnectionDialectResource, type IConnectionInfoParams } from '@cloudbeaver/core-connections';
 import type { DialogComponentProps } from '@cloudbeaver/core-dialogs';
 import { useCodemirrorExtensions } from '@cloudbeaver/plugin-codemirror6';
-import type { IDatabaseDataModel } from '@cloudbeaver/plugin-data-viewer';
 import { SQLCodeEditorLoader, useSqlDialectExtension } from '@cloudbeaver/plugin-sql-editor-new';
 
-import style from './ScriptPreviewDialog.m.css';
+import style from './ScriptPreviewDialog.module.css';
 
 interface Payload {
   script: string;
-  model: IDatabaseDataModel;
+  connectionKey: IConnectionInfoParams | null;
+  onApply: () => Promise<void>;
 }
 
-export const ScriptPreviewDialog = observer<DialogComponentProps<Payload>>(function ScriptPreviewDialog({ rejectDialog, payload }) {
+export const ScriptPreviewDialog = observer<DialogComponentProps<Payload>>(function ScriptPreviewDialog({ rejectDialog, resolveDialog, payload }) {
   const translate = useTranslate();
   const copy = useClipboard();
   const styles = useS(style);
 
-  const connectionExecutionContextService = useService(ConnectionExecutionContextService);
-  const context = connectionExecutionContextService.get(payload.model.source.executionContext?.context?.id ?? '');
-  const contextInfo = context?.context;
-  const dialect = useResource(
-    ScriptPreviewDialog,
-    ConnectionDialectResource,
-    contextInfo ? createConnectionParam(contextInfo.projectId, contextInfo.connectionId) : null,
-  );
+  const dialect = useResource(ScriptPreviewDialog, ConnectionDialectResource, payload.connectionKey);
   const sqlDialect = useSqlDialectExtension(dialect.data);
   const extensions = useCodemirrorExtensions();
   extensions.set(...sqlDialect);
 
   const apply = async () => {
-    await payload.model.save();
-    rejectDialog();
+    try {
+      await payload.onApply();
+      resolveDialog();
+    } catch {}
   };
 
   return (

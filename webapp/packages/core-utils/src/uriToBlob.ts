@@ -1,14 +1,14 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 
 export function uriToBlob(uri: string): Blob {
-  const byteString = window.atob(uri.split(',')[1]);
-  const mimeString = uri.split(',')[0].split(':')[1].split(';')[0];
+  const byteString = window.atob(uri.split(',')[1]!);
+  const mimeString = uri.split(',')[0]?.split(':')[1]!.split(';')[0];
   const buffer = new ArrayBuffer(byteString.length);
   const view = new Uint8Array(buffer);
 

@@ -1,29 +1,33 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Menu, MenuButton, MenuItem, useMenuState } from 'reakit/Menu';
+import { Menu, MenuButton, MenuItem, useMenuState } from 'reakit';
 
-import { filterLayoutFakeProps, getLayoutProps } from '../Containers/filterLayoutFakeProps';
-import type { ILayoutSizeProps } from '../Containers/ILayoutSizeProps';
-import elementsSizeStyles from '../Containers/shared/ElementsSize.m.css';
-import { getComputed } from '../getComputed';
-import { Icon } from '../Icon';
-import { IconOrImage } from '../IconOrImage';
-import { Loader } from '../Loader/Loader';
-import { useTranslate } from '../localization/useTranslate';
-import { s } from '../s';
-import { useS } from '../useS';
-import comboboxStyles from './Combobox.m.css';
-import { FormContext } from './FormContext';
-import formControlStyles from './FormControl.m.css';
+import { filterLayoutFakeProps, getLayoutProps } from '../Containers/filterLayoutFakeProps.js';
+import type { ILayoutSizeProps } from '../Containers/ILayoutSizeProps.js';
+import { getComputed } from '../getComputed.js';
+import { Icon } from '../Icon.js';
+import { IconOrImage } from '../IconOrImage.js';
+import { Loader } from '../Loader/Loader.js';
+import { useTranslate } from '../localization/useTranslate.js';
+import { s } from '../s.js';
+import { useS } from '../useS.js';
+import comboboxStyles from './Combobox.module.css';
+import { Field } from './Field.js';
+import { FieldDescription } from './FieldDescription.js';
+import { FieldLabel } from './FieldLabel.js';
+import { FormContext } from './FormContext.js';
 
-type BaseProps<TKey, TValue> = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'onSelect' | 'name' | 'value' | 'defaultValue'> &
+export type ComboboxBaseProps<TKey, TValue> = Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'onChange' | 'onSelect' | 'name' | 'value' | 'defaultValue'
+> &
   ILayoutSizeProps & {
     propertyName?: string;
     items: TValue[];
@@ -40,7 +44,7 @@ type BaseProps<TKey, TValue> = Omit<React.InputHTMLAttributes<HTMLInputElement>,
     inline?: boolean;
   };
 
-type ControlledProps<TKey, TValue> = BaseProps<TKey, TValue> & {
+type ControlledProps<TKey, TValue> = ComboboxBaseProps<TKey, TValue> & {
   name?: string;
   value?: TKey;
   onSelect?: (value: TKey, name: string | undefined, prev: TKey) => void;
@@ -48,7 +52,7 @@ type ControlledProps<TKey, TValue> = BaseProps<TKey, TValue> & {
   state?: never;
 };
 
-type ObjectProps<TValue, TKey extends keyof TState, TState> = BaseProps<TState[TKey], TValue> & {
+type ObjectProps<TValue, TKey extends keyof TState, TState> = ComboboxBaseProps<TState[TKey], TValue> & {
   name: TKey;
   state: TState;
   onSelect?: (value: TState[TKey], name: TKey | undefined, prev: TState[TKey]) => void;
@@ -56,11 +60,14 @@ type ObjectProps<TValue, TKey extends keyof TState, TState> = BaseProps<TState[T
   value?: never;
 };
 
-interface ComboboxType {
-  <TKey, TValue>(props: ControlledProps<TKey, TValue>): JSX.Element;
-  <TValue, TKey extends keyof TState, TState>(props: ObjectProps<TValue, TKey, TState>): JSX.Element;
+export interface ComboboxType {
+  <TKey, TValue>(props: ControlledProps<TKey, TValue>): React.JSX.Element;
+  <TValue, TKey extends keyof TState, TState>(props: ObjectProps<TValue, TKey, TState>): React.JSX.Element;
 }
 
+{
+  /* TODO rewrite whole component to select attribute instead of input type text so it has an okay form validation */
+}
 export const Combobox: ComboboxType = observer(function Combobox({
   value: controlledValue,
   defaultValue,
@@ -93,12 +100,13 @@ export const Combobox: ComboboxType = observer(function Combobox({
   const context = useContext(FormContext);
   const menuRef = useRef<HTMLDivElement>(null);
   const [inputRef, setInputRef] = useState<HTMLInputElement | null>(null);
-  const styles = useS(elementsSizeStyles, formControlStyles, comboboxStyles);
+  const styles = useS(comboboxStyles);
 
   const menu = useMenuState({
     placement: 'bottom-end',
     currentId: null,
     gutter: 4,
+    unstable_fixed: true,
   });
 
   if (readOnly) {
@@ -255,21 +263,28 @@ export const Combobox: ComboboxType = observer(function Combobox({
   }
 
   return (
-    <div data-testid="field" className={s(styles, { field: true, inline, ...layoutProps }, className)}>
+    <Field {...layoutProps} className={s(styles, { field: true, inline }, className)}>
       {children && (
-        <div title={title} data-testid="field-label" className={styles.fieldLabel}>
+        <FieldLabel required={rest.required} title={title} className={s(styles, { fieldLabel: true })}>
           {children}
-          {rest.required && ' *'}
-        </div>
+        </FieldLabel>
       )}
-      <div data-testid="input-box" className={styles.inputBox}>
+      <div className={s(styles, { inputBox: true })}>
+        <input className={s(styles, { validationInput: true })} value={inputValue} required={rest.required} readOnly />
         {(icon || loading) && (
-          <div data-testid="input-icon" className={styles.inputIcon}>
-            {loading ? <Loader small fullSize /> : typeof icon === 'string' ? <IconOrImage icon={icon} className={styles.iconOrImage} /> : icon}
+          <div className={s(styles, { inputIcon: true })}>
+            {loading ? (
+              <Loader small fullSize />
+            ) : typeof icon === 'string' ? (
+              <IconOrImage icon={icon} className={s(styles, { iconOrImage: true })} />
+            ) : (
+              icon
+            )}
           </div>
         )}
         <input
           ref={setInputRef}
+          required={rest.required}
           autoComplete="off"
           name={name}
           title={title}
@@ -284,20 +299,12 @@ export const Combobox: ComboboxType = observer(function Combobox({
           onClick={handleClick}
           {...rest}
         />
-        <MenuButton {...menu} disabled={readOnly || disabled || hideMenu} className={styles.menuButton}>
+        <MenuButton {...menu} disabled={readOnly || disabled || hideMenu} className={styles['menuButton']}>
           <Icon name="arrow" viewBox="0 0 16 16" className={s(styles, { icon: true, focus })} />
         </MenuButton>
-        <Menu
-          {...menu}
-          ref={menuRef}
-          aria-label={propertyName}
-          // unstable_finalFocusRef={inputRef || undefined}
-          // unstable_initialFocusRef={ref}
-          className={styles.menu}
-          modal
-        >
+        <Menu {...menu} ref={menuRef} aria-label={propertyName} className={s(styles, { menu: true })} modal>
           {!filteredItems.length ? (
-            <MenuItem id="placeholder" disabled {...menu} className={styles.menuItem}>
+            <MenuItem id="placeholder" disabled {...menu} className={s(styles, { menuItem: true })}>
               {translate('combobox_no_results_placeholder')}
             </MenuItem>
           ) : (
@@ -314,28 +321,22 @@ export const Combobox: ComboboxType = observer(function Combobox({
                   title={title}
                   {...menu}
                   disabled={disabled}
-                  className={styles.menuItem}
+                  className={s(styles, { menuItem: true })}
                   onClick={event => handleSelect(event.currentTarget.id)}
                 >
                   {iconSelector && (
-                    <div data-testid="item-icon" className={styles.itemIcon}>
-                      {icon && typeof icon === 'string' ? <IconOrImage icon={icon} className={styles.iconOrImage} /> : icon}
+                    <div className={s(styles, { itemIcon: true })}>
+                      {icon && typeof icon === 'string' ? <IconOrImage icon={icon} className={s(styles, { iconOrImage: true })} /> : icon}
                     </div>
                   )}
-                  <div data-testid="item-value" className={styles.itemValue}>
-                    {valueSelector(item)}
-                  </div>
+                  <div>{valueSelector(item)}</div>
                 </MenuItem>
               );
             })
           )}
         </Menu>
       </div>
-      {description && (
-        <div data-testid="field-description" className={styles.fieldDescription}>
-          {description}
-        </div>
-      )}
-    </div>
+      {description && <FieldDescription>{description}</FieldDescription>}
+    </Field>
   );
 });

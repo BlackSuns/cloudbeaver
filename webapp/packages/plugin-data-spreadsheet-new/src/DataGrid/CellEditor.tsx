@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,12 @@ import { usePopper } from 'react-popper';
 import { s, useS } from '@cloudbeaver/core-blocks';
 import { EventContext, EventStopPropagationFlag } from '@cloudbeaver/core-events';
 import { InlineEditor } from '@cloudbeaver/core-ui';
+import { type RenderEditCellProps } from '@cloudbeaver/plugin-data-grid';
 import type { IResultSetElementKey, IResultSetRowKey } from '@cloudbeaver/plugin-data-viewer';
-import type { RenderEditCellProps } from '@cloudbeaver/plugin-react-data-grid';
 
-import style from './CellEditor.m.css';
-import { DataGridContext, IColumnResizeInfo } from './DataGridContext';
-import { TableDataContext } from './TableDataContext';
+import style from './CellEditor.module.css';
+import { DataGridContext, type IColumnResizeInfo } from './DataGridContext.js';
+import { TableDataContext } from './TableDataContext.js';
 
 export interface IEditorRef {
   focus: () => void;
@@ -72,7 +72,7 @@ export const CellEditor = observer<Pick<RenderEditCellProps<IResultSetRowKey>, '
 
     const cellKey: IResultSetElementKey = { row, column: column.columnDataIndex };
 
-    const value = tableDataContext.format.getText(tableDataContext.getCellValue(cellKey)!) ?? '';
+    const value = tableDataContext.format.getText(cellKey);
 
     const handleSave = () => onClose(false);
     const handleReject = () => {
@@ -98,6 +98,8 @@ export const CellEditor = observer<Pick<RenderEditCellProps<IResultSetRowKey>, '
       event.stopPropagation();
     };
 
+    const editorPortal = dataGridContext.getEditorPortal();
+
     return (
       <div
         ref={setElementRef}
@@ -108,9 +110,9 @@ export const CellEditor = observer<Pick<RenderEditCellProps<IResultSetRowKey>, '
         onMouseDown={preventClick}
         onMouseUp={preventClick}
       >
-        {
+        {editorPortal &&
           createPortal(
-            <div ref={setPopperRef} className={s(styles, { editor: true })} style={popper.styles.popper} {...popper.attributes.popper}>
+            <div ref={setPopperRef} className={s(styles, { editor: true })} style={popper.styles['popper']} {...popper.attributes['popper']}>
               <InlineEditor
                 ref={inputRef}
                 value={value}
@@ -129,9 +131,8 @@ export const CellEditor = observer<Pick<RenderEditCellProps<IResultSetRowKey>, '
                 onUndo={handleUndo}
               />
             </div>,
-            dataGridContext.getEditorPortal()!,
-          ) as any
-        }
+            editorPortal,
+          )}
       </div>
     );
   }),

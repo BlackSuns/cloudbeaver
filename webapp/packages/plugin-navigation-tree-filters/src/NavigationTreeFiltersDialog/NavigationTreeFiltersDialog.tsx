@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@ import type { DialogComponentProps } from '@cloudbeaver/core-dialogs';
 import { NotificationService } from '@cloudbeaver/core-events';
 import { type NavNode, NavTreeResource } from '@cloudbeaver/core-navigation-tree';
 
-import { FiltersTable } from './FiltersTable';
-import styles from './NavigationTreeFiltersDialog.m.css';
-import { useFilters } from './useFilters';
+import { FiltersTable } from './FiltersTable.js';
+import styles from './NavigationTreeFiltersDialog.module.css';
+import { useFilters } from './useFilters.js';
 
 interface Payload {
   node: NavNode;

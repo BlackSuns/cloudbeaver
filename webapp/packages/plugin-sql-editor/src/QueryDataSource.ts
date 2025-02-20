@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -8,22 +8,24 @@
 import { makeObservable, observable } from 'mobx';
 
 import type { IConnectionExecutionContextInfo } from '@cloudbeaver/core-connections';
-import type { IServiceInjector } from '@cloudbeaver/core-di';
+import type { IServiceProvider } from '@cloudbeaver/core-di';
 import type { ITask } from '@cloudbeaver/core-executor';
+import { AsyncTaskInfoService } from '@cloudbeaver/core-root';
 import {
-  AsyncTaskInfoService,
   GraphQLService,
   ResultDataFormat,
-  SqlExecuteInfo,
-  SqlQueryResults,
-  UpdateResultsDataBatchMutationVariables,
+  type SqlExecuteInfo,
+  type SqlQueryResults,
+  type UpdateResultsDataBatchMutationVariables,
 } from '@cloudbeaver/core-sdk';
+import { uuid } from '@cloudbeaver/core-utils';
 import {
-  DatabaseDataSource,
   DocumentEditAction,
-  IDatabaseDataOptions,
-  IDatabaseResultSet,
-  IRequestInfo,
+  type IDatabaseDataOptions,
+  type IDatabaseResultSet,
+  type IRequestInfo,
+  type IResultSetBlobValue,
+  ResultSetDataSource,
   ResultSetEditAction,
 } from '@cloudbeaver/plugin-data-viewer';
 
@@ -35,24 +37,24 @@ export interface IQueryRequestInfo extends IRequestInfo {
   query: string;
 }
 
-export class QueryDataSource<TOptions extends IDataQueryOptions = IDataQueryOptions> extends DatabaseDataSource<TOptions, IDatabaseResultSet> {
+export class QueryDataSource<TOptions extends IDataQueryOptions = IDataQueryOptions> extends ResultSetDataSource<TOptions> {
   currentTask: ITask<SqlExecuteInfo> | null;
-  requestInfo: IQueryRequestInfo;
+  override requestInfo: IQueryRequestInfo;
 
-  get canCancel(): boolean {
+  override get canCancel(): boolean {
     return this.currentTask?.cancellable || false;
   }
 
-  get cancelled(): boolean {
+  override get cancelled(): boolean {
     return this.currentTask?.cancelled || false;
   }
 
   constructor(
-    readonly serviceInjector: IServiceInjector,
-    protected readonly graphQLService: GraphQLService,
-    protected readonly asyncTaskInfoService: AsyncTaskInfoService,
+    override readonly serviceProvider: IServiceProvider,
+    graphQLService: GraphQLService,
+    asyncTaskInfoService: AsyncTaskInfoService,
   ) {
-    super(serviceInjector);
+    super(serviceProvider, graphQLService, asyncTaskInfoService);
 
     this.currentTask = null;
     this.requestInfo = {
@@ -69,22 +71,13 @@ export class QueryDataSource<TOptions extends IDataQueryOptions = IDataQueryOpti
     });
   }
 
-  isLoadable(): boolean {
-    return super.isLoadable() && !!this.executionContext?.context;
+  override isDisabled(resultIndex?: number): boolean {
+    return super.isDisabled(resultIndex) || !this.executionContext?.context;
   }
 
-  isReadonly(resultIndex: number): boolean {
-    return super.isReadonly(resultIndex) || this.getResult(resultIndex)?.data?.hasRowIdentifier === false;
-  }
-
-  isDisabled(resultIndex: number): boolean {
-    return (!this.getResult(resultIndex)?.data && this.error === null) || !this.executionContext?.context;
-  }
-
-  async cancel(): Promise<void> {
-    if (this.currentTask) {
-      await this.currentTask.cancel();
-    }
+  override async cancel(): Promise<void> {
+    await super.cancel();
+    await this.currentTask?.cancel();
   }
 
   async save(prevResults: IDatabaseResultSet[]): Promise<IDatabaseResultSet[]> {
@@ -99,30 +92,41 @@ export class QueryDataSource<TOptions extends IDataQueryOptions = IDataQueryOpti
         }
 
         const executionContextInfo = this.executionContext.context;
+        const projectId = this.options.connectionKey.projectId;
+        const connectionId = this.options.connectionKey.connectionId;
+        const contextId = executionContextInfo.id;
+        const resultsId = result.id;
+
         const updateVariables: UpdateResultsDataBatchMutationVariables = {
-          projectId: this.options.connectionKey.projectId,
-          connectionId: this.options.connectionKey.connectionId,
-          contextId: executionContextInfo.id,
-          resultsId: result.id,
+          projectId,
+          connectionId,
+          contextId,
+          resultsId,
         };
         let editor: ResultSetEditAction | DocumentEditAction | undefined;
 
         if (result.dataFormat === ResultDataFormat.Resultset) {
           editor = this.actions.get(result, ResultSetEditAction);
-          editor.fillBatch(updateVariables);
         } else if (result.dataFormat === ResultDataFormat.Document) {
           editor = this.actions.get(result, DocumentEditAction);
+        }
+
+        let blobs: IResultSetBlobValue[] = [];
+        if (editor instanceof ResultSetEditAction) {
+          blobs = editor.getBlobsToUpload();
+        }
+
+        for (const blob of blobs) {
+          const fileId = uuid();
+          await this.graphQLService.sdk.uploadBlobResultSet(fileId, blob.blob!);
+          blob.fileId = fileId;
+        }
+
+        if (editor) {
           editor.fillBatch(updateVariables);
         }
 
         const response = await this.graphQLService.sdk.updateResultsDataBatch(updateVariables);
-
-        this.requestInfo = {
-          ...this.requestInfo,
-          requestDuration: response.result.duration,
-          requestMessage: 'Saved successfully',
-          source: this.options.query,
-        };
 
         if (editor) {
           const responseResult = this.transformResults(executionContextInfo, response.result.results, 0).find(
@@ -133,6 +137,13 @@ export class QueryDataSource<TOptions extends IDataQueryOptions = IDataQueryOpti
             editor.applyUpdate(responseResult);
           }
         }
+
+        this.requestInfo = {
+          ...this.requestInfo,
+          requestDuration: response.result.duration,
+          requestMessage: 'plugin_data_viewer_result_set_save_success',
+          source: this.options.query,
+        };
       }
       this.clearError();
     } catch (exception: any) {
@@ -142,26 +153,9 @@ export class QueryDataSource<TOptions extends IDataQueryOptions = IDataQueryOpti
     return prevResults;
   }
 
-  setOptions(options: TOptions): this {
+  override setOptions(options: TOptions): this {
     this.options = options;
     return this;
-  }
-
-  getResults(executionContextInfo: IConnectionExecutionContextInfo, response: SqlExecuteInfo, limit: number): IDatabaseResultSet[] | null {
-    this.requestInfo = {
-      originalQuery: response.fullQuery || this.options?.query || '',
-      requestDuration: response.duration || 0,
-      requestMessage: response.statusMessage || '',
-      requestFilter: response.filterText || '',
-      source: this.options?.query || null,
-      query: this.options?.query || '',
-    };
-
-    if (!response.results) {
-      return null;
-    }
-
-    return this.transformResults(executionContextInfo, response.results, limit);
   }
 
   async request(prevResults: IDatabaseResultSet[]): Promise<IDatabaseResultSet[]> {
@@ -176,18 +170,13 @@ export class QueryDataSource<TOptions extends IDataQueryOptions = IDataQueryOpti
 
     let firstResultId: string | undefined;
 
-    if (
-      prevResults.length === 1 &&
-      prevResults[0].contextId === executionContext.context!.id &&
-      prevResults[0].connectionId === executionContext.context?.connectionId &&
-      prevResults[0].id !== null &&
-      this.requestInfo.query === this.options?.query
-    ) {
-      firstResultId = prevResults[0].id;
+    if (this.requestInfo.query === this.options?.query) {
+      firstResultId = this.getPreviousResultId(prevResults, executionContextInfo);
     }
 
     const task = this.asyncTaskInfoService.create(async () => {
       const { taskInfo } = await this.graphQLService.sdk.asyncSqlExecuteQuery({
+        projectId: executionContextInfo.projectId,
         connectionId: executionContextInfo.connectionId,
         contextId: executionContextInfo.id,
         query: options.query,
@@ -219,14 +208,12 @@ export class QueryDataSource<TOptions extends IDataQueryOptions = IDataQueryOpti
     try {
       const response = await this.currentTask;
 
-      const results = this.getResults(executionContextInfo, response, limit);
+      const results = this.innerGetResults(executionContextInfo, response, limit);
       this.clearError();
 
       if (!results) {
         return prevResults;
       }
-
-      this.closeResults(prevResults);
 
       return results;
     } catch (exception: any) {
@@ -235,44 +222,42 @@ export class QueryDataSource<TOptions extends IDataQueryOptions = IDataQueryOpti
     }
   }
 
-  private async closeResults(results: IDatabaseResultSet[]) {
-    if (!this.executionContext?.context) {
-      return;
+  private innerGetResults(
+    executionContextInfo: IConnectionExecutionContextInfo,
+    response: SqlExecuteInfo,
+    limit: number,
+  ): IDatabaseResultSet[] | null {
+    this.requestInfo = {
+      originalQuery: response.fullQuery || this.options?.query || '',
+      requestDuration: response.duration || 0,
+      requestMessage: response.statusMessage || '',
+      requestFilter: response.filterText || '',
+      source: this.options?.query || null,
+      query: this.options?.query || '',
+    };
+
+    if (!response.results) {
+      return null;
     }
 
-    for (const result of results) {
-      if (result.id === null) {
-        continue;
-      }
-      try {
-        await this.graphQLService.sdk.closeResult({
-          connectionId: result.connectionId,
-          contextId: result.contextId,
-          resultId: result.id,
-        });
-      } catch (exception: any) {
-        console.log(`Error closing result (${result.id}):`, exception);
-      }
-    }
+    return this.transformResults(executionContextInfo, response.results, limit);
   }
 
   private transformResults(executionContextInfo: IConnectionExecutionContextInfo, results: SqlQueryResults[], limit: number): IDatabaseResultSet[] {
     return results.map<IDatabaseResultSet>((result, index) => ({
       id: result.resultSet?.id || null,
       uniqueResultId: `${executionContextInfo.connectionId}_${executionContextInfo.id}_${index}`,
+      projectId: executionContextInfo.projectId,
       connectionId: executionContextInfo.connectionId,
       contextId: executionContextInfo.id,
       dataFormat: result.dataFormat!,
       updateRowCount: result.updateRowCount || 0,
-      loadedFully: (result.resultSet?.rows?.length || 0) < limit,
+      loadedFully: (result.resultSet?.rowsWithMetaData?.length || 0) < limit,
+      count: result.resultSet?.rowsWithMetaData?.length || 0,
+      totalCount: null,
       // allays returns false
       // || !result.resultSet?.hasMoreData,
       data: result.resultSet,
     }));
-  }
-
-  async dispose(): Promise<void> {
-    await this.closeResults(this.results);
-    await this.cancel();
   }
 }

@@ -1,37 +1,11 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import type { PluginManifest } from '@cloudbeaver/core-di';
-
-import { AuthConfigurationFormService } from './Administration/IdentityProviders/AuthConfigurationFormService';
-import { AuthConfigurationsAdministrationNavService } from './Administration/IdentityProviders/AuthConfigurationsAdministrationNavService';
-import { AuthConfigurationsAdministrationService } from './Administration/IdentityProviders/AuthConfigurationsAdministrationService';
-import { CreateAuthConfigurationService } from './Administration/IdentityProviders/CreateAuthConfigurationService';
-import { AuthConfigurationOptionsTabService } from './Administration/IdentityProviders/Options/AuthConfigurationOptionsTabService';
-import { ServerConfigurationAuthenticationBootstrap } from './Administration/ServerConfiguration/ServerConfigurationAuthenticationBootstrap';
-import { CreateTeamService } from './Administration/Users/Teams/CreateTeamService';
-import { GrantedConnectionsTabService } from './Administration/Users/Teams/GrantedConnections/GrantedConnectionsTabService';
-import { GrantedUsersTabService } from './Administration/Users/Teams/GrantedUsers/GrantedUsersTabService';
-import { TeamOptionsTabService } from './Administration/Users/Teams/Options/TeamOptionsTabService';
-import { TeamFormService } from './Administration/Users/Teams/TeamFormService';
-import { TeamsAdministrationNavService } from './Administration/Users/Teams/TeamsAdministrationNavService';
-import { TeamsAdministrationService } from './Administration/Users/Teams/TeamsAdministrationService';
-import { AdministrationUserFormService } from './Administration/Users/UserForm/AdministrationUserFormService';
-import { UserFormConnectionAccessPartBootstrap } from './Administration/Users/UserForm/ConnectionAccess/UserFormConnectionAccessPartBootstrap';
-import { UserFormInfoPartBootstrap } from './Administration/Users/UserForm/Info/UserFormInfoPartBootstrap';
-import { UserFormInfoPartService } from './Administration/Users/UserForm/Info/UserFormInfoPartService';
-import { UserFormOriginPartBootstrap } from './Administration/Users/UserForm/Origin/UserFormOriginPartBootstrap';
-import { UserFormBaseBootstrap } from './Administration/Users/UserForm/UserFormBaseBootstrap';
-import { UsersAdministrationNavigationService } from './Administration/Users/UsersAdministrationNavigationService';
-import { UsersAdministrationService } from './Administration/Users/UsersAdministrationService';
-import { CreateUserBootstrap } from './Administration/Users/UsersTable/CreateUserBootstrap';
-import { CreateUserService } from './Administration/Users/UsersTable/CreateUserService';
-import { AuthenticationLocaleService } from './AuthenticationLocaleService';
-import { PluginBootstrap } from './PluginBootstrap';
 
 export const manifest: PluginManifest = {
   info: {
@@ -39,30 +13,32 @@ export const manifest: PluginManifest = {
   },
 
   providers: [
-    PluginBootstrap,
-    UsersAdministrationService,
-    AuthenticationLocaleService,
-    CreateUserService,
-    UsersAdministrationNavigationService,
-    ServerConfigurationAuthenticationBootstrap,
-    AdministrationUserFormService,
-    AuthConfigurationsAdministrationService,
-    CreateAuthConfigurationService,
-    AuthConfigurationsAdministrationNavService,
-    AuthConfigurationFormService,
-    AuthConfigurationOptionsTabService,
-    TeamsAdministrationService,
-    CreateTeamService,
-    TeamsAdministrationNavService,
-    TeamFormService,
-    TeamOptionsTabService,
-    GrantedUsersTabService,
-    GrantedConnectionsTabService,
-    CreateUserBootstrap,
-    UserFormBaseBootstrap,
-    UserFormInfoPartBootstrap,
-    UserFormOriginPartBootstrap,
-    UserFormConnectionAccessPartBootstrap,
-    UserFormInfoPartService,
+    () => import('./PluginBootstrap.js').then(m => m.PluginBootstrap),
+    () => import('./Administration/Users/UsersAdministrationService.js').then(m => m.UsersAdministrationService),
+    () => import('./AuthenticationLocaleService.js').then(m => m.AuthenticationLocaleService),
+    () => import('./Administration/Users/UsersTable/CreateUserService.js').then(m => m.CreateUserService),
+    () => import('./Administration/Users/UsersAdministrationNavigationService.js').then(m => m.UsersAdministrationNavigationService),
+    () => import('./Administration/Users/UserForm/AdministrationUserFormService.js').then(m => m.AdministrationUserFormService),
+    () => import('./Administration/Users/Teams/TeamsAdministrationService.js').then(m => m.TeamsAdministrationService),
+    () => import('./Administration/Users/Teams/TeamsTable/CreateTeamService.js').then(m => m.CreateTeamService),
+    () => import('./Administration/Users/Teams/TeamsAdministrationNavService.js').then(m => m.TeamsAdministrationNavService),
+    () => import('./Administration/Users/Teams/TeamsForm/TeamsAdministrationFormService.js').then(m => m.TeamsAdministrationFormService),
+    () => import('./Administration/Users/Teams/TeamsForm/TeamsAdministrationFormState.js').then(m => m.TeamsAdministrationFormState),
+    () => import('./Administration/Users/Teams/TeamsForm/Options/TeamOptionsTabService.js').then(m => m.TeamOptionsTabService),
+    () => import('./Administration/Users/Teams/TeamsForm/GrantedUsers/GrantedUsersTabService.js').then(m => m.GrantedUsersTabService),
+    () =>
+      import('./Administration/Users/Teams/TeamsForm/GrantedConnections/GrantedConnectionsTabService.js').then(m => m.GrantedConnectionsTabService),
+    () => import('./Administration/Users/UsersTable/CreateUserBootstrap.js').then(m => m.CreateUserBootstrap),
+    () => import('./Administration/Users/UserForm/UserFormBaseBootstrap.js').then(m => m.UserFormBaseBootstrap),
+    () => import('./Administration/Users/UserForm/Info/UserFormInfoPartBootstrap.js').then(m => m.UserFormInfoPartBootstrap),
+    () => import('./Administration/Users/UserForm/Origin/UserFormOriginPartBootstrap.js').then(m => m.UserFormOriginPartBootstrap),
+    () =>
+      import('./Administration/Users/UserForm/ConnectionAccess/UserFormConnectionAccessPartBootstrap.js').then(
+        m => m.UserFormConnectionAccessPartBootstrap,
+      ),
+    () => import('./Administration/Users/UserForm/Info/UserFormInfoPartService.js').then(m => m.UserFormInfoPartService),
+    () => import('./AdministrationUsersManagementService.js').then(m => m.AdministrationUsersManagementService),
+    () => import('./Administration/Users/UsersTable/UsersTableOptionsPanelService.js').then(m => m.UsersTableOptionsPanelService),
+    () => import('./Administration/Users/Teams/TeamsTable/TeamsTableOptionsPanelService.js').then(m => m.TeamsTableOptionsPanelService),
   ],
 };

@@ -1,16 +1,17 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { useEffect, useState } from 'react';
 
-import { IconButton } from '../../IconButton';
-import { s } from '../../s';
-import { useS } from '../../useS';
-import style from './SnackbarWrapper.m.css';
+import { ActionIconButton } from '../../ActionIconButton.js';
+import { useTranslate } from '../../localization/useTranslate.js';
+import { s } from '../../s.js';
+import { useS } from '../../useS.js';
+import style from './SnackbarWrapper.module.css';
 
 interface Props {
   closing?: boolean;
@@ -26,6 +27,7 @@ export const SnackbarWrapper: React.FC<React.PropsWithChildren<Props>> = functio
   children,
   className,
 }) {
+  const translate = useTranslate();
   const styles = useS(style);
   const [mounted, setMounted] = useState(false);
 
@@ -34,10 +36,12 @@ export const SnackbarWrapper: React.FC<React.PropsWithChildren<Props>> = functio
   }, []);
 
   return (
-    <div data-testid="notification" className={s(styles, { notification: true, mounted, closing }, className)}>
+    <div tabIndex={0} role="status" aria-live="polite" aria-atomic="true" className={s(styles, { notification: true, mounted, closing }, className)}>
       {children}
       {!persistent && onClose && (
-        <IconButton name="cross" viewBox="0 0 16 16" className={s(styles, { iconButton: true, large: true })} onClick={onClose} />
+        <div className={s(styles, { iconButton: true })}>
+          <ActionIconButton name="cross" viewBox="0 0 16 16" aria-label={translate('ui_close')} onClick={onClose} />
+        </div>
       )}
     </div>
   );

@@ -1,10 +1,22 @@
+/*
+ * CloudBeaver - Cloud Database Manager
+ * Copyright (C) 2020-2024 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0.
+ * you may not use this file except in compliance with the License.
+ */
 export default [
   ['authentication_login_dialog_title', 'Authentication'],
   ['authentication_login', 'Login'],
   ['authentication_logout', 'Logout'],
+  ['authentication_logout_error', "Can't logout"],
   ['authentication_authenticate', 'Authenticate'],
   ['authentication_authorizing', 'Authorizing...'],
   ['authentication_auth_federated', 'Federated'],
+  ['authentication_auth_force_session_logout', 'Force all other sessions logout'],
+  ['authentication_auth_force_session_logout_popup_title', 'Logout other sessions'],
+  ['authentication_auth_force_session_logout_popup_message', 'All users will be logged out from all of the devices. Do you want to continue?'],
+  ['authentication_auth_force_session_logout_checkbox_tooltip', 'To apply this option you need to login again'],
   ['authentication_auth_additional', 'Additional'],
   ['authentication_select_provider', 'Select available provider'],
   ['authentication_configure', 'Please configure authentication methods'],
@@ -13,13 +25,14 @@ export default [
   ['authentication_identity_provider_search_placeholder', 'Search for configuration name or description...'],
   ['authentication_identity_provider_dialog_subtitle', 'Choose configuration you want to sign in with'],
 
-  ['authentication_user_name', 'User name'],
+  ['authentication_user_name', 'Username'],
+  ['authentication_user_name_description', "User's identifier is stored in lowercase"],
   ['authentication_user_role', 'Role'],
   ['authentication_user_credentials', 'Credentials'],
   ['authentication_user_meta_parameters', 'Parameters'],
   ['authentication_team_meta_parameters', 'Parameters'],
-  ['authentication_user_password', 'User password'],
-  ['authentication_user_password_repeat', 'Repeat password'],
+  ['authentication_user_password', 'User Password'],
+  ['authentication_user_password_repeat', 'Repeat Password'],
   ['authentication_user_team', 'User team'],
   ['authentication_user_status', 'User status'],
   ['authentication_user_enabled', 'Enabled'],

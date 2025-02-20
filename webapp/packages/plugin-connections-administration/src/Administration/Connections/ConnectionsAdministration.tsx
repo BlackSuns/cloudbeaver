@@ -1,87 +1,69 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import styled, { css } from 'reshadow';
 
-import { ADMINISTRATION_TOOLS_PANEL_STYLES, AdministrationItemContentProps } from '@cloudbeaver/core-administration';
+import type { AdministrationItemContentProps } from '@cloudbeaver/core-administration';
 import {
   ColoredContainer,
   Container,
+  ExceptionMessageStyles,
   Group,
   GroupItem,
   GroupTitle,
+  InfoItem,
   Loader,
+  s,
+  SContext,
+  type StyleRegistry,
   ToolsAction,
   ToolsPanel,
-  useResource,
-  useStyles,
+  useS,
   useTranslate,
 } from '@cloudbeaver/core-blocks';
-import { ConnectionInfoActiveProjectKey, ConnectionInfoResource, DBDriverResource } from '@cloudbeaver/core-connections';
-import { useController, useService } from '@cloudbeaver/core-di';
-import { CachedMapAllKey } from '@cloudbeaver/core-resource';
 
-import { ConnectionsAdministrationController } from './ConnectionsAdministrationController';
-import { ConnectionsTable } from './ConnectionsTable/ConnectionsTable';
-import { CreateConnection } from './CreateConnection/CreateConnection';
-import { CreateConnectionService } from './CreateConnectionService';
+import ConnectionsAdministrationStyle from './ConnectionsAdministration.module.css';
+import { ConnectionsTable } from './ConnectionsTable/ConnectionsTable.js';
+import { useConnectionsTable } from './ConnectionsTable/useConnectionsTable.js';
+import { CreateConnection } from './CreateConnection/CreateConnection.js';
 
-const loaderStyle = css`
-  ExceptionMessage {
-    padding: 24px;
-  }
-`;
-
-const styles = css`
-  GroupItem {
-    white-space: pre-wrap;
-  }
-
-  ToolsPanel {
-    border-bottom: none;
-  }
-`;
+const registry: StyleRegistry = [
+  [
+    ExceptionMessageStyles,
+    {
+      mode: 'append',
+      styles: [ConnectionsAdministrationStyle],
+    },
+  ],
+];
 
 export const ConnectionsAdministration = observer<AdministrationItemContentProps>(function ConnectionsAdministration({
   sub,
   param,
   configurationWizard,
 }) {
-  const service = useService(CreateConnectionService);
-  const controller = useController(ConnectionsAdministrationController);
+  const style = useS(ConnectionsAdministrationStyle);
   const translate = useTranslate();
-  const style = useStyles(styles, ADMINISTRATION_TOOLS_PANEL_STYLES);
 
-  useResource(ConnectionsAdministration, ConnectionInfoResource, {
-    key: ConnectionInfoActiveProjectKey,
-    includes: ['customIncludeOptions'],
-  });
-  useResource(ConnectionsAdministration, DBDriverResource, CachedMapAllKey);
+  const state = useConnectionsTable();
 
-  return styled(style)(
+  return (
     <ColoredContainer vertical wrap parent gap>
+      <Group keepSize dense>
+        <InfoItem info={translate('connections_templates_deprecated_message')} />
+      </Group>
       <Group box keepSize>
-        <ToolsPanel>
-          <ToolsAction
-            title={translate('connections_administration_tools_add_tooltip')}
-            icon="add"
-            viewBox="0 0 24 24"
-            disabled={!!sub || controller.isProcessing}
-            onClick={service.create}
-          >
-            {translate('ui_add')}
-          </ToolsAction>
+        <ToolsPanel rounded>
           <ToolsAction
             title={translate('connections_administration_tools_refresh_tooltip')}
             icon="refresh"
             viewBox="0 0 24 24"
-            disabled={controller.isProcessing}
-            onClick={controller.update}
+            disabled={state.loading}
+            onClick={state.update}
           >
             {translate('ui_refresh')}
           </ToolsAction>
@@ -89,8 +71,8 @@ export const ConnectionsAdministration = observer<AdministrationItemContentProps
             title={translate('connections_administration_tools_delete_tooltip')}
             icon="trash"
             viewBox="0 0 24 24"
-            disabled={!controller.itemsSelected || controller.isProcessing}
-            onClick={controller.delete}
+            disabled={!state.table.itemsSelected || state.loading}
+            onClick={state.delete}
           >
             {translate('ui_delete')}
           </ToolsAction>
@@ -100,25 +82,18 @@ export const ConnectionsAdministration = observer<AdministrationItemContentProps
         {configurationWizard && (
           <Group gap>
             <GroupTitle>{translate('connections_administration_configuration_wizard_title')}</GroupTitle>
-            <GroupItem>{translate('connections_administration_configuration_wizard_message')}</GroupItem>
+            <GroupItem className={s(style, { groupItem: true })}>{translate('connections_administration_configuration_wizard_message')}</GroupItem>
           </Group>
         )}
-        {sub && (
-          <Group box>
-            <CreateConnection method={param} configurationWizard={configurationWizard} />
-          </Group>
-        )}
+        {sub && <CreateConnection method={param} configurationWizard={configurationWizard} />}
         <Group boxNoOverflow>
-          <Loader style={loaderStyle} loading={controller.isProcessing} overlay>
-            <ConnectionsTable
-              keys={controller.keys}
-              connections={controller.connections}
-              selectedItems={controller.selectedItems}
-              expandedItems={controller.expandedItems}
-            />
-          </Loader>
+          <SContext registry={registry}>
+            <Loader loading={state.loading} overlay>
+              <ConnectionsTable state={state} />
+            </Loader>
+          </SContext>
         </Group>
       </Container>
-    </ColoredContainer>,
+    </ColoredContainer>
   );
 });

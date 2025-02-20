@@ -1,4 +1,12 @@
+/*
+ * CloudBeaver - Cloud Database Manager
+ * Copyright (C) 2020-2025 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0.
+ * you may not use this file except in compliance with the License.
+ */
 export default [
+  ['core_connections_connections_settings_group', 'Подключения'],
   ['connections_administration_item', 'Шаблоны подключений'],
   ['connections_administration_connection_create', 'Создание шаблона подключения'],
   ['connections_administration_search_database_tip', "Укажите ваши хосты, например 'localhost host1.myhost.com 192.168.0.1' и нажмите Enter"],
@@ -19,12 +27,27 @@ export default [
   ['connections_administration_tools_delete_tooltip', 'Удалить выбранные подключения'],
   ['connections_administration_tools_refresh_success', 'Список подключений обновлен'],
   ['connections_administration_tools_refresh_fail', 'Не удалось обновить список подключений'],
+  ['connections_database_authentication', 'Авторизация в базу данных'],
   ['connections_connection_connect', 'Подключиться'],
   ['connections_connection_create_custom', 'Настроить'],
   ['connections_connection_create_search_database', 'Найти'],
-  ['connections_connection_edit_save_credentials', ' Запомнить данные'],
-  ['connections_connection_share_credentials', 'Запомнить данные для всех пользователей'],
-  ['connections_connection_share_credentials_tooltip', 'Запомнить данные для всех пользователей'],
+  ['connections_connection_authentication_save_credentials_for_user', 'Сохранить данные для текущего пользователя'],
+  [
+    'connections_connection_authentication_save_credentials_for_user_tooltip',
+    'Эти учетные данные будут использоваться для автоматического подключения',
+  ],
+  ['connections_connection_authentication_save_credentials_for_session', 'Не спрашивать снова в течение сессии'],
+  ['connections_connection_authentication_save_credentials_for_session_tooltip', 'Эти учетные данные будут удалены после выхода из системы'],
+  ['connections_connection_edit_save_credentials_shared', 'Запомнить данные для всех пользователей с доступом'],
+  [
+    'connections_connection_edit_save_credentials_shared_tooltip',
+    'Эти учетные данные будут использоваться для автоматического подключения для всех пользователей с доступом',
+  ],
+  ['connections_connection_share_credentials', 'Поделиться учетными данными с командой'],
+  [
+    'connections_connection_share_credentials_tooltip',
+    'Эти учетные данные будут использоваться для автоматического подключения для всех пользователей в команде',
+  ],
   ['connections_connection_credentials_provisioning', 'Аутентификационные данные'],
   ['connections_connection_credentials_provisioning_description', 'Чтобы проверить подключение, необходимо заполнить или подтвердить данные доступа'],
   ['connections_connection_edit_authentication', 'Авторизация'],
@@ -35,11 +58,11 @@ export default [
   ['connections_connection_edit_search_hosts', 'Названия хостов'],
   ['connections_connection_address', 'Адрес'],
   ['connections_connection_folder', 'Папка'],
-  ['connections_connection_folder_validation', 'Имя папки может содержать следующие символы "_-$.()@" и не может начинаться с точки'],
+  ['connections_connection_folder_validation', 'Имя папки не может содержать следующие символы / : " \\ \' <> | ? * и не может начинаться с точки'],
   ['connections_connection_name', 'Название подключения'],
   ['connections_connection_access_user_or_team_name', 'Имя пользователя или команды'],
   ['connections_connection_access_filter_placeholder', 'Поиск по имени пользователя или команде'],
-  ['connections_connection_access_admin_info', 'Администраторы видят все подключения.'],
+  ['connections_connection_access_admin_info', 'Администраторы видят все подключения, кроме приватных подключений других пользователей.'],
   ['connections_connection_description', 'Описание'],
   ['connections_connection_project', 'Проект'],
   ['connections_connection_driver', 'Драйвер'],
@@ -47,10 +70,16 @@ export default [
   ['connections_connection_host', 'Хост'],
   ['connections_connection_port', 'Порт'],
   ['connections_connection_template', 'Шаблон'],
-  ['connections_connection_test', 'Подключиться'],
+  ['connections_connection_test', 'Тест'],
+  ['connections_connection_test_tooltip', 'Тестовое соединение'],
   ['connections_connection_test_fail', 'Не удалось выполнить подключение'],
   ['connections_connection_create_fail', 'Не удалось создать подключение'],
   ['connections_connection_save_fail', 'Не удалось сохранить подключение'],
+  ['connections_connection_expert_settings', 'Продвинутые настройки'],
+  ['connections_connection_keep_alive', 'Поддерживать соединение (в секундах)'],
+  ['connections_connection_autocommit', 'Авто коммит'],
+  ['connections_connection_keep_alive_tooltip', 'Не отключать соединение'],
+  ['connections_connection_read_only', 'Разрешить только чтение'],
   ['connections_network_handler_test', 'Проверить подключение'],
   ['connections_network_handler_test_fail', 'Не удалось установить соединение'],
   ['connections_network_handler_test_success', 'Соединение установлено'],
@@ -72,4 +101,9 @@ export default [
   ['connections_not_found', 'Подключения к базам данных не найдены'],
 
   ['cloud_connections_access_placeholder', 'Облачные подключения видны всем пользователям. Вы можете настроить доступ в "Консоль Управления AWS".'],
+
+  ['core_connections_settings_disable', 'Отключить'],
+  ['core_connections_settings_disable_description', 'Отключить возможность создания новых подключений'],
+  ['connections_templates_deprecated_message', 'Шаблоны подключений больше не поддерживаются и будут удалены в будущих релизах'],
+  ['core_connections_connection_driver_not_installed', 'Драйвер не установлен'],
 ];

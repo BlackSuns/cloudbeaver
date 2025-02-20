@@ -1,20 +1,20 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
 
-import { Icon } from '../Icon';
-import { IconOrImage } from '../IconOrImage';
-import { Loader } from '../Loader/Loader';
-import { useTranslate } from '../localization/useTranslate';
-import { s } from '../s';
-import { useS } from '../useS';
-import { useStateDelay } from '../useStateDelay';
-import style from './MenuItemElement.m.css';
+import { Icon } from '../Icon.js';
+import { IconOrImage } from '../IconOrImage.js';
+import { Loader } from '../Loader/Loader.js';
+import { useTranslate } from '../localization/useTranslate.js';
+import { s } from '../s.js';
+import { useS } from '../useS.js';
+import { useStateDelay } from '../useStateDelay.js';
+import style from './MenuItemElement.module.css';
 
 interface IMenuItemElementProps {
   label: string;
@@ -22,7 +22,7 @@ interface IMenuItemElementProps {
   displayLabel?: boolean;
   tooltip?: string;
   binding?: string;
-  icon?: string | React.ReactNode;
+  icon?: React.ReactNode;
   menu?: boolean;
   loading?: boolean;
   panelAvailable?: boolean;

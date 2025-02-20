@@ -1,11 +1,13 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { useState } from 'react';
+
+import { bindFunctions } from '@cloudbeaver/core-utils';
 
 export function useObjectRef<T extends Record<any, any>>(init: () => T & ThisType<T>, update: false, bind?: Array<keyof T>): T;
 export function useObjectRef<T extends Record<any, any>>(init: () => T & ThisType<T>): T;
@@ -57,14 +59,4 @@ export function useObjectRef<T extends Record<any, any>, U extends Record<any, a
   }
 
   return ref;
-}
-
-function bindFunctions<T>(object: T, keys: Array<keyof T>): void {
-  for (const key of keys) {
-    const value = object[key];
-
-    if (typeof value === 'function') {
-      object[key] = value.bind(object);
-    }
-  }
 }

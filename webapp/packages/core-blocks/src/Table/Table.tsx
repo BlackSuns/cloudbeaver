@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -9,12 +9,12 @@ import { action, computed, observable } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import { useCallback, useEffect, useState } from 'react';
 
-import { s } from '../s';
-import { useObjectRef } from '../useObjectRef';
-import { useObservableRef } from '../useObservableRef';
-import { useS } from '../useS';
-import style from './Table.m.css';
-import { ITableContext, ITableState, TableContext } from './TableContext';
+import { s } from '../s.js';
+import { useObjectRef } from '../useObjectRef.js';
+import { useObservableRef } from '../useObservableRef.js';
+import { useS } from '../useS.js';
+import style from './Table.module.css';
+import { type ITableContext, type ITableState, TableContext } from './TableContext.js';
 
 interface Props {
   keys?: any[];

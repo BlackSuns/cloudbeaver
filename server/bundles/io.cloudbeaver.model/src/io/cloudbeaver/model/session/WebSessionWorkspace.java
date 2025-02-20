@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
  */
 package io.cloudbeaver.model.session;
 
-import io.cloudbeaver.WebProjectImpl;
+import io.cloudbeaver.WebSessionProjectImpl;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.model.DBPAdaptable;
+import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.app.DBPPlatform;
-import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPWorkspace;
-import org.jkiss.dbeaver.model.auth.SMSessionContext;
 import org.jkiss.dbeaver.model.impl.auth.SessionContextImpl;
 import org.jkiss.dbeaver.model.rm.RMUtils;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
@@ -39,8 +39,8 @@ public class WebSessionWorkspace implements DBPWorkspace {
 
     private final BaseWebSession session;
     private final SessionContextImpl workspaceAuthContext;
-    private final List<WebProjectImpl> accessibleProjects = new ArrayList<>();
-    private WebProjectImpl activeProject;
+    private final List<WebSessionProjectImpl> accessibleProjects = new ArrayList<>();
+    private WebSessionProjectImpl activeProject;
 
     public WebSessionWorkspace(BaseWebSession session) {
         this.session = session;
@@ -82,18 +82,20 @@ public class WebSessionWorkspace implements DBPWorkspace {
 
     @NotNull
     @Override
-    public List<WebProjectImpl> getProjects() {
+    public List<WebSessionProjectImpl> getProjects() {
         return accessibleProjects;
     }
 
+    @Nullable
     @Override
-    public DBPProject getActiveProject() {
+    public WebSessionProjectImpl getActiveProject() {
         return activeProject;
     }
 
+    @Nullable
     @Override
-    public WebProjectImpl getProject(@NotNull String projectName) {
-        for (WebProjectImpl project : accessibleProjects) {
+    public WebSessionProjectImpl getProject(@NotNull String projectName) {
+        for (WebSessionProjectImpl project : accessibleProjects) {
             if (project.getName().equals(projectName)) {
                 return project;
             }
@@ -103,11 +105,11 @@ public class WebSessionWorkspace implements DBPWorkspace {
 
     @Nullable
     @Override
-    public WebProjectImpl getProjectById(String projectId) {
+    public WebSessionProjectImpl getProjectById(@NotNull String projectId) {
         if (projectId == null) {
             return activeProject;
         }
-        for (WebProjectImpl project : accessibleProjects) {
+        for (WebSessionProjectImpl project : accessibleProjects) {
             if (project.getId().equals(projectId)) {
                 return project;
             }
@@ -117,36 +119,40 @@ public class WebSessionWorkspace implements DBPWorkspace {
 
     @NotNull
     @Override
-    public SMSessionContext getAuthContext() {
+    public SessionContextImpl getAuthContext() {
         return workspaceAuthContext;
     }
 
     @Override
-    public void dispose() {
-        clearAuthData();
+    public void initializeProjects() {
+        // noop
+    }
 
+    @Override
+    public void dispose() {
         clearProjects();
     }
 
-    void clearAuthData() {
-        workspaceAuthContext.close();
+    @Override
+    public DBPImage getResourceIcon(DBPAdaptable resourceAdapter) {
+        return null;
     }
 
-    public void setActiveProject(DBPProject activeProject) {
-        this.activeProject = (WebProjectImpl) activeProject;
+    public void setActiveProject(WebSessionProjectImpl activeProject) {
+        this.activeProject = activeProject;
     }
 
-    void addProject(WebProjectImpl project) {
+    void addProject(WebSessionProjectImpl project) {
         accessibleProjects.add(project);
     }
 
-    void removeProject(WebProjectImpl project) {
+    void removeProject(WebSessionProjectImpl project) {
         accessibleProjects.remove(project);
     }
 
     void clearProjects() {
         if (!this.accessibleProjects.isEmpty()) {
-            for (WebProjectImpl project : accessibleProjects) {
+            for (WebSessionProjectImpl project : accessibleProjects) {
                 project.dispose();
             }
             this.activeProject = null;
@@ -155,12 +161,12 @@ public class WebSessionWorkspace implements DBPWorkspace {
     }
 
     @Override
-    public boolean hasRealmPermission(String permission) {
+    public boolean hasRealmPermission(@NotNull String permission) {
         return false;
     }
 
     @Override
-    public boolean supportsRealmFeature(String feature) {
+    public boolean supportsRealmFeature(@NotNull String feature) {
         return false;
     }
 

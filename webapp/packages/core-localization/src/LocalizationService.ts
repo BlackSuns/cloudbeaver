@@ -1,95 +1,85 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { action, computed, makeObservable, observable } from 'mobx';
+import { type IReactionDisposer, makeObservable, observable, reaction } from 'mobx';
 
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
-import { NotificationService } from '@cloudbeaver/core-events';
-import { ISyncExecutor, SyncExecutor } from '@cloudbeaver/core-executor';
-import { PluginManagerService, PluginSettings } from '@cloudbeaver/core-plugin';
-import { ServerConfigResource, SessionResource } from '@cloudbeaver/core-root';
-import type { ServerLanguage } from '@cloudbeaver/core-sdk';
-import { SettingsService } from '@cloudbeaver/core-settings';
+import { Executor, type IExecutor } from '@cloudbeaver/core-executor';
 
-import type { ILocaleProvider } from './ILocaleProvider';
-import type { TLocalizationToken } from './TLocalizationToken';
-
-export type ServerLanguageShort = Pick<ServerLanguage, 'isoCode' | 'nativeName'>;
-
-const DEFAULT_LOCALE_NAME = 'en';
-const LANG_SETTINGS_KEY = 'langSettings';
-
-export interface ILocalizationSettings {
-  defaultLanguage: string;
-}
-
-interface ISettings {
-  language: string;
-}
-
-export const defaultThemeSettings: ILocalizationSettings = {
-  defaultLanguage: DEFAULT_LOCALE_NAME,
-};
+import { DEFAULT_LOCALE } from './DEFAULT_LOCALE.js';
+import type { ILocale } from './ILocale.js';
+import type { ILocaleProvider } from './ILocaleProvider.js';
+import type { TLocalizationToken } from './TLocalizationToken.js';
 
 @injectable()
 export class LocalizationService extends Bootstrap {
   get currentLanguage(): string {
-    return this.settings.language;
-  }
+    const lang = this.language;
 
-  get defaultLanguage(): string {
-    if (this.pluginSettings.isValueDefault('defaultLanguage')) {
-      return this.deprecatedPluginSettings.getValue('defaultLanguage');
+    if (lang !== null && this.isLanguageSupported(lang)) {
+      return lang;
     }
 
-    return this.pluginSettings.getValue('defaultLanguage');
+    if (this.isLanguageSupported(DEFAULT_LOCALE.isoCode)) {
+      return DEFAULT_LOCALE.isoCode;
+    }
+
+    const firstLanguage = this.supportedLanguages[0];
+
+    if (!firstLanguage) {
+      //@TODO do not throw error in getter
+      throw new Error('No language is available');
+    }
+
+    return firstLanguage.isoCode;
   }
 
-  settings: ISettings;
-  readonly pluginSettings: PluginSettings<ILocalizationSettings>;
-  /** @deprecated Use settings instead, will be removed in 23.0.0 */
-  readonly deprecatedPluginSettings: PluginSettings<ILocalizationSettings>;
+  supportedLanguages: ILocale[];
 
-  readonly onChange: ISyncExecutor<string>;
-  // observable.shallow - don't treat locales as observables
-  private readonly localeMap: Map<string, Map<string, string>> = new Map();
+  readonly onChange: IExecutor<string>;
+  private language: string | null;
+  private readonly localeMap: Map<string, Map<string, string>>;
+  private readonly localeProviders: ILocaleProvider[];
+  private reactionDisposer: IReactionDisposer | null;
 
-  private readonly localeProviders: ILocaleProvider[] = [];
-
-  constructor(
-    private readonly notificationService: NotificationService,
-    private readonly sessionResource: SessionResource,
-    private readonly pluginManagerService: PluginManagerService,
-    private readonly serverConfigResource: ServerConfigResource,
-    private readonly settingsService: SettingsService,
-  ) {
+  constructor() {
     super();
 
-    this.settings = getDefaultLocalizationSettings();
-    this.onChange = new SyncExecutor();
-    this.pluginSettings = this.pluginManagerService.createSettings('localization', 'core', defaultThemeSettings);
-    this.deprecatedPluginSettings = this.pluginManagerService.createSettings('user', 'core', defaultThemeSettings);
+    this.supportedLanguages = [DEFAULT_LOCALE];
+    this.language = null;
+    this.reactionDisposer = null;
+    this.onChange = new Executor();
+    this.localeMap = new Map();
+    this.localeProviders = [];
 
-    sessionResource.onDataUpdate.addHandler(this.syncLanguage.bind(this));
-    this.onChange.addHandler(key => {
-      this.sessionResource.setDefaultLocale(key);
-      this.sessionResource.changeLanguage(key);
+    makeObservable<LocalizationService, 'localeMap' | 'supportedLanguages' | 'language'>(this, {
+      language: observable,
+      supportedLanguages: observable,
+      localeMap: observable.shallow, // observable.shallow - don't treat locales as observables
     });
+  }
 
-    makeObservable<LocalizationService, 'localeMap' | 'setCurrentLocale'>(this, {
-      settings: observable,
-      localeMap: observable.shallow,
-      defaultLanguage: computed,
-      setCurrentLocale: action,
-    });
+  isLanguageSupported(lang: string): boolean {
+    return this.supportedLanguages.some(language => language.isoCode === lang);
   }
 
   addProvider(provider: ILocaleProvider): void {
     this.localeProviders.push(provider);
+  }
+
+  setSupportedLanguages(locales: ILocale[]) {
+    this.supportedLanguages = locales;
+    if (this.supportedLanguages.length === 0) {
+      this.supportedLanguages = [DEFAULT_LOCALE];
+    }
+  }
+
+  setLanguage(lang: string) {
+    this.language = lang;
   }
 
   readonly translate = <T extends TLocalizationToken | undefined>(token: T, fallback?: T, args: Record<string | number, any> = {}): T => {
@@ -99,8 +89,8 @@ export class LocalizationService extends Bootstrap {
 
     let translation = this.localeMap.get(this.currentLanguage)?.get(token as TLocalizationToken);
 
-    if (!translation) {
-      translation = this.localeMap.get(DEFAULT_LOCALE_NAME)?.get(token as TLocalizationToken);
+    if (translation === undefined) {
+      translation = this.localeMap.get(DEFAULT_LOCALE.isoCode)?.get(token as TLocalizationToken);
     }
 
     if (typeof translation === 'string') {
@@ -120,90 +110,99 @@ export class LocalizationService extends Bootstrap {
     return token;
   };
 
-  register(): void | Promise<void> {
+  override register(): void {
+    this.setSupportedLanguages([
+      {
+        isoCode: 'en',
+        name: 'English',
+        nativeName: 'English',
+      },
+      {
+        isoCode: 'ru',
+        name: 'Russian',
+        nativeName: 'Русский',
+      },
+      {
+        isoCode: 'it',
+        name: 'Italian',
+        nativeName: 'Italiano',
+      },
+      {
+        isoCode: 'zh',
+        name: 'Chinese',
+        nativeName: '中文',
+      },
+      {
+        isoCode: 'fr',
+        name: 'French',
+        nativeName: 'Français',
+      },
+    ]);
     this.addProvider(this.coreProvider.bind(this));
-    this.sessionResource.setDefaultLocale(this.currentLanguage);
   }
 
-  async load(): Promise<void> {
-    await this.serverConfigResource.load();
-    this.setCurrentLocale(this.defaultLanguage); // set default app locale
-    this.settingsService.registerSettings(LANG_SETTINGS_KEY, this.settings, getDefaultLocalizationSettings); // load user state locale
-    this.sessionResource.setDefaultLocale(this.currentLanguage);
-    await this.loadLocaleAsync(DEFAULT_LOCALE_NAME);
-    await this.loadLocaleAsync(this.currentLanguage);
+  override async load(): Promise<void> {
+    this.reactionDisposer = reaction(
+      () => this.currentLanguage,
+      lang => {
+        this.loadLocale(lang);
+      },
+    );
+    await this.loadLocale(DEFAULT_LOCALE.isoCode);
+    await this.loadLocale(this.currentLanguage);
   }
 
-  async changeLocaleAsync(key: string): Promise<void> {
+  override dispose(): void {
+    if (this.reactionDisposer) {
+      this.reactionDisposer();
+    }
+  }
+
+  async changeLocale(key: string): Promise<void> {
+    const prevLocale = this.currentLanguage;
     if (key === this.currentLanguage) {
       return;
     }
-    await this.setLocale(key);
-    this.onChange.execute(this.currentLanguage);
-  }
+    if (!this.isLanguageSupported(key)) {
+      throw new Error(`Language '${key}' is not supported`);
+    }
 
-  private async syncLanguage() {
-    const session = this.sessionResource.data;
-
-    if (session) {
-      await this.setLocale(session.locale);
+    await this.loadLocale(key);
+    try {
+      this.setLanguage(key);
+      await this.onChange.execute(key);
+    } catch (e) {
+      this.setLanguage(prevLocale);
+      throw e;
     }
   }
 
   private async coreProvider(locale: string) {
     switch (locale) {
       case 'ru':
-        return (await import('./locales/ru')).default;
+        return (await import('./locales/ru.js')).default;
       case 'it':
-        return (await import('./locales/it')).default;
+        return (await import('./locales/it.js')).default;
       case 'zh':
-        return (await import('./locales/zh')).default;
+        return (await import('./locales/zh.js')).default;
+      case 'fr':
+        return (await import('./locales/fr.js')).default;
       default:
-        return (await import('./locales/en')).default;
+        return (await import('./locales/en.js')).default;
     }
   }
 
-  private setCurrentLocale(lang: string) {
-    this.settings.language = lang;
-  }
-
-  async setLocale(key: string) {
-    const config = await this.serverConfigResource.load();
-
-    if (!config) {
-      throw new Error("Can't get server settings");
-    }
-
-    if (!config.supportedLanguages.some(lang => lang.isoCode === key)) {
-      this.setCurrentLocale(config!.supportedLanguages[0]!.isoCode);
-      throw new Error(`Language '${key}' is not supported`);
-    }
-
-    this.setCurrentLocale(key);
-    await this.loadLocaleAsync(key);
-  }
-
-  private async loadLocaleAsync(localeKey: string): Promise<void> {
+  private async loadLocale(localeKey: string): Promise<void> {
     if (this.localeMap.has(localeKey)) {
       return;
     }
-    try {
-      const locale = new Map<string, string>();
+    const locale = new Map<string, string>();
 
-      for (const provider of this.localeProviders) {
-        for (const [key, value] of await provider(localeKey)) {
-          locale.set(key, value);
-        }
+    for (const provider of this.localeProviders) {
+      for (const [key, value] of await provider(localeKey)) {
+        locale.set(key!, value!);
       }
-      this.localeMap.set(localeKey, locale);
-    } catch (error: any) {
-      this.notificationService.logException(error, 'Locale is not found', '', true);
     }
+    this.localeMap.set(localeKey, locale);
   }
-}
-
-function getDefaultLocalizationSettings(): ISettings {
-  return {
-    language: DEFAULT_LOCALE_NAME,
-  };
 }

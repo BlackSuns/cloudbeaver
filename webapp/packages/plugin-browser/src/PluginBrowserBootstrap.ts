@@ -1,25 +1,44 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import { ProcessSnackbar } from '@cloudbeaver/core-blocks';
-import { ServiceWorkerService } from '@cloudbeaver/core-browser';
 import { Bootstrap, injectable } from '@cloudbeaver/core-di';
-import { NotificationService } from '@cloudbeaver/core-events';
 
 @injectable()
 export class PluginBrowserBootstrap extends Bootstrap {
-  constructor(private readonly serviceWorkerService: ServiceWorkerService, private readonly notificationService: NotificationService) {
+  constructor() {
     super();
   }
-  register(): void | Promise<void> {
-    this.serviceWorkerService.onUpdate.addHandler(() => {
-      this.notificationService.processNotification(() => ProcessSnackbar, {}, { title: 'plugin_browser_update_dialog_title' });
-    });
+  override register(): void {
+    // TODO: notification appears in unexpected moment
+    // this.serviceWorkerService.onUpdate.addHandler(({ type, progress }) => {
+    //   progress = progress || 0;
+    //   switch (type) {
+    //     case 'installing':
+    //       break;
+    //     case 'updating':
+    //       if (!this.notification) {
+    //         this.notification = this.notificationService.processNotification(
+    //           () => ProcessSnackbar,
+    //           {},
+    //           {
+    //             title: 'plugin_browser_update_dialog_title',
+    //             message: this.localizationService.translate('plugin_browser_update_dialog_message', undefined, { progress: '0%' }),
+    //           },
+    //         );
+    //       }
+    //       this.notification.controller.setMessage(
+    //         this.localizationService.translate('plugin_browser_update_dialog_message', undefined, { progress: (progress * 100).toFixed(0) + '%' }),
+    //       );
+    //       break;
+    //     case 'finished':
+    //       this.notification?.notification.close();
+    //       this.notification = null;
+    //       break;
+    //   }
+    // });
   }
-
-  load(): void | Promise<void> {}
 }

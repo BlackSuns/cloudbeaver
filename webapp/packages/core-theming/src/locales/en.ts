@@ -1,5 +1,11 @@
+/*
+ * CloudBeaver - Cloud Database Manager
+ * Copyright (C) 2020-2024 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0.
+ * you may not use this file except in compliance with the License.
+ */
 export default [
-  ['settings_theming', 'Theme'],
-  ['settings_theming_default_theme_name', 'Default Theme'],
-  ['settings_theming_default_theme_description', 'Default Theme'],
+  ['core_theming_settings_theme_name', 'Theme'],
+  ['core_theming_settings_theme_description', 'Application color theme'],
 ];

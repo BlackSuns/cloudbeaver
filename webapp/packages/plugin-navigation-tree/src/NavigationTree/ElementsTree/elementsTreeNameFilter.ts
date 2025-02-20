@@ -1,6 +1,6 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
@@ -9,8 +9,8 @@ import type { NavNode, NavNodeInfoResource, NavTreeResource } from '@cloudbeaver
 import { resourceKeyList } from '@cloudbeaver/core-resource';
 import type { MetadataMap } from '@cloudbeaver/core-utils';
 
-import { EEquality, NavNodeFilterCompareFn } from './NavNodeFilterCompareFn';
-import type { IElementsTree, IElementsTreeFilter, ITreeNodeState } from './useElementsTree';
+import { EEquality, type NavNodeFilterCompareFn } from './NavNodeFilterCompareFn.js';
+import type { IElementsTree, IElementsTreeFilter, ITreeNodeState } from './useElementsTree.js';
 
 function isDefined<T>(val: T | undefined | null): val is T {
   return val !== undefined && val !== null;

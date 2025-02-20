@@ -1,41 +1,23 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
 import { observer } from 'mobx-react-lite';
-import { ButtonHTMLAttributes, forwardRef, useRef, useState } from 'react';
-import type { MenuInitialState } from 'reakit/Menu';
+import { forwardRef, useRef, useState } from 'react';
 
-import { getComputed, IMenuState, IMouseContextMenu, Menu, useAutoLoad, useObjectRef, useTranslate } from '@cloudbeaver/core-blocks';
-import { IMenuData, MenuActionItem } from '@cloudbeaver/core-view';
+import { getComputed, type IMenuState, Menu, useAutoLoad, useObjectRef, useTranslate } from '@cloudbeaver/core-blocks';
+import { MenuActionItem } from '@cloudbeaver/core-view';
 
-import { MenuItemRenderer } from './MenuItemRenderer';
+import type { IContextMenuProps } from './IContextMenuProps.js';
+import { MenuItemRenderer } from './MenuItemRenderer.js';
 
-interface IMenuProps extends React.PropsWithChildren {
-  loading: boolean;
-  disabled: boolean;
-}
-
-type ContextMenuRenderingChildren = (props: IMenuProps) => React.ReactNode | React.ReactElement;
-
-interface IContextMenuProps extends Omit<ButtonHTMLAttributes<any>, 'children'> {
-  mouseContextMenu?: IMouseContextMenu;
-  menu: IMenuData;
-  disclosure?: boolean;
-  placement?: MenuInitialState['placement'];
-  modal?: boolean;
-  visible?: boolean;
-  rtl?: boolean;
-  children?: React.ReactNode | ContextMenuRenderingChildren;
-  onVisibleSwitch?: (visible: boolean) => void;
-}
-
+// TODO the click doesn't work for React components as children
 export const ContextMenu = observer<IContextMenuProps, HTMLButtonElement>(
   forwardRef(function ContextMenu(
-    { mouseContextMenu, menu: menuData, disclosure, children, placement, visible, onVisibleSwitch, modal, rtl, ...props },
+    { contextMenuPosition, menu: menuData, disclosure, children, placement, visible, onVisibleSwitch, modal, rtl, ...props },
     ref,
   ) {
     const translate = useTranslate();
@@ -47,9 +29,9 @@ export const ContextMenu = observer<IContextMenuProps, HTMLButtonElement>(
     const disabled = getComputed(() => loading || handler?.isDisabled?.(menuData.context) || false);
     const lazy = getComputed(() => !menuData.available || hidden);
 
-    const menu = useRef<IMenuState>();
+    const menu = useRef<IMenuState>(null);
 
-    useAutoLoad({ name: `${ContextMenu.name}(${menuData.menu.id})` }, menuData.loaders, !lazy, menuVisible);
+    useAutoLoad({ name: `${ContextMenu.name}(${menuData.menu.id})` }, menuData.loaders, !lazy, menuVisible, true);
 
     const handlers = useObjectRef(
       () => ({
@@ -80,6 +62,7 @@ export const ContextMenu = observer<IContextMenuProps, HTMLButtonElement>(
 
     return (
       <Menu
+        {...props}
         ref={ref}
         label={translate(menuData.menu.label)}
         title={translate(menuData.menu.tooltip)}
@@ -95,13 +78,12 @@ export const ContextMenu = observer<IContextMenuProps, HTMLButtonElement>(
         menuRef={menu}
         modal={modal}
         visible={visible}
-        mouseContextMenu={mouseContextMenu}
+        contextMenuPosition={contextMenuPosition}
         placement={placement}
         disabled={disabled}
         disclosure={disclosure}
         getHasBindings={handlers.hasBindings}
         onVisibleSwitch={handlers.handleVisibleSwitch}
-        {...props}
       >
         {renderingChildren}
       </Menu>

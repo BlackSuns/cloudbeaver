@@ -1,65 +1,118 @@
 /*
  * CloudBeaver - Cloud Database Manager
- * Copyright (C) 2020-2023 DBeaver Corp and others
+ * Copyright (C) 2020-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0.
  * you may not use this file except in compliance with the License.
  */
-import '@testing-library/jest-dom';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
-import { coreBrowserManifest } from '@cloudbeaver/core-browser';
-import { coreEventsManifest } from '@cloudbeaver/core-events';
-import { corePluginManifest } from '@cloudbeaver/core-plugin';
-import { coreProductManifest } from '@cloudbeaver/core-product';
-import { coreRootManifest, ServerConfigResource } from '@cloudbeaver/core-root';
-import { createGQLEndpoint } from '@cloudbeaver/core-root/dist/__custom_mocks__/createGQLEndpoint';
-import { mockAppInit } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockAppInit';
-import { mockGraphQL } from '@cloudbeaver/core-root/dist/__custom_mocks__/mockGraphQL';
-import { mockServerConfig } from '@cloudbeaver/core-root/dist/__custom_mocks__/resolvers/mockServerConfig';
-import { coreSDKManifest } from '@cloudbeaver/core-sdk';
-import { coreSettingsManifest } from '@cloudbeaver/core-settings';
-import { createApp } from '@cloudbeaver/tests-runner';
+import { DEFAULT_LOCALE } from './DEFAULT_LOCALE.js';
+import { type ILocale } from './ILocale.js';
+import { LocalizationService } from './LocalizationService.js';
 
-import { ILocalizationSettings, LocalizationService } from './LocalizationService';
-import { coreLocalizationManifest } from './manifest';
+describe('LocalizationService', () => {
+  let service: LocalizationService;
 
-const endpoint = createGQLEndpoint();
-const app = createApp(
-  coreLocalizationManifest,
-  coreEventsManifest,
-  corePluginManifest,
-  coreProductManifest,
-  coreRootManifest,
-  coreSDKManifest,
-  coreSettingsManifest,
-  coreBrowserManifest,
-);
+  beforeEach(() => {
+    service = new LocalizationService();
+  });
 
-const server = mockGraphQL(...mockAppInit(endpoint));
+  it('should initialize with default locale', () => {
+    service.register();
+    expect(service.currentLanguage).toBe(DEFAULT_LOCALE.isoCode);
+    expect(service.supportedLanguages.length).toBeGreaterThan(0);
+  });
 
-beforeAll(() => app.init());
+  it('should set supported languages', () => {
+    const locales: ILocale[] = [
+      { isoCode: 'de', name: 'German', nativeName: 'Deutsch' },
+      { isoCode: 'es', name: 'Spanish', nativeName: 'Español' },
+    ];
 
-const testValue = 'es';
+    service.setSupportedLanguages(locales);
+    expect(service.supportedLanguages.length).toBe(2);
+  });
 
-const equalConfig = {
-  core: {
-    user: {
-      defaultLanguage: testValue,
-    } as ILocalizationSettings,
-    localization: {
-      defaultLanguage: testValue,
-    } as ILocalizationSettings,
-  },
-};
+  it('should set default to first supported language', () => {
+    const locales: ILocale[] = [
+      { isoCode: 'de', name: 'German', nativeName: 'Deutsch' },
+      { isoCode: 'es', name: 'Spanish', nativeName: 'Español' },
+    ];
 
-test('New settings equal deprecated settings', async () => {
-  const settings = app.injector.getServiceByClass(LocalizationService);
-  const config = app.injector.getServiceByClass(ServerConfigResource);
+    service.setSupportedLanguages(locales);
+    expect(service.currentLanguage).toBe('de');
+  });
 
-  server.use(endpoint.query('serverConfig', mockServerConfig(equalConfig)));
+  it('should return default locale if the current language is not supported', () => {
+    service.setLanguage('es');
+    expect(service.currentLanguage).toBe(DEFAULT_LOCALE.isoCode);
+  });
 
-  await config.refresh();
+  it('should throw error if there are no supported languages', () => {
+    service.supportedLanguages = [];
+    expect(() => service.currentLanguage).toThrowError('No language is available');
+  });
 
-  expect(settings.pluginSettings.getValue('defaultLanguage')).toBe(testValue);
-  expect(settings.deprecatedPluginSettings.getValue('defaultLanguage')).toBe(testValue);
+  it('should change the current language', async () => {
+    service.register();
+    await service.changeLocale('ru');
+    expect(service.currentLanguage).toBe('ru');
+  });
+
+  it('should throw an error when changing to an unsupported language', async () => {
+    await expect(service.changeLocale('jp')).rejects.toThrowError("Language 'jp' is not supported");
+  });
+
+  it('should translate a token with a fallback', () => {
+    const token = 'greeting';
+    const fallback = 'Hello, World!';
+
+    service.changeLocale('en');
+    service['localeMap'].set('en', new Map([[token, 'Hello']]));
+
+    const translation = service.translate(token, fallback);
+    expect(translation).toBe('Hello');
+  });
+
+  it('should return fallback when translation is missing', () => {
+    const token = 'nonexistent_token';
+    const fallback = 'Fallback';
+
+    const translation = service.translate(token, fallback);
+    expect(translation).toBe(fallback);
+  });
+
+  it('should replace args in the translation string', () => {
+    const token = 'welcome_message';
+    const translationString = 'Welcome, {arg:name}!';
+    service['localeMap'].set('en', new Map([[token, translationString]]));
+    service.setLanguage('en');
+
+    const translation = service.translate(token, undefined, { name: 'John' });
+    expect(translation).toBe('Welcome, John!');
+  });
+
+  it('should replace multiple args in the translation string', () => {
+    const token = 'greeting_message';
+    const translationString = 'Hello, {arg:firstName} {arg:lastName}!';
+    service['localeMap'].set('en', new Map([[token, translationString]]));
+    service.setLanguage('en');
+
+    const translation = service.translate(token, undefined, { firstName: 'John', lastName: 'Doe' });
+    expect(translation).toBe('Hello, John Doe!');
+  });
+
+  it('should return true for supported language', () => {
+    service.register();
+
+    expect(service.isLanguageSupported('en')).toBe(true);
+    expect(service.isLanguageSupported('ru')).toBe(true);
+  });
+
+  it('should return false for unsupported language', () => {
+    service.register();
+
+    expect(service.isLanguageSupported('n/a')).toBe(false);
+  });
 });

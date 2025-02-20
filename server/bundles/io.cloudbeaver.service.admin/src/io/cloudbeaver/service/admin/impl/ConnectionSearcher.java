@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2023 DBeaver Corp and others
+ * Copyright (C) 2010-2024 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@
  */
 package io.cloudbeaver.service.admin.impl;
 
+import io.cloudbeaver.model.config.CBAppConfig;
 import io.cloudbeaver.model.session.WebSession;
+import io.cloudbeaver.model.utils.ConfigurationUtils;
+import io.cloudbeaver.server.CBApplication;
 import io.cloudbeaver.server.CBPlatform;
-import io.cloudbeaver.server.ConfigurationUtils;
+import io.cloudbeaver.server.WebAppUtils;
 import io.cloudbeaver.service.admin.AdminConnectionSearchInfo;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -42,14 +45,15 @@ public class ConnectionSearcher implements DBRRunnableWithProgress {
     private final WebSession webSession;
     private final String[] hostNames;
     private final List<AdminConnectionSearchInfo> foundConnections = new ArrayList<>();
-    private List<DBPDriver> availableDrivers = new ArrayList<>();
 
     public ConnectionSearcher(WebSession webSession, String[] hostNames) {
         this.webSession = webSession;
         this.hostNames = hostNames;
-        this.availableDrivers.addAll(CBPlatform.getInstance().getApplicableDrivers());
     }
 
+    /**
+     * Returns all found connections in a current machine.
+     */
     public List<AdminConnectionSearchInfo> getFoundConnections() {
         synchronized (foundConnections) {
             return new ArrayList<>(foundConnections);
@@ -105,7 +109,7 @@ public class ConnectionSearcher implements DBRRunnableWithProgress {
         int checkTimeout = 150;
         Map<Integer, AdminConnectionSearchInfo> portCache = new HashMap<>();
 
-        for (DBPDriver driver : availableDrivers) {
+        for (DBPDriver driver : WebAppUtils.getWebApplication().getDriverRegistry().getApplicableDrivers()) {
             monitor.subTask("Check '" + driver.getName() + "' on '" + hostName + "'");
             if (!CommonUtils.isEmpty(driver.getDefaultPort()) && !isPortInBlockList(CommonUtils.toInt(driver.getDefaultPort()))) {
                 updatePortInfo(portCache, hostName, displayName, driver, checkTimeout);
@@ -124,7 +128,12 @@ public class ConnectionSearcher implements DBRRunnableWithProgress {
     }
 
     private void updatePortInfo(Map<Integer, AdminConnectionSearchInfo> portCache, String hostName, String displayName, DBPDriver driver, int timeout) {
-        if (!ConfigurationUtils.isDriverEnabled(driver)) {
+        CBAppConfig config = CBApplication.getInstance().getAppConfiguration();
+        if (!ConfigurationUtils.isDriverEnabled(
+            driver,
+            config.getEnabledDrivers(),
+            config.getDisabledDrivers())
+        ) {
             return;
         }
         int driverPort = CommonUtils.toInt(driver.getDefaultPort());
